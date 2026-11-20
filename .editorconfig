@@ -1,0 +1,13 @@
+root = true
+
+[*.cs]
+charset = utf-8
+indent_style = space
+indent_size = 4
+
+# Une fonction de vue renvoie « View », comme « some View » en SwiftUI : le type concret est un détail de la vue.
+dotnet_diagnostic.CA1859.severity = none
+
+[tests/**.cs]
+# Noms de tests lisibles, à la manière de xUnit : Menu_opens_below_its_title.
+dotnet_diagnostic.CA1707.severity = none

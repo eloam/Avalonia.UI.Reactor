@@ -1,0 +1,15 @@
+<Project>
+  <!--
+    Livré avec le paquet Mvu.Desktop : s'applique à toute application qui l'utilise (et aux projets de ce dépôt,
+    qui l'importent depuis Directory.Build.targets).
+
+    Symboles de débogage des bibliothèques natives (libSkiaSharp.pdb : environ 100 Mo) : utiles seulement pour déboguer
+    Skia en C++. Ni copiés ni publiés par défaut ; MvuCopyNativeSymbols=true pour les retrouver.
+  -->
+  <Target Name="MvuSkipNativeSymbols" AfterTargets="ResolvePackageAssets" Condition="'$(MvuCopyNativeSymbols)' != 'true'">
+    <ItemGroup>
+      <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)" Condition="'%(Extension)' == '.pdb'" />
+      <RuntimePackAsset Remove="@(RuntimePackAsset)" Condition="'%(AssetType)' == 'native' and '%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+</Project>

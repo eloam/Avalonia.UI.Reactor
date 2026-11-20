@@ -1,0 +1,31 @@
+// Win32, COM et DirectX utilisés par l'hôte Windows : CsWin32 en génère les déclarations à la compilation.
+
+// Direct3D 12 et DXGI (D3D12Backend)
+D3D12CreateDevice
+CreateDXGIFactory2
+ID3D12Device
+ID3D12CommandQueue
+ID3D12CommandAllocator
+ID3D12GraphicsCommandList
+ID3D12Fence
+ID3D12Resource
+IDXGIFactory2
+IDXGIAdapter1
+IDXGISwapChain3
+DXGI_ERROR_DEVICE_REMOVED
+DXGI_ERROR_DEVICE_RESET
+DXGI_MWA_FLAGS
+DXGI_USAGE
+D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
+
+// Barre de menus Win32 (Win32MenuBar)
+CreateMenu
+CreatePopupMenu
+AppendMenu
+SetMenu
+DrawMenuBar
+DestroyMenu
+SetWindowSubclass
+RemoveWindowSubclass
+DefSubclassProc
+WM_COMMAND

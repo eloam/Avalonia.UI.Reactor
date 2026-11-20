@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mvu</RootNamespace>
+    <!-- Le paquet embarque le générateur [State] : une application n'a rien à configurer. -->
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);MvuPackGenerator</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <!-- Les tests vérifient aussi des invariants internes (ex. ViewProps.CopyFrom n'oublie aucune propriété). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mvu.Tests" />
+  </ItemGroup>
+
+  <!-- Le générateur est demandé à son projet (chemin réel de sa sortie, même avec un dossier de sortie personnalisé), jamais lu dans bin/. -->
+  <Target Name="MvuPackGenerator">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)../Mvu.Generators/Mvu.Generators.csproj" Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_MvuGeneratorAssembly" />
+    </MSBuild>
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="@(_MvuGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
+</Project>

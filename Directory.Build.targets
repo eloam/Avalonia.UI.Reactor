@@ -1,0 +1,24 @@
+<Project>
+  <!--
+    Générateur et analyseur [State] branchés automatiquement dans tous les projets du dépôt
+    (une application externe les reçoit via le paquet Mvu.Core, voir Mvu.Core.csproj).
+    PrivateAssets : le générateur n'est pas une dépendance des paquets, il est embarqué dans Mvu.Core.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Mvu.Generators' and '$(MvuAutoGenerator)' != 'false'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Mvu.Generators/Mvu.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--
+    Exécutables du dépôt (démo, tests) compilés pour la plateforme de la machine : seules ses bibliothèques natives
+    (SDL, Skia) sont copiées, au lieu de celles des 14 plateformes des paquets (Android, iOS, Linux…).
+    Pour une autre cible : dotnet publish -r linux-x64 (la valeur passée l'emporte). Une application externe fait ce
+    choix elle-même (voir « Publier » dans le README) : un paquet ne peut pas le faire, la cible est lue avant les paquets.
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == '' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe' or '$(IsTestProject)' == 'true')">
+    <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!-- Mêmes règles de compilation que les applications qui utilisent le paquet Mvu.Desktop. -->
+  <Import Project="$(MSBuildThisFileDirectory)src/Mvu.Desktop/buildTransitive/Mvu.Desktop.targets" />
+</Project>

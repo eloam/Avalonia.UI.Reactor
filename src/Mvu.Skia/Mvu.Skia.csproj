@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Mvu.Core\Mvu.Core.csproj" />
+    <PackageReference Include="SkiaSharp" Version="4.156.1" />
+  </ItemGroup>
+</Project>
