@@ -7,17 +7,13 @@ namespace Avalonia.UI.Reactor.Rendering;
 using Avalonia.UI.Reactor.Reconciliation;
 
 /// <summary>
-/// <see cref="IDrawingContext"/> sur le contexte de dessin d'Avalonia, pour <c>Canvas</c>. Mêmes conventions que le
-/// dessin de l'ancien moteur : trait à l'intérieur des rectangles, texte centré verticalement et tronqué par « … »,
+/// <see cref="IDrawingContext"/> sur le contexte de dessin d'Avalonia, pour <c>Canvas</c>. Conventions : trait à l'intérieur des rectangles, texte centré verticalement et tronqué par « … »,
 /// lignes et arcs aux extrémités arrondies. Vit le temps d'un rendu ; il retire à la fin les découpes laissées en place.
 /// </summary>
 internal sealed class AvaloniaDrawingContext(DrawingContext context) : IDrawingContext, IDisposable
 {
     /// <summary>Le plus grand balayage d'un arc : un tour complet ne se distinguerait pas d'un arc vide.</summary>
     const float MaxSweepDegrees = 359.99f;
-
-    /// <summary>Épaisseur d'un soulignement, en fraction de la taille du texte (au moins un pixel logique).</summary>
-    const float UnderlineThicknessPerSize = 1f / 14;
 
     readonly Stack<IDisposable> _clips = new();
 
@@ -113,18 +109,6 @@ internal sealed class AvaloniaDrawingContext(DrawingContext context) : IDrawingC
         if (color.A == 0 || r.Width <= 0 || r.Height <= 0) return;
         var shadow = new BoxShadow { OffsetY = offsetY, Blur = blur, Color = color.ToAvalonia() };
         context.DrawRectangle(null, null, new RoundedRect(ToRect(r), radius), new BoxShadows(shadow));
-    }
-
-    public void UnderlineText(string text, int start, int length, Primitives.Rect bounds, Primitives.Font font,
-        Primitives.Color color, Primitives.TextAlign align = Primitives.TextAlign.Start)
-    {
-        if (color.A == 0 || start < 0 || length <= 0 || start + length > text.Length) return;
-        var formatted = Format(text, font, color);
-        var origin = Origin(formatted, bounds, align);
-        if (formatted.BuildHighlightGeometry(origin, start, length) is not { } range) return;
-        double thickness = Math.Max(1, font.Size * UnderlineThicknessPerSize);
-        double baseline = origin.Y + formatted.Baseline;
-        context.DrawRectangle(Brush(color), null, new Rect(range.Bounds.X, baseline + thickness, range.Bounds.Width, thickness));
     }
 
     public void PushClip(Primitives.Rect r) => _clips.Push(context.PushClip(ToRect(r)));

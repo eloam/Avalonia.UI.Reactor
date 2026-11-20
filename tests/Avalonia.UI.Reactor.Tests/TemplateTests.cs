@@ -1,93 +1,101 @@
-using Avalonia.UI.Reactor.Primitives;
-using Avalonia.UI.Reactor.Theming;
-using Avalonia.UI.Reactor.Views;
+using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-/// <summary>Modèles de contrôles : l'apparence devient une vue, fonction de l'état du contrôle.</summary>
+using Avalonia.UI.Reactor.Tests.Probes;
+using Avalonia.UI.Reactor.Panels;
+using Avalonia.UI.Reactor.Views;
+using Avalonia.UI.Reactor.Widgets;
+
+/// <summary>
+/// Modèles de contrôles (<c>.Template(…)</c> ou modèle du thème) : le contrôle garde son comportement, son apparence est
+/// la vue du modèle, recalculée quand son état change ; la zone d'édition d'un champ se pose sur <c>field.Editor</c>.
+/// </summary>
 public class TemplateTests
 {
-    static readonly Color Red = Color.Hex("#FF0000"), Green = Color.Hex("#00FF00"), Blue = Color.Hex("#0000FF");
+    static ReactorTestHost Show(TemplateProbe probe) => new(probe, themes: TemplateProbe.Look);
 
-    /// <summary>Bouton dont le fond dépend de l'état : rouge au repos, vert au survol, bleu à l'appui.</summary>
-    static readonly Theme Templated = Theme.Light.WithButton(b => b with
+    /// <summary>Texte affiché n'importe où, y compris dans un contrôle (la vue d'un modèle y vit).</summary>
+    static TextBlock? Shown(ReactorTestHost t, string text) => t.Controls.OfType<TextBlock>().SingleOrDefault(b => b.Text == text);
+
+    [AvaloniaFact]
+    public void A_button_shows_its_template_and_keeps_its_click()
     {
-        Template = s => Text(s.Label)
-            .Padding(10)
-            .Background(s.Pressed ? Blue : s.Hovered ? Green : Red),
-    });
+        var probe = new TemplateProbe();
+        using var t = Show(probe);
+        var button = t.Controls.OfType<ReactorButton>().Single();
+        var look = Shown(t, "[OK 0]");
+        Assert.NotNull(look);
 
-    [Fact]
-    public void Theme_template_draws_buttons_and_follows_their_state()
-    {
-        var clicks = 0;
-        using var t = new TestHost(new ViewProbe(() => VStack(Button("OK", () => clicks++))), themes: Templated);
-        var b = t.BoundsOf(v => v is ButtonView);
-        var inside = new Point(b.X + 3, b.Y + 3);
+        t.Click(button);
 
-        Assert.Equal(Red, t.PixelAt(inside.X, inside.Y));
-
-        t.Ui.PointerMove(inside);
-        Assert.Equal(Green, t.PixelAt(inside.X, inside.Y));
-
-        t.Ui.PointerDown(inside);
-        Assert.Equal(Blue, t.PixelAt(inside.X, inside.Y));
-
-        t.Ui.PointerUp(inside);
-        Assert.Equal(1, clicks); // le comportement du bouton est intact
+        Assert.Equal(1, probe.Clicks);
+        Assert.Same(look, Shown(t, "<OK>")); // même contrôle, nouvelle valeur (le pointeur est resté dessus)
     }
 
-    [Fact]
-    public void Template_defines_the_size_of_the_control()
+    [AvaloniaFact]
+    public void A_template_is_recomputed_when_the_control_state_changes()
     {
-        using var t = new TestHost(new ViewProbe(() => VStack(
-            Button("OK").Template(_ => Box().Size(120, 44)))));
+        using var t = Show(new TemplateProbe());
 
-        var b = t.BoundsOf(v => v is ButtonView);
-        Assert.Equal(120, b.Width);
-        Assert.Equal(44, b.Height);
+        t.Hover(t.Controls.OfType<ReactorButton>().Single());
+
+        Assert.NotNull(Shown(t, "<OK>"));
     }
 
-    [Fact]
-    public void Template_on_a_view_wins_over_the_theme()
+    [AvaloniaFact]
+    public void A_checkbox_template_replaces_the_drawn_box_and_follows_the_state()
     {
-        using var t = new TestHost(new ViewProbe(() => VStack(
-            Button("OK").Template(s => Text(s.Label).Padding(10).Background(Blue)))), themes: Templated);
-        var b = t.BoundsOf(v => v is ButtonView);
-        Assert.Equal(Blue, t.PixelAt(b.X + 3, b.Y + 3));
+        var probe = new TemplateProbe();
+        using var t = Show(probe);
+        var box = t.Controls.OfType<ReactorCheckBox>().Single();
+        Assert.False(t.Controls.OfType<CheckGlyph>().Single().IsVisible);
+
+        t.Click(box);
+
+        Assert.True(probe.Done);
+        Assert.NotNull(Shown(t, "[x] fait"));
     }
 
-    [Fact]
-    public void Checkbox_template_receives_the_checked_state()
+    [AvaloniaFact]
+    public void The_editing_area_of_a_templated_field_sits_on_its_editor_slot()
     {
-        var probe = new CheckProbe();
-        using var t = new TestHost(probe);
-        var box = t.BoundsOf(v => v is CheckboxView);
+        var probe = new TemplateProbe();
+        using var t = Show(probe);
+        var slot = t.Controls.OfType<EditorSlot>().Single();
+        var text = t.Controls.OfType<TextPresenter>().Single();
 
-        Assert.Equal(Red, t.PixelAt(box.X + 5, box.Y + 5));
-        t.Click(v => v is CheckboxView);
-        Assert.True(probe.Checked);
-        Assert.Equal(Green, t.PixelAt(box.X + 5, box.Y + 5));
+        Assert.Equal(t.BoundsOf(slot).TopLeft, t.BoundsOf(text.FindAncestorOfType<ScrollViewer>()!).TopLeft);
+
+        t.Click(t.Field);
+        t.Type("souligné");
+        Assert.Equal("souligné", probe.Draft);
+        var line = t.Controls.OfType<Border>().Single(b => b.Parent is FlexStack && b.FindAncestorOfType<TextBox>() is not null);
+        Assert.Equal(TemplateProbe.Look.Palette.Accent.ToAvaloniaColor(), line.Background.ColorOf()); // le modèle voit le focus
     }
 
-    [Fact]
-    public void TextField_template_places_the_editor_and_editing_still_works()
+    [AvaloniaFact]
+    public void A_template_defines_the_size_of_its_control()
     {
-        var probe = new FieldProbe();
-        using var t = new TestHost(probe);
+        using var t = new ReactorTestHost(new ViewProbe(() =>
+            Views.Ui.VStack(Views.Ui.Button("OK").Template(_ => Views.Ui.Box().Size(120, 44)))));
 
-        t.Click(v => v is TextFieldView);
-        t.Type("bonjour");
-        Assert.Equal("bonjour", probe.Value);
+        Assert.Equal(new Size(120, 44), t.Controls.OfType<ReactorButton>().Single().Bounds.Size);
+    }
 
-        // Le cadre du modèle est dessiné (fond bleu au focus) autour de la zone d'édition.
-        var field = t.BoundsOf(v => v is TextFieldView);
-        Assert.Equal(Blue, t.PixelAt(field.X + 1, field.Y + 1));
+    [AvaloniaFact]
+    public void A_template_on_the_view_wins_over_the_theme()
+    {
+        var look = TemplateProbe.Look.WithButton(b => b with { Template = s => Views.Ui.Text($"thème {s.Label}") });
+        using var t = new ReactorTestHost(new ViewProbe(() => Views.Ui.VStack(
+            Views.Ui.Button("A"),
+            Views.Ui.Button("B").Template(s => Views.Ui.Text($"vue {s.Label}")))), themes: look);
 
-        // Un clic tout à gauche de la zone d'édition place le curseur au début.
-        t.Ui.PointerDown(new Point(field.X + 13, field.Y + field.Height / 2));
-        t.Ui.PointerUp(new Point(field.X + 13, field.Y + field.Height / 2));
-        t.Type("«");
-        Assert.Equal("«bonjour", probe.Value);
+        Assert.NotNull(Shown(t, "thème A"));
+        Assert.NotNull(Shown(t, "vue B"));
+        Assert.Null(Shown(t, "thème B"));
     }
 }

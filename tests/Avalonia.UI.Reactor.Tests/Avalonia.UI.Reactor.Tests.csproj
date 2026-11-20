@@ -1,22 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
+  <!--
+    Tests sans écran : une vraie fenêtre Avalonia (Avalonia.Headless, rendu par Skia) pour le moteur, et des extraits de
+    code compilés en mémoire pour le générateur et l'analyseur. Avalonia.Headless.XUnit impose xunit v3.
+  -->
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
-    <!-- Déclaré ici (et pas seulement par le paquet de test) : la cible d'exécution en dépend dès la restauration. -->
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="12.1.6" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
     <!-- Pour tester le générateur et l'analyseur sur des extraits de code. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Avalonia.UI.Reactor.Skia\Avalonia.UI.Reactor.Skia.csproj" />
+    <ProjectReference Include="..\..\src\Avalonia.UI.Reactor\Avalonia.UI.Reactor.csproj" />
+    <ProjectReference Include="..\..\samples\TodoDemo\TodoDemo.csproj" />
     <!-- Le générateur en tant que bibliothèque (GeneratorTests l'exécute sur des extraits de code) ; il est aussi
          branché comme générateur par Directory.Build.targets. Une référence de projet suit toujours la dernière
          compilation, quel que soit le dossier de sortie (un chemin vers bin/ donnait une copie périmée). -->
@@ -26,5 +30,4 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
-
 </Project>

@@ -10,7 +10,6 @@ public sealed record TextFieldTheme(
 {
     /// <summary>Largeur naturelle du champ (avant <c>.Grow()</c> / <c>.FillWidth()</c>).</summary>
     public float MinWidth { get; init; } = 160;
-    public float CaretWidth { get; init; } = 1.5f;
     /// <summary>Demi-période du clignotement du curseur ; 0 = curseur fixe.</summary>
     public int CaretBlinkMs { get; init; } = 530;
     /// <summary>Fond du texte sélectionné : cette couleur, à l'opacité <see cref="SelectionOpacity"/>.</summary>

@@ -12,7 +12,7 @@ namespace Avalonia.UI.Reactor.Widgets;
 /// <summary>
 /// Apparence (<see cref="ControlTheme"/>) de nos contrôles : uniquement leur structure. Aucune couleur ni dimension ici :
 /// l'adaptateur de chaque contrôle les pose à partir du thème résolu de sa branche, état par état (repos, survol, appui,
-/// focus), comme le faisait le dessin de l'ancien moteur. Le thème Fluent d'Avalonia ne sert plus qu'à l'infrastructure
+/// focus). Le thème Fluent d'Avalonia ne sert plus qu'à l'infrastructure
 /// (fenêtre, défilement dans un champ).
 /// </summary>
 internal static class ReactorThemes

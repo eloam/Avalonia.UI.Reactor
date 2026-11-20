@@ -1,4 +1,4 @@
-using Avalonia.UI.Reactor.Layout;
+using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 
 namespace Avalonia.UI.Reactor.State;
@@ -7,7 +7,6 @@ namespace Avalonia.UI.Reactor.State;
 /// Portée de recalcul : un composant, un élément de <c>ForEach</c>, un bloc <c>Observe</c>, ou le dessin d'un
 /// <c>Canvas</c>. Elle retient les états lus lors de son dernier calcul ; seul un changement de l'un d'eux la marque,
 /// et elle appelle alors <paramref name="requestUpdate"/> (depuis le thread qui a changé l'état).
-/// Garde aussi le résultat du layout de l'ancien moteur pour le réutiliser tant que rien n'a changé dessous.
 /// </summary>
 internal sealed class Scope(Action requestUpdate, string id, object? identity)
 {
@@ -22,9 +21,8 @@ internal sealed class Scope(Action requestUpdate, string id, object? identity)
     // Résultat du dernier calcul.
     public View? Content;
     public ScopeView? LastView;
-    // Cache de layout.
-    public LayoutNode? Node;
-    public object? EnvKey;
+    // Reprise par le réconciliateur : environnement du dernier calcul, portées imbriquées, dernière passe qui l'a visitée.
+    public ViewEnvironment? Environment;
     public List<Scope> Descendants = [];
     public int LastVisit;
 

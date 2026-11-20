@@ -49,7 +49,11 @@ public static class ReactorApp
         WindowState = options.Fullscreen ? WindowState.FullScreen
             : options.Maximized ? WindowState.Maximized
             : WindowState.Normal,
-        Content = new ReactorHost(app, options.Themes ?? Themes.Default),
+        Content = new ReactorHost(app, options.Themes ?? Themes.Default)
+        {
+            Zoom = options.Zoom,
+            ZoomShortcuts = options.ZoomShortcuts,
+        },
     };
 
     /// <summary>

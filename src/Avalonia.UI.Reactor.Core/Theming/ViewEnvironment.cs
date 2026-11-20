@@ -21,10 +21,6 @@ internal readonly record struct ViewEnvironment(
         return new(themes, family, scheme, theme, BaseFont(theme), theme.Palette.Text);
     }
 
-    /// <summary>Environnement d'une vue placée sous un contrôle (la vue de son modèle) : thème, police et couleur du contrôle.</summary>
-    public static ViewEnvironment Under(Themes themes, Theme theme, Font font, Color foreground) => new(
-        themes, themes.FamilyOf(theme) ?? ThemeFamily.Of(theme.Name, theme), theme.Scheme, theme, font, foreground);
-
     /// <summary>
     /// Thème d'une branche, déclaré par la vue elle-même :
     /// <c>.Theme("Sable")</c> (famille du catalogue), <c>.Theme(famille)</c>, <c>.Theme(thème)</c> (thème précis)

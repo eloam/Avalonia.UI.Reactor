@@ -17,7 +17,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A = 255)
         {
             6 => new((byte)(v >> 16), (byte)(v >> 8), (byte)v),
             8 => new((byte)(v >> 24), (byte)(v >> 16), (byte)(v >> 8), (byte)v),
-            _ => throw new FormatException($"Couleur invalide : {hex}")
+            _ => throw new FormatException($"Invalid color '{hex}'. Use '#RRGGBB' or '#RRGGBBAA'.")
         };
     }
 
@@ -26,7 +26,5 @@ public readonly record struct Color(byte R, byte G, byte B, byte A = 255)
 
     public Color WithAlpha(float opacity) => this with { A = (byte)Math.Clamp(opacity * 255f, 0f, 255f) };
     public Color Mix(Color o, float t) => new(L(R, o.R, t), L(G, o.G, t), L(B, o.B, t), L(A, o.A, t));
-    public Color Darken(float t) => Mix(Black with { A = A }, t);
-    public Color Lighten(float t) => Mix(White with { A = A }, t);
     static byte L(byte a, byte b, float t) => (byte)Math.Round(a + (b - a) * t);
 }

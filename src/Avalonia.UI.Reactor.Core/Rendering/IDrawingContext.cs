@@ -3,11 +3,14 @@ using Avalonia.UI.Reactor.Primitives;
 namespace Avalonia.UI.Reactor.Rendering;
 
 /// <summary>
-/// Seul contrat qu'un backend (Skia, Direct2D, …) doit implémenter pour dessiner.
+/// Ce qu'un <c>Canvas</c> peut dessiner ; le moteur le traduit en appels de dessin d'Avalonia.
 /// Toutes les coordonnées sont logiques (DIP) ; le backend applique le facteur DPI.
 /// </summary>
-public interface IDrawingContext : ITextMeasurer
+public interface IDrawingContext
 {
+    /// <summary>Taille en unités logiques (DIP) d'une ligne de texte.</summary>
+    Size MeasureText(string text, Font font);
+
     void FillRect(Rect r, Color color, float radius = 0);
     void StrokeRect(Rect r, Color color, float thickness, float radius = 0);
     void DrawLine(Point a, Point b, Color color, float thickness);
@@ -18,13 +21,8 @@ public interface IDrawingContext : ITextMeasurer
     void DrawArc(Rect r, float startDegrees, float sweepDegrees, Color color, float thickness);
     void DrawPolyline(IReadOnlyList<Point> points, Color color, float thickness, bool closed = false);
     void FillPolygon(IReadOnlyList<Point> points, Color color);
-    /// <summary>Ombre portée d'un rectangle arrondi (menus, fenêtres flottantes), floutée de <paramref name="blur"/>.</summary>
+    /// <summary>Ombre portée d'un rectangle arrondi (carte, fenêtre flottante), floutée de <paramref name="blur"/>.</summary>
     void DrawShadow(Rect r, float radius, Color color, float blur, float offsetY);
-    /// <summary>
-    /// Souligne les caractères <paramref name="start"/> à <paramref name="start"/> + <paramref name="length"/> d'un texte
-    /// dessiné par <see cref="DrawText"/> avec les mêmes bornes, police et alignement (lettres d'accès des menus).
-    /// </summary>
-    void UnderlineText(string text, int start, int length, Rect bounds, Font font, Color color, TextAlign align = TextAlign.Start);
     void PushClip(Rect r);
     void PopClip();
 }

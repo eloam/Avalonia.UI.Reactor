@@ -11,7 +11,7 @@
 
   <!--
     Exécutables du dépôt (démo, tests) compilés pour la plateforme de la machine : seules ses bibliothèques natives
-    (SDL, Skia) sont copiées, au lieu de celles des 14 plateformes des paquets (Android, iOS, Linux…).
+    (Skia, HarfBuzz) sont copiées, au lieu de celles des 14 plateformes des paquets (Android, iOS, Linux…).
     Pour une autre cible : dotnet publish -r linux-x64 (la valeur passée l'emporte). Une application externe fait ce
     choix elle-même (voir « Publier » dans le README) : un paquet ne peut pas le faire, la cible est lue avant les paquets.
   -->
@@ -19,6 +19,6 @@
     <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
   </PropertyGroup>
 
-  <!-- Mêmes règles de compilation que les applications qui utilisent le paquet Avalonia.UI.Reactor.Desktop. -->
-  <Import Project="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.Desktop/buildTransitive/Avalonia.UI.Reactor.Desktop.targets" />
+  <!-- Mêmes règles de compilation que les applications qui utilisent le paquet Avalonia.UI.Reactor. -->
+  <Import Project="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor/buildTransitive/Avalonia.UI.Reactor.targets" />
 </Project>

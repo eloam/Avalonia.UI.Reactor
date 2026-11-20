@@ -5,12 +5,11 @@
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);ReactorPackGenerator</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
-  <!-- Les tests vérifient aussi des invariants internes (ex. ViewProps.CopyFrom n'oublie aucune propriété). -->
+  <!-- Le moteur partage les portées et l'environnement des vues (internes) ; les tests vérifient ses invariants
+       (ex. ViewProps.CopyFrom n'oublie aucune propriété). -->
   <ItemGroup>
-    <InternalsVisibleTo Include="Avalonia.UI.Reactor.Tests" />
-    <!-- Le moteur Avalonia partage les portées et l'environnement des vues (internes) ; ses tests vérifient ses invariants. -->
     <InternalsVisibleTo Include="Avalonia.UI.Reactor" />
-    <InternalsVisibleTo Include="Avalonia.UI.Reactor.Headless.Tests" />
+    <InternalsVisibleTo Include="Avalonia.UI.Reactor.Tests" />
   </ItemGroup>
 
   <!-- Le générateur est demandé à son projet (chemin réel de sa sortie, même avec un dossier de sortie personnalisé), jamais lu dans bin/. -->

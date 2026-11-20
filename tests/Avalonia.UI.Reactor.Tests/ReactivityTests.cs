@@ -1,68 +1,75 @@
-using Avalonia.UI.Reactor.Views;
+using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-/// <summary>Recalcul sélectif : seul ce qui lit un état modifié est réévalué.</summary>
+using Avalonia.UI.Reactor.Tests.Probes;
+
+/// <summary>Recalcul sélectif : seules les portées qui ont lu un état modifié sont réévaluées, quel que soit le thread.</summary>
 public class ReactivityTests
 {
-    [Fact]
-    public void State_changed_from_a_background_thread_updates_the_view()
+    [AvaloniaFact]
+    public void A_state_changed_from_a_background_thread_updates_the_view()
     {
-        var probe = new Probe();
-        using var t = new TestHost(probe);
+        var probe = new CounterProbe();
+        using var t = new ReactorTestHost(probe);
 
-        var worker = new Thread(() => probe.N = 42);
+        var worker = new Thread(() => probe.Count = 42);
         worker.Start();
         worker.Join();
-        t.WaitUntil(() => t.HasText("N = 42"));
+
+        t.WaitUntil(() => t.HasText("42"));
     }
 
-    [Fact]
-    public void Setting_the_same_value_does_not_recompute()
+    [AvaloniaFact]
+    public void Setting_the_same_value_reevaluates_nothing()
     {
-        var probe = new Probe();
-        using var t = new TestHost(probe);
-        probe.N = 0;
-        t.Ui.Invalidate();
+        var probe = new CounterProbe();
+        using var t = new ReactorTestHost(probe);
+
+        probe.Count = 0;
+        t.Settle();
+
         Assert.Equal(1, t.Stats.Evaluated); // toujours le bilan du premier rendu : aucune mise à jour
     }
 
-    [Fact]
-    public void StateList_changes_update_the_view()
+    [AvaloniaFact]
+    public void Adding_or_removing_an_item_updates_the_list_and_its_scopes()
     {
-        var list = new ListProbe();
-        using var t = new TestHost(list);
+        var probe = new ListProbe();
+        using var t = new ReactorTestHost(probe);
+        Assert.Equal(4, t.Stats.Scopes); // la racine et une portée par ligne
 
-        list.Items.Add("b");
-        t.Ui.Invalidate();
-        Assert.True(t.HasText("b"));
-        Assert.Equal(3, t.Stats.Scopes); // la racine + une portée par ligne
+        probe.Items.Add("d");
+        t.Settle();
+        Assert.True(t.HasText("d"));
+        Assert.Equal(5, t.Stats.Scopes);
 
-        list.Items.Remove("a");
-        t.Ui.Invalidate();
+        probe.Items.Remove("a");
+        t.Settle();
         Assert.False(t.HasText("a"));
-        Assert.Equal(2, t.Stats.Scopes); // la portée de la ligne disparue est libérée
+        Assert.Equal(4, t.Stats.Scopes); // la portée de la ligne retirée est libérée
     }
 
-    [Fact]
-    public void Refresh_updates_a_component_with_plain_fields()
+    [AvaloniaFact]
+    public void Refresh_updates_a_component_without_state_properties()
     {
-        var legacy = new LegacyProbe();
-        using var t = new TestHost(legacy);
+        var probe = new RefreshProbe();
+        using var t = new ReactorTestHost(probe);
 
-        legacy.Set(7);
-        t.Ui.Invalidate();
+        probe.Set(7);
+        t.Settle();
+
         Assert.True(t.HasText("7"));
     }
 
-    [Fact]
-    public void Nested_component_keeps_its_state_when_parent_recomputes()
+    [AvaloniaFact]
+    public void A_child_component_keeps_its_state_when_its_parent_is_reevaluated()
     {
-        var parent = new ParentProbe();
-        using var t = new TestHost(parent);
+        using var t = new ReactorTestHost(new ParentProbe());
 
         t.ClickButton("enfant 0");
         t.ClickButton("parent 0");
+
         Assert.True(t.HasButton("parent 1"));
         Assert.True(t.HasButton("enfant 1"));
     }

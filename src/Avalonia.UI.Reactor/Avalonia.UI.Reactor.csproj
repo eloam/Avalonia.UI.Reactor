@@ -16,6 +16,11 @@
 
   <!-- Les tests vérifient aussi le réconciliateur et ses contrôles (internes). -->
   <ItemGroup>
-    <InternalsVisibleTo Include="Avalonia.UI.Reactor.Headless.Tests" />
+    <InternalsVisibleTo Include="Avalonia.UI.Reactor.Tests" />
+  </ItemGroup>
+
+  <!-- Règles de compilation livrées avec le paquet : elles s'appliquent aux applications qui l'utilisent. -->
+  <ItemGroup>
+    <None Include="buildTransitive\Avalonia.UI.Reactor.targets" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
 </Project>

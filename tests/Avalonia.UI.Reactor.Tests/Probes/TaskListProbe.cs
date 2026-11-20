@@ -1,10 +1,11 @@
+namespace Avalonia.UI.Reactor.Tests.Probes;
+
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
+using static Avalonia.UI.Reactor.Views.Ui;
 
-namespace Avalonia.UI.Reactor.Tests;
-
-/// <summary>Liste de tâches : chaque case est liée à l'état de sa tâche (Checkbox(task.Bind.Done)).</summary>
-public class TaskListProbe : Component
+/// <summary>Liste de tâches : chaque case est liée à l'état de sa tâche (<c>Checkbox(task.Bind.Done, task.Title)</c>).</summary>
+public sealed class TaskListProbe : Component
 {
     public StateList<TaskItem> Tasks { get; } = [new("Écrire les tests"), new("Relire")];
 

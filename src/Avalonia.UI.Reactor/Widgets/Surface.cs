@@ -9,7 +9,7 @@ using Avalonia.UI.Reactor.Theming;
 /// <summary>
 /// Enveloppe d'une vue : fond, bordure, angles et marge intérieure ; pour une vue cliquable (<c>.OnTap</c>), le voile
 /// de survol et d'appui du thème et le clic. Un contrôle intérieur qui consomme le pointeur (bouton, case, champ) ne
-/// déclenche pas le clic de l'enveloppe, comme dans l'ancien moteur où le contrôle le plus intérieur gagnait.
+/// déclenche pas le clic de l'enveloppe : le contrôle le plus intérieur gagne.
 /// </summary>
 internal sealed class Surface : Border
 {

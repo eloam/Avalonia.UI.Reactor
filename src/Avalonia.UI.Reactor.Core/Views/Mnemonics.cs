@@ -23,18 +23,4 @@ internal static class Mnemonics
         }
         return (text.ToString(), index);
     }
-
-    /// <summary>La lettre d'accès de ce libellé correspond-elle à la touche ?</summary>
-    public static bool Matches(string label, Primitives.KeyCode key)
-    {
-        var (text, index) = Parse(label);
-        if (index < 0 || index >= text.Length) return false;
-        char c = char.ToUpperInvariant(text[index]);
-        return key switch
-        {
-            >= Primitives.KeyCode.A and <= Primitives.KeyCode.Z => c == (char)('A' + (key - Primitives.KeyCode.A)),
-            >= Primitives.KeyCode.D0 and <= Primitives.KeyCode.D9 => c == (char)('0' + (key - Primitives.KeyCode.D0)),
-            _ => false,
-        };
-    }
 }

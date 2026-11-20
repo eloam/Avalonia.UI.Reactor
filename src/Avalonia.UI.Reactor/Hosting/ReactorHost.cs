@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -20,15 +21,33 @@ using Avalonia.UI.Reactor.Views;
 /// Contrôle Avalonia qui affiche un composant : il tient le réconciliateur et applique les mises à jour demandées
 /// par les états. L'action d'un contrôle (un clic, une saisie) est suivie tout de suite de sa mise à jour, pour que
 /// l'événement suivant voie le nouvel état ; un changement venu d'ailleurs (suite d'un <c>await</c>, autre thread) la
-/// planifie sur le thread d'interface. Une erreur dans une action est signalée sans fermer l'application.
+/// planifie sur le thread d'interface. Une erreur dans une action, ou plus tard sur le thread
+/// d'interface (suite d'un <c>async void</c>), est signalée sans fermer l'application. L'hôte applique aussi le zoom de
+/// l'interface (Ctrl + / Ctrl − / Ctrl 0, Cmd sur macOS).
 /// </summary>
 internal sealed class ReactorHost : Border, IScopeHost
 {
+    /// <summary>Plus petit zoom de l'interface (50 %).</summary>
+    internal const double MinZoom = 0.5;
+
+    /// <summary>Plus grand zoom de l'interface (300 %).</summary>
+    internal const double MaxZoom = 3;
+
+    /// <summary>Pas des raccourcis de zoom (10 %).</summary>
+    internal const double ZoomStep = 0.1;
+
+    static readonly Primitives.KeyGesture[] ZoomInGestures =
+        [new(Primitives.KeyCode.Plus, Primitives.KeyModifiers.Ctrl), new(Primitives.KeyCode.Equal, Primitives.KeyModifiers.Ctrl)];
+    static readonly Primitives.KeyGesture ZoomOutGesture = new(Primitives.KeyCode.Minus, Primitives.KeyModifiers.Ctrl);
+    static readonly Primitives.KeyGesture ZoomResetGesture = new(Primitives.KeyCode.D0, Primitives.KeyModifiers.Ctrl);
+
     readonly View _root;
     readonly Reconciler _reconciler;
     readonly Action _themesChanged;
     readonly EventHandler<PlatformColorValues> _systemColorsChanged;
     readonly EventHandler<KeyEventArgs> _keyDown;
+    readonly DispatcherUnhandledExceptionEventHandler _dispatcherError;
+    readonly LayoutTransformControl _zoom = new();
     readonly ThemeVariantScope _variant = new();
     IPlatformSettings? _platform;
     TopLevel? _window;
@@ -43,10 +62,32 @@ internal sealed class ReactorHost : Border, IScopeHost
         _themesChanged = RequestUpdate;
         _systemColorsChanged = (_, colors) => Themes.SystemScheme = SchemeOf(colors);
         _keyDown = OnKeyDown;
-        Child = _variant;
+        _dispatcherError = OnDispatcherError;
+        _zoom.Child = _variant;
+        Child = _zoom;
     }
 
     public Themes Themes { get; }
+
+    /// <summary>
+    /// Zoom de l'interface (1 = 100 %, de <see cref="MinZoom"/> à <see cref="MaxZoom"/>), en plus du facteur d'échelle
+    /// de l'écran : la mise en page se refait à la nouvelle taille, le texte reste net.
+    /// </summary>
+    public double Zoom
+    {
+        get => _zoomFactor;
+        set
+        {
+            double zoom = Math.Clamp(value, MinZoom, MaxZoom);
+            if (zoom == _zoomFactor) return;
+            _zoomFactor = zoom;
+            _zoom.LayoutTransform = zoom == 1 ? null : new ScaleTransform(zoom, zoom);
+        }
+    }
+    double _zoomFactor = 1;
+
+    /// <summary>Ctrl + / Ctrl − / Ctrl 0 (Cmd sur macOS) zooment, dézooment, reviennent à 100 % ; vrai par défaut.</summary>
+    public bool ZoomShortcuts { get; set; } = true;
 
     /// <summary>Contrôle de la vue racine (sous la portée de variante d'Avalonia).</summary>
     internal Control? Content => _variant.Child;
@@ -112,6 +153,7 @@ internal sealed class ReactorHost : Border, IScopeHost
         HotReload.Register(this);
         _window = TopLevel.GetTopLevel(this);
         _window?.AddHandler(KeyDownEvent, _keyDown, RoutingStrategies.Bubble);
+        Dispatcher.UIThread.UnhandledException += _dispatcherError;
         // Mode clair ou sombre du système, suivi tant que la fenêtre est ouverte.
         _platform = this.GetPlatformSettings();
         if (_platform is not null)
@@ -135,23 +177,53 @@ internal sealed class ReactorHost : Border, IScopeHost
         HotReload.Unregister(this);
         if (_platform is not null) _platform.ColorValuesChanged -= _systemColorsChanged;
         _window?.RemoveHandler(KeyDownEvent, _keyDown);
+        Dispatcher.UIThread.UnhandledException -= _dispatcherError;
         _window = null;
         _platform = null;
         _reconciler.Dispose();
     }
 
     /// <summary>
-    /// Raccourcis de la barre de menus, actifs dans toute la fenêtre même menus fermés : reçus après le contrôle qui a
-    /// le focus (un champ garde ses touches d'édition). La barre du système, quand elle s'affiche, les exécute elle-même.
+    /// Raccourcis de la fenêtre, reçus après le contrôle qui a le focus (un champ garde ses touches d'édition) : ceux de
+    /// la barre de menus, même menus fermés (la barre du système, quand elle s'affiche, exécute elle-même les siens),
+    /// puis le zoom.
     /// </summary>
     void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || _reconciler.MenuBar is not { View: MenuBarView bar, Content: ReactorMenuBar { UsesSystemBar: false } }) return;
-        if (KeyMap.ToKeyCode(e.Key) is not { } key) return;
+        if (e.Handled || KeyMap.ToKeyCode(e.Key) is not { } key) return;
+        var modifiers = KeyMap.ToModifiers(e.KeyModifiers);
+        e.Handled = MenuShortcut(key, modifiers) || ZoomShortcut(key, modifiers);
+    }
+
+    bool MenuShortcut(Primitives.KeyCode key, Primitives.KeyModifiers modifiers)
+    {
+        if (_reconciler.MenuBar is not { View: MenuBarView bar, Content: ReactorMenuBar { UsesSystemBar: false } }) return false;
         bool editing = _window?.FocusManager?.GetFocusedElement() is TextBox;
-        if (MenuShortcuts.Find(bar, key, KeyMap.ToModifiers(e.KeyModifiers), editing) is not { } item) return;
-        e.Handled = true;
+        if (MenuShortcuts.Find(bar, key, modifiers, editing) is not { } item) return false;
         if (item.IsEnabled) Run(item.Action);
+        return true;
+    }
+
+    bool ZoomShortcut(Primitives.KeyCode key, Primitives.KeyModifiers modifiers)
+    {
+        if (!ZoomShortcuts) return false;
+        if (ZoomInGestures.Any(g => g.Matches(key, modifiers))) Zoom = Math.Round(Zoom + ZoomStep, 1);
+        else if (ZoomOutGesture.Matches(key, modifiers)) Zoom = Math.Round(Zoom - ZoomStep, 1);
+        else if (ZoomResetGesture.Matches(key, modifiers)) Zoom = 1;
+        else return false;
+        return true;
+    }
+
+    /// <summary>
+    /// Exception levée plus tard sur le thread d'interface, hors de <see cref="Run"/> : la suite d'une action
+    /// <c>async void</c>, par exemple. Elle est signalée comme une erreur d'action, sans fermer l'application ; avec
+    /// plusieurs fenêtres, le premier hôte qui la voit la signale.
+    /// </summary>
+    void OnDispatcherError(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        if (e.Handled) return;
+        e.Handled = true;
+        Report(e.Exception);
     }
 
     static ColorScheme SchemeOf(PlatformColorValues colors) =>

@@ -16,7 +16,7 @@ internal sealed class TextAdapter : ViewAdapter<TextView, TextBlock>
         text.Text = view.Content;
         text.SetFont(env.FontFor(view));
         text.SetBrush(TextBlock.ForegroundProperty, env.ForegroundFor(view));
-        // Une ligne trop longue pour sa place se termine par « … », comme dans l'ancien moteur.
+        // Une ligne trop longue pour sa place se termine par « … ».
         text.TextTrimming = TextTrimming.CharacterEllipsis;
         text.TextAlignment = view.TextAlign switch
         {

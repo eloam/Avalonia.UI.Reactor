@@ -6,7 +6,7 @@ namespace Avalonia.UI.Reactor.Widgets;
 using Avalonia.UI.Reactor.Rendering;
 using Avalonia.UI.Reactor.Theming;
 
-/// <summary>La case d'une case à cocher, dessinée comme dans l'ancien moteur (<see cref="CheckboxGlyph"/>), à la taille du thème.</summary>
+/// <summary>La case d'une case à cocher, dessinée par <see cref="CheckboxGlyph"/>, à la taille du thème.</summary>
 internal sealed class CheckGlyph : Control
 {
     Theme? _theme;

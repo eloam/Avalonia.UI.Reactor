@@ -2,12 +2,10 @@
 
 Écriture façon SwiftUI, la plus concise possible : un composant = de l'état (`[State]`) + un `Body`.
 Les actions s'écrivent directement dans la vue ; seul ce qui dépend de l'état modifié est recalculé.
-
-> **Migration en cours vers Avalonia** : les vues seront rendues par les contrôles d'Avalonia, à la place de l'hôte
-> actuel (SDL3 + Skia) décrit plus bas. Le code des applications (`Body`, `[State]`, modificateurs) ne change pas.
+Le rendu est confié aux **contrôles d'Avalonia**, dessinés par Skia : même image sur Windows, macOS et Linux.
 
 ```csharp
-Desktop.Run<CounterApp>("Compteur", 400, 300);
+ReactorApp.Run<CounterApp>("Compteur", 400, 300);
 
 public sealed partial class CounterApp : Component
 {
@@ -53,10 +51,10 @@ une vue qui **lit** un état s'y abonne, et le **modifier** ne recalcule que les
   | `MVU011` | ⚠️ `List<T>` affichée par la vue et modifiée : utiliser `StateList<T>` |
   | `MVU012` | état passé à un contrôle sans sa liaison (`TextField(Name)`, `Checkbox(todo.Done)`) : le message donne `Bind.Name`, `todo.Bind.Done` |
 - Un état peut changer **de n'importe où** — action, après un `await`, minuteur, thread de fond — sans appel à `Refresh()`.
-- Le layout d'une portée inchangée est réutilisé tel quel (pas de remesure du texte).
+- Une portée inchangée garde ses contrôles tels quels : ni recalcul de son `Body`, ni mise à jour de ses contrôles.
 - Les champs ordinaires ne sont **pas** observés : utiliser `[State]`, ou `Refresh()` en dernier recours.
-- `UiHost.LastUpdate` indique combien de portées ont été recalculées. Dans la démo : clic sur « + » → 1 (le compteur),
-  une frappe → 1 (la ligne de saisie), cocher une tâche → 2 (la ligne et le pied de liste).
+- Dans la démo : clic sur « + » → 1 portée recalculée (le compteur), une frappe → 1 (la ligne de saisie),
+  cocher une tâche → 2 (la ligne et le pied de liste). Les tests le vérifient (`Stats`).
 
 ## Lancer la démo
 
@@ -70,11 +68,15 @@ dotnet run --project samples/TodoDemo
 dotnet test
 ```
 
-[tests/Avalonia.UI.Reactor.Tests](tests/Avalonia.UI.Reactor.Tests) fait tourner le vrai runtime et le vrai moteur de texte Skia sans fenêtre
-([TestHost.cs](tests/Avalonia.UI.Reactor.Tests/TestHost.cs) : `ClickButton("+")`, `Type("…")`, `HasText("…")`, `WaitUntil(…)`) :
+[tests/Avalonia.UI.Reactor.Tests](tests/Avalonia.UI.Reactor.Tests) ouvre de vraies fenêtres Avalonia, sans écran
+(Avalonia.Headless, rendu par Skia) : [ReactorTestHost.cs](tests/Avalonia.UI.Reactor.Tests/ReactorTestHost.cs)
+clique, survole et tape par les entrées de la plateforme (`ClickButton("+")`, `Type("…")`, `Press(…)`), lit les
+textes, les positions et les pixels (`TextShowing("…")`, `BoundsOf(…)`, `PixelAt(x, y)`) :
 
 - scénarios de la démo (compteur, saisie, coche, async, filtres, purge, thèmes) ;
-- recalcul sélectif (`UiHost.LastUpdate`), thread de fond, `StateList`, composants imbriqués ;
+- réconciliateur (contrôles repris d'une mise à jour à l'autre), recalcul sélectif, thread de fond, `StateList` ;
+- mise en page des piles, thèmes et familles, apparence des contrôles état par état, modèles, menus, zoom ;
+- durée de vie (une fenêtre fermée est libérée) ;
 - générateur et diagnostics, sur des extraits de code compilés en mémoire.
 
 ## Hot reload
@@ -103,24 +105,28 @@ Modifier une vue (`Body`, une méthode, une lambda) et enregistrer : la fenêtre
   ```
 - **Modificateurs chaînables** : `.Padding()`, `.Background()`, `.Border()`, `.Radius()`, `.Foreground()`, `.Font(TextStyle.Title)`, `.Grow()`, `.FillWidth()`, `.OnTap(() => …)`, `.Key()`…
   Les arguments nommés lèvent toute ambiguïté : `.Padding(horizontal: 6, vertical: 4)`.
+  Une bordure prend sa place, comme en CSS : avec `.Padding(16).Border(…, 2)`, le contenu commence à 18.
 - **Actions** : `Button("+", () => Count++)`, `Button("Charger", LoadAsync)`.
 - **Liaisons** : un contrôle lié à un état le lit et le modifie lui-même — `TextField(Bind.Draft, "Nom")`, `Checkbox(todo.Bind.Done)`.
   `Bind` est généré pour chaque `[State]` modifiable ; il reste privé si les états le sont. Pour une valeur calculée : `TextField(valeur, v => …)`.
+  Champs et cases sont **contrôlés** : la saisie part vers l'état, puis le contrôle affiche la valeur de sa vue (un état
+  qui refuse ou transforme la saisie l'emporte).
 - **Asynchrone** : une action peut être `async Task` ; l'interface se met à jour avant et après chaque `await`, sans rien ajouter.
   ```csharp
   Button("Charger", Load)
   async Task Load() { Loading = true; Items = await api.GetAsync(); Loading = false; }
   ```
 - **Erreurs** : une exception dans une action (synchrone, `async Task` ou même `async void`) ne ferme pas l'application ;
-  elle est remontée à `UiHost.UnhandledException` (par défaut : écrite sur la sortie d'erreur).
+  elle est écrite sur la sortie d'erreur et dans le débogueur (préfixe `[Reactor]`).
 - **Composants** : avec état, une classe `Component` ; sans état, une simple fonction qui renvoie une `View` (voir `Card` et `Segmented` dans la démo).
   Les modificateurs s'appliquent aussi aux composants : `counter.Padding(8).Background(ColorRole.Surface)`.
 - **Affichage conditionnel** : `cond ? Text("…") : null` ; plusieurs vues d'un coup : `cond ? Group(a, b) : null`.
+- **Texte** : une ligne trop longue pour sa place se termine par « … ».
 
 ### Superposition et dessin libre
 
 ```csharp
-// Superposer : le dernier enfant est au-dessus
+// Superposer : le dernier enfant est au-dessus (et reçoit le clic)
 ZStack(Avatar(), Text("JD"))
 Icon().Overlay(Badge(3), Alignment.TopRight)
 
@@ -132,8 +138,21 @@ Canvas(d =>
 }).Size(40, 40)
 ```
 
-`DrawScope` propose rectangles, cercles, arcs, lignes, polygones et texte ; `d.Context` donne accès au backend
-pour le reste. Exemple complet : `ProgressRing` dans la démo — un contrôle sur mesure n'est qu'une fonction.
+`DrawScope` propose rectangles, cercles, arcs, lignes, polygones et texte ; `d.Context` donne accès au contexte de
+dessin pour le reste (ombres, découpes). Un `Canvas` suit les états lus **pendant son dessin** : il est redessiné seul
+quand l'un d'eux change. Exemple complet : `ProgressRing` dans la démo — un contrôle sur mesure n'est qu'une fonction.
+
+### Un contrôle Avalonia quelconque
+
+Un contrôle d'Avalonia sans équivalent dans le DSL s'intègre tel quel ; c'est la seule API qui expose un type Avalonia.
+
+```csharp
+using static Avalonia.UI.Reactor.AvaloniaViews;
+
+Native(() => new Calendar(), calendar => calendar.DisplayDate = Today)   // créé une fois, accordé à l'état
+```
+
+La mise à jour suit les états qu'elle lit : elle est refaite seule quand l'un d'eux change.
 
 ## Thèmes
 
@@ -153,7 +172,7 @@ var sableNuit = Theme.Dark.Named("Sable nuit")  // partir du sombre → thème s
 **Le catalogue** — les thèmes de l'application, regroupés en familles (un thème clair et/ou un sombre sous un nom) :
 
 ```csharp
-Desktop.Run<App>(new WindowOptions { Themes = new()
+ReactorApp.Run<App>(new WindowOptions { Themes = new()
 {
     { "Standard", Theme.Light, Theme.Dark },   // la première famille habille l'application par défaut
     { "Sable", sable, sableNuit },             // clair ou sombre selon le mode en cours
@@ -200,12 +219,15 @@ Un nom de couleur absent du thème s'affiche en magenta, pour repérer l'oubli t
 | `Palette` | rôles (`Page`, `Surface`, `Border`, `Text`, `TextMuted`, `Accent`, `Danger`…) + couleurs nommées |
 | `Typography` | police (par défaut celle du système), taille et graisse de chaque style, styles nommés |
 | `ButtonTheme` | padding, rayon, police, variantes `Primary` / `Secondary` / `Ghost` / `Danger` + styles nommés, modèle |
-| `TextFieldTheme` | couleurs par état, largeur minimale, curseur (largeur, clignotement), modèle |
+| `TextFieldTheme` | couleurs par état, largeur minimale, curseur (couleur, clignotement), sélection, libellés du menu contextuel, modèle |
 | `CheckboxTheme` | couleurs par état, taille, épaisseur de la coche, modèle |
+| `MenuTheme` | barre de menus dessinée : fond, trait du bas, marges |
 | `Theme` | espacement par défaut des piles, séparateur (couleur, épaisseur), voiles de survol et d'appui |
 
 - **Les vues utilisent des rôles** : `.Foreground(ColorRole.TextMuted)` s'adapte à tous les thèmes. Une couleur fixe reste possible : `.Background("#FF0000")`.
 - **Les modificateurs gardent la priorité** sur le thème.
+- Bouton, case et champ portent **notre** apparence (une structure seule, sans le thème Fluent) : leurs couleurs par
+  état (repos, survol, appui, focus) viennent du thème de leur branche.
 
 ### Modèles de contrôles
 
@@ -238,35 +260,25 @@ theme.WithTextField(f => f with
 | `Checkbox` | `IsChecked`, `Label`, `Hovered`, `Pressed` |
 | `TextField` | `Value`, `Placeholder`, `Focused`, `Hovered`, `Editor` |
 
-Sans modèle, le dessin standard s'applique. Le thème « Sable » de la démo ([DemoThemes.cs](samples/TodoDemo/DemoThemes.cs))
-en utilise deux : des champs soulignés et des cases à cocher rondes.
+Sans modèle, le dessin standard s'applique. Le modèle donne aussi sa taille au contrôle. Le thème « Sable » de la démo
+([DemoThemes.cs](samples/TodoDemo/DemoThemes.cs)) en utilise deux : des champs soulignés et des cases à cocher rondes.
 
-## Fenêtre, polices et zoom
+## Fenêtre et zoom
 
 ```csharp
-Desktop.Run<App>(new WindowOptions
+ReactorApp.Run<App>(new WindowOptions
 {
     Title = "Mon app", Width = 1024, Height = 768, MinWidth = 400,
-    Resizable = true, Borderless = false, Maximized = false, Fullscreen = false, VSync = true,
+    Resizable = true, Borderless = false, Maximized = false, Fullscreen = false,
     Themes = new() { { "Standard", Theme.Light, Theme.Dark }, { "Sable", sable, sableNuit } },
-    Zoom = 1.25f,             // zoom de l'interface, en plus du DPI de l'écran
-    ZoomShortcuts = true,     // Ctrl + / Ctrl − / Ctrl 0
-    Graphics = GraphicsApi.Auto,  // Direct3D 12 sur Windows (OpenGL en repli), OpenGL ailleurs : même rendu
+    Zoom = 1.25,              // zoom de l'interface (de 0,5 à 3), en plus du facteur d'échelle de l'écran
+    ZoomShortcuts = true,     // Ctrl + / Ctrl − / Ctrl 0 (Cmd sur macOS), par pas de 10 %
 });
-
-// Polices de l'application (.ttf / .otf), prioritaires sur celles du système
-Fonts.Register("Inter", "Assets/Inter-Regular.ttf");
-Fonts.Register("Inter", "Assets/Inter-SemiBold.ttf", weight: 600);
-Fonts.RegisterResource("Inter", typeof(App).Assembly, "MonApp.Assets.Inter.ttf");   // police embarquée
-var theme = Theme.Light.WithFont("Inter");
 ```
 
-- Pour une graisse non fournie, la plus proche est utilisée ; si elle est trop légère, le gras est simulé.
-- Le zoom se change aussi pendant l'exécution : `UiHost.Zoom`.
-- Moteur GPU : Skia dessine la même image ; sur Windows, elle passe par Direct3D 12 (chaîne d'affichage DXGI « flip »),
-  avec repli automatique sur OpenGL (message `[Reactor]`). Mesuré sur la démo : environ 20 % de processeur en moins par rendu
-  qu'avec OpenGL, environ 20 Mo de mémoire privée en plus (tampons d'affichage), plateau stable.
-- Au repos (aucun champ actif), la boucle de la fenêtre dort jusqu'au prochain événement : aucune consommation de processeur.
+- `ReactorApp.Run(new MonApp(paramètres), options)` ouvre un composant déjà construit ; `ReactorApp.Quit()` ferme l'application.
+- Polices : `Theme.WithFont("Inter")` désigne une police installée sur le système.
+- Au repos, aucune passe de mise en page : la fenêtre ne travaille que lorsqu'un état change.
 
 ## Barre de menus
 
@@ -279,7 +291,7 @@ MenuBar(
         MenuItem("&Enregistrer", Save).Shortcut("Ctrl+S").Enabled(IsDirty),
         Divider(),
         Menu("&Récents", ForEach(recent, f => MenuItem(f.Name, () => Open(f)))),
-        MenuItem("&Quitter", Desktop.Quit).Shortcut("Ctrl+Q")),
+        MenuItem("&Quitter", ReactorApp.Quit).Shortcut("Ctrl+Q")),
     Menu("&Affichage",
         MenuItem("Mode &sombre", Bind.DarkMode),                       // élément coché lié à un état
         MenuItem("&Clair", () => Scheme = Light).Checked(Scheme == Light)))
@@ -288,109 +300,75 @@ MenuBar(
 - `&` désigne la lettre d'accès (Alt+F ouvre « Fichier ») ; `&&` affiche un « & ».
 - Les raccourcis (`"Ctrl+Shift+S"`, `"F5"`, `"Alt+F4"`) marchent menus fermés ; sur macOS, `Ctrl` devient Cmd.
   Pendant une saisie, un raccourci sans Ctrl, Alt, Cmd ni touche de fonction (`"P"`) laisse la lettre au champ.
-- Clavier : F10 ou Alt seul activent la barre, flèches, Entrée, Échap, lettres d'accès ; la souris peut appuyer
-  sur un titre, glisser jusqu'à l'élément et relâcher.
-- Apparence : `Theme.WithMenu(m => m with { … })` (couleurs, marges, ombre, coche, surlignage),
-  ou entièrement sur mesure avec `TitleTemplate` / `ItemTemplate`.
+- **Rien à choisir** : sur macOS, les menus vont dans la barre du système (en haut de l'écran, la barre ne prend
+  aucune place dans la fenêtre) ; ailleurs, la barre est dessinée en haut de la fenêtre, aux couleurs du thème
+  (`Theme.WithMenu(m => m with { BarBackground = …, BarPadding = … })`).
+- Un champ de saisie a un menu contextuel couper / copier / coller, libellé par le thème (`TextFieldTheme.EditMenu`).
 
-**Dessinée ou du système.** Par défaut, rien à écrire : barre dessinée sur Windows et Linux (même rendu partout,
-suit le thème), barre du système sur macOS. Pour forcer : `new WindowOptions { MenuBar = MenuBarMode.Native }`
-(menu Win32 sous la barre de titre sur Windows) ou `MenuBarMode.Custom`. La barre du système ne prend alors aucune
-place dans la fenêtre ; les raccourcis restent gérés par le framework.
+Limite actuelle : les menus ouverts ont l'apparence d'Avalonia (thème Fluent), pas encore celle de notre thème.
 
-| Limite actuelle | Pourquoi |
-|---|---|
-| Barre du système de macOS pas encore faite : la barre dessinée la remplace (message `[Reactor]`) | il faut un hôte `net10.0-macos` (AppKit), à compiler sur un Mac |
-| La barre Win32 reste claire en mode sombre | Windows n'offre pas de mode sombre officiel pour ses menus |
-| Les menus dessinés restent dans la fenêtre (ils s'ouvrent vers le haut ou la gauche s'il le faut) | ils sont dessinés dans la fenêtre ; les en faire sortir demande des fenêtres surgissantes SDL |
+## Comment ça marche
 
-## Moteur Avalonia (migration en cours)
+Un **réconciliateur** applique l'arbre de vues à des contrôles Avalonia qu'il garde d'une mise à jour à l'autre : un
+contrôle est repris tant que sa vue garde le même chemin (son `Key`, sinon son rang) ; seules ses propriétés changent.
+Il garde donc focus, survol et curseur, et une liste réordonnée déplace ses contrôles au lieu de les recréer.
 
-Le même code d'application s'affiche avec les contrôles d'Avalonia : seul le lancement change.
-
-```csharp
-ReactorApp.Run<CounterApp>("Compteur", 400, 300);   // au lieu de Desktop.Run<CounterApp>(…)
+```
+événement Avalonia (clic, saisie) → action → état modifié → portées abonnées marquées
+  → Body des seules portées marquées → chaque vue appliquée au contrôle qui occupait sa place (propriétés changées seulement)
+  → mise en page et rendu d'Avalonia
 ```
 
-Un réconciliateur applique l'arbre de vues à des contrôles Avalonia qu'il garde d'une mise à jour à l'autre : un
-contrôle est repris tant que sa vue garde le même chemin (son `Key`, sinon son rang) ; seules ses propriétés changent,
-il garde donc focus et survol, et une liste réordonnée déplace ses contrôles au lieu de les recréer. Le recalcul
-sélectif est celui de l'ancien moteur : seules les portées dont un état lu a changé sont réévaluées.
-
-| Déjà rendu par Avalonia | Pas encore (ancien moteur : `Desktop.Run`) |
-|---|---|
-| `Text`, `VStack` / `HStack` (`Spacer`, `.Grow()`, `.FillWidth()`, alignements), `Button` et ses styles, `TextField` (TextBox d'Avalonia : sélection, annuler, IME), `Checkbox`, `ZStack` / `Overlay`, `Canvas`, `Divider`, `Box`, `.OnTap`, fond / bordure / angles / marge, thème par branche, `ForEach`, `Observe`, modificateurs sur un composant, actions `async`, erreurs non fatales, hot reload, barre de menus (dessinée, ou celle du système sur macOS ; raccourcis, coches, lettres d'accès, sous-menus), menu contextuel des champs, modèles de contrôles (`.Template`, modèles du thème ; `field.Editor` reçoit la vraie zone d'édition), contrôle Avalonia quelconque (`Native`) | modèles des menus (`MenuTheme.TitleTemplate` / `ItemTemplate`), apparence des menus ouverts (thème Fluent), polices embarquées |
-
-La démo (`samples/TodoDemo`) tourne sur ce moteur. Un contrôle d'Avalonia sans équivalent s'intègre tel quel :
-
-```csharp
-using static Avalonia.UI.Reactor.AvaloniaViews;
-
-Native(() => new Calendar(), calendar => calendar.DisplayDate = Today)   // créé une fois, accordé à l'état
-```
-
-Champs et cases sont **contrôlés** : la saisie part vers l'état, puis le contrôle affiche la valeur de sa vue (un état
-qui refuse ou transforme la saisie l'emporte). Un `Canvas` suit les états lus pendant son dessin : il est redessiné
-seul quand l'un d'eux change. Il en va de même pour la mise à jour d'un `Native` : un état qu'elle lit la refait seule.
-
-Différences voulues avec l'ancien moteur :
-- **une bordure prend sa place**, comme en CSS et dans tous les contrôles Avalonia : avec `.Padding(16).Border(…, 2)`,
-  le contenu commence à 18 (l'ancien moteur la traçait par-dessus le contenu) ;
-- bouton, case et champ portent **notre** apparence (`ReactorThemes` : structure seule) ; leurs couleurs par état (repos,
-  survol, appui, focus) viennent du thème de leur branche. Fluent ne sert plus qu'à l'infrastructure (fenêtre, défilement
-  dans un champ). La fenêtre suit le mode clair ou sombre du système.
+Les piles sont un panneau à nous (`FlexStack`), qui suit les règles de SwiftUI : enfants à leur taille naturelle,
+`Spacer` et `.Grow()` se partagent la place restante, une pile s'étire si un enfant s'étire.
 
 ## Architecture
 
 | Projet | Rôle | Dépendances |
 |---|---|---|
-| `Avalonia.UI.Reactor.Core` | Vues (records immuables), DSL, modificateurs, thèmes, état réactif, layout avec recalcul sélectif, rendu des widgets, runtime (événements, focus, édition de texte, async, hot reload) | **aucune** |
-| `Avalonia.UI.Reactor` | Moteur Avalonia : `ReactorApp`, réconciliateur (vues → contrôles), pile `FlexStack` | Avalonia 12 |
+| `Avalonia.UI.Reactor.Core` | API des applications : vues (records immuables), DSL, modificateurs, thèmes, état réactif, portées, hot reload | **aucune** |
+| `Avalonia.UI.Reactor` | `ReactorApp`, `ReactorHost`, réconciliateur (vues → contrôles), panneaux, menus, nos contrôles et leur apparence | Avalonia 12 |
 | `Avalonia.UI.Reactor.Generators` | Générateur des propriétés `[State]` et analyseur de diagnostics (s'exécutent à la compilation) | Roslyn |
-| `tests/Avalonia.UI.Reactor.Tests` | Tests sans fenêtre (xUnit) | xUnit |
-| `tests/Avalonia.UI.Reactor.Headless.Tests` | Tests du moteur Avalonia, dans une vraie fenêtre sans écran : clics, mise en page, thèmes | xUnit v3, Avalonia.Headless |
-| `Avalonia.UI.Reactor.Skia` | Dessin sur Skia (GPU, antialiasing, texte) — réutilisable tel quel sur mobile | SkiaSharp |
-| `Avalonia.UI.Reactor.Desktop` | Fenêtre, moteur GPU (Direct3D 12 ou OpenGL sous Skia), entrées, presse-papiers, DPI, thème système, barre de menus Win32 | SDL3 (`ppy.SDL3-CS`), CsWin32 (déclarations Windows générées à la compilation) |
-| `samples/TodoDemo` | Démo : compteur, todo list, action async, sélecteur de thème | — |
+| `samples/TodoDemo` | Démo : compteur, todo list, action async, sélecteur de thème, barre de menus | — |
+| `tests/Avalonia.UI.Reactor.Tests` | Tests dans de vraies fenêtres sans écran, et tests du générateur | xUnit v3, Avalonia.Headless |
 
 Un type par fichier, rangé par rôle :
 
 ```
 src/Avalonia.UI.Reactor.Core/
-  Primitives/   Color, Point, Size, Rect, Thickness, Font, Alignment… et les petites énumérations
-  Theming/      Theme, ThemeFamily, Themes (catalogue), Palette, Typography, ColorValue, thèmes des contrôles
-  Views/        View et ses records (TextView, ButtonView, StackView, ZStackView, CanvasView…),
-                Ui (le DSL), Modifiers, ComponentModifiers
-  State/        Component, [State], Signal, Scope, StateList
-  Layout/       ViewTree (mesure + recalcul sélectif), LayoutEngine (placement, hit-test), LayoutNode
-  Rendering/    IDrawingContext, DrawScope (Canvas), Renderer (dessin des widgets)
-  Runtime/      UiHost (entrées, focus, texte), UiDispatcher (async, erreurs), HotReload,
-                MenuController (menus ouverts, clavier, raccourcis), INativeMenuBar (barre du système)
+  Primitives/      Color, Point, Size, Rect, Thickness, Font, Alignment, KeyGesture… et les petites énumérations
+  Theming/         Theme, ThemeFamily, Themes (catalogue), Palette, Typography, ColorValue, thèmes des contrôles,
+                   ViewEnvironment (thème, police et couleur hérités)
+  Views/           View et ses records (TextView, ButtonView, StackView, ZStackView, CanvasView…),
+                   Ui (le DSL), Modifiers, ComponentModifiers, ControlTemplates, MenuShortcuts
+  State/           Component, [State], Signal, Scope, StateList, Binding
+  Rendering/       IDrawingContext et DrawScope (Canvas), CheckboxGlyph
+  Runtime/         HotReload
+src/Avalonia.UI.Reactor/
+  ReactorApp.cs    point d'entrée, WindowOptions, AvaloniaViews (Native)
+  Hosting/         ReactorHost (mises à jour, erreurs, zoom, raccourcis), ReactorApplication
+  Reconciliation/  Reconciler, Node, un adaptateur par type de vue (TextAdapter, ButtonAdapter…)
+  Panels/          FlexStack (piles), LayerStack (ZStack)
+  Menus/           barre dessinée (Menu d'Avalonia) ou barre du système, synchronisation avec les vues
+  Widgets/         ReactorButton, ReactorCheckBox, ReactorTextBox, leur apparence (ReactorThemes), Surface, DrawingCanvas
 samples/TodoDemo/
-  Program.cs    Desktop.Run<TodoApp>(new WindowOptions { … })
-  DemoThemes.cs familles Standard et Sable (Sable + Sable nuit, avec modèles de contrôles)
-  Components/   TodoApp, CounterCard, TodoList
-  Models/       Todo, Filter, Appearance
-  Widgets.cs    Card, Segmented, ProgressRing (composants sans état)
+  Program.cs       ReactorApp.Run<TodoApp>(new WindowOptions { … })
+  DemoThemes.cs    familles Standard et Sable (Sable + Sable nuit, avec modèles de contrôles)
+  Components/      TodoApp, CounterCard, TodoList
+  Models/          Todo, Filter
+  Widgets.cs       Card, Segmented, ProgressRing (composants sans état)
 tests/Avalonia.UI.Reactor.Tests/
-  *Tests.cs     un fichier par thème ; Probes/ contient les petits composants de test
+  *Tests.cs        un fichier par sujet ; Probes/ contient les petits composants de test
 ```
 
-Chaque dossier est un espace de noms (`Avalonia.UI.Reactor.Views`, `Avalonia.UI.Reactor.State`, `Avalonia.UI.Reactor.Theming`…). Une application les importe une fois dans un `GlobalUsings.cs` (voir celui de la démo).
-
-Le flux : `événement → action → état modifié → Body des seuls composants abonnés → layout (le reste vient du cache) → rendu`.
-Survol, appui, focus et curseur texte sont gérés par le runtime, hors de l'état de l'application.
-`UiHost.Elements` expose les éléments affichés et leur position, pour les tests automatisés.
-
-SDL3 et Skia ne sont **pas** des frameworks UI : ce sont les couches fenêtre/entrées et dessin 2D (même approche que Flutter).
+Chaque dossier est un espace de noms (`Avalonia.UI.Reactor.Views`, `Avalonia.UI.Reactor.State`, `Avalonia.UI.Reactor.Theming`…).
+Une application les importe une fois dans un `GlobalUsings.cs` (voir celui de la démo).
 
 ## Pistes suivantes
 
-- **Menus** : barre du système sur macOS (hôte `net10.0-macos`), menus dessinés capables de sortir de la fenêtre
-  (fenêtres surgissantes SDL, aussi utiles pour le menu contextuel et les listes déroulantes), menu contextuel.
+- `ScrollView` et listes virtualisées (ne construire que les lignes visibles), texte multiligne.
 - **Navigation** (`NavigationStack`, push/pop) : les composants imbriqués avec état sont en place, c'est la brique suivante.
-- Listes virtualisées (ne construire que les lignes visibles), à faire avec le `ScrollView`.
-- **Mobile** : hôtes Android/iOS réutilisant `Avalonia.UI.Reactor.Core` et `Avalonia.UI.Reactor.Skia` tels quels (rendu identique partout), puis tactile et clavier virtuel.
-- `ScrollView`, texte multi-ligne, images, animations.
-- Robustesse : barrière d'erreur dans les `Body`, cache de mesure du texte.
-- Modèles pour les futurs contrôles (`ScrollView`, listes…), table de raccourcis clavier modifiable, caractère de troncature (`…`) réglable.
+- Menus ouverts aux couleurs du thème, modèles de menus, menu contextuel déclaré dans la vue.
+- Polices embarquées dans l'application, images, animations, accessibilité.
+- **Mobile et navigateur** : hôtes Android, iOS et WebAssembly d'Avalonia, même code d'application.
+- Robustesse : barrière d'erreur dans les `Body`.

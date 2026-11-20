@@ -1,6 +1,5 @@
 using Avalonia.UI.Reactor.Primitives;
 using Avalonia.UI.Reactor.Rendering;
-using Avalonia.UI.Reactor.Runtime;
 using Avalonia.UI.Reactor.State;
 
 namespace Avalonia.UI.Reactor.Views;
@@ -17,7 +16,7 @@ public static class Ui
     public static ButtonView Button(string label, Action? action = null) => new(label, action);
 
     /// <summary>Action asynchrone : <c>Button("Charger", LoadAsync)</c> ou <c>Button("…", async () => …)</c>.
-    /// Une exception est remontée à <see cref="UiHost.UnhandledException"/> au lieu de fermer l'application.</summary>
+    /// Une exception est signalée par l'hôte (sortie d'erreur, préfixe <c>[Reactor]</c>) au lieu de fermer l'application.</summary>
     public static ButtonView Button(string label, Func<Task> action) => new(label, Async(action));
 
     /// <summary>

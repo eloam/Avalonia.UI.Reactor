@@ -9,7 +9,7 @@ using Avalonia.UI.Reactor.Theming;
 /// <summary>
 /// Champ de saisie habillé par <see cref="ReactorThemes.TextBox"/>. Sa largeur naturelle ne dépend pas du texte saisi :
 /// elle vient du thème (<c>MinWidth</c>) ; un long texte défile dans le champ au lieu de l'élargir et de décaler toute la
-/// ligne, comme dans l'ancien moteur. Le champ s'élargit seulement par la mise en page (<c>.Grow()</c>, <c>.FillWidth()</c>).
+/// ligne. Le champ s'élargit seulement par la mise en page (<c>.Grow()</c>, <c>.FillWidth()</c>).
 /// Le texte indicatif n'est affiché que si le champ est vide. Un clic droit ouvre le menu couper / copier / coller.
 /// </summary>
 internal sealed class ReactorTextBox : TextBox

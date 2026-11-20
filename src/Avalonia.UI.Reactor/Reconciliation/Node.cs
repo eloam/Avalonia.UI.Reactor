@@ -21,7 +21,7 @@ internal sealed class Node
         Content = create(this);
     }
 
-    /// <summary>Chemin de la vue dans l'arbre, comme celui de l'ancien moteur : <c>r.</c>, <c>r./0</c>, <c>r./todo-3</c>…</summary>
+    /// <summary>Chemin de la vue dans l'arbre : <c>r.</c>, <c>r./0</c>, <c>r./todo-3</c>…</summary>
     public string Id { get; }
 
     /// <summary>Place où le parent a posé ce nœud ; diffère de <see cref="Id"/> pour le contenu d'une portée (<c>…/0</c> et <c>…/0.</c>).</summary>

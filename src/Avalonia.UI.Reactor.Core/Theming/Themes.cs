@@ -8,7 +8,7 @@ namespace Avalonia.UI.Reactor.Theming;
 /// Les vues y font référence par leur nom : <c>.Theme("Sable")</c> habille une vue — un bouton, un composant,
 /// l'écran entier — en clair ou en sombre selon le mode en cours. La première famille habille l'application par défaut.
 /// <code>
-/// Desktop.Run&lt;App&gt;(new WindowOptions { Themes = new()
+/// ReactorApp.Run&lt;App&gt;(new WindowOptions { Themes = new()
 /// {
 ///     { "Standard", Theme.Light, Theme.Dark },   // la première famille : celle par défaut
 ///     { "Sable", sable, sableNuit },             // clair ou sombre selon le mode en cours

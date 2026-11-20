@@ -18,7 +18,7 @@ using Avalonia.UI.Reactor.Widgets;
 /// </summary>
 internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 {
-    /// <summary>Suffixe du chemin de la vue d'un modèle, sous celui de son contrôle (comme dans l'ancien moteur).</summary>
+    /// <summary>Suffixe du chemin de la vue d'un modèle, sous celui de son contrôle.</summary>
     const string TemplateSuffix = "~";
 
     readonly Dictionary<string, Scope> _scopes = [];
@@ -199,7 +199,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         scope.LastView = view;
         _content.TryGetValue(scope, out var previous);
 
-        if (!reevaluate && previous is not null && scope.EnvKey is ViewEnvironment cached && cached == env
+        if (!reevaluate && previous is not null && scope.Environment is { } cached && cached == env
             && !scope.Descendants.Any(d => d.IsDirty))
         {
             foreach (var d in scope.Descendants) d.LastVisit = _pass;
@@ -222,7 +222,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
         scope.Descendants = inner;
         parent?.AddRange(inner);
-        scope.EnvKey = env;
+        scope.Environment = env;
         _content[scope] = node;
         return node;
     }

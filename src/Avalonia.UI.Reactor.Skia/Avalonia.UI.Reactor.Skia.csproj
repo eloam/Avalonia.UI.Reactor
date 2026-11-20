@@ -1,6 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="..\Avalonia.UI.Reactor.Core\Avalonia.UI.Reactor.Core.csproj" />
-    <PackageReference Include="SkiaSharp" Version="4.156.1" />
-  </ItemGroup>
-</Project>

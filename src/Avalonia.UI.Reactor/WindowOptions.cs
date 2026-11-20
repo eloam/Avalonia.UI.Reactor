@@ -39,4 +39,10 @@ public sealed record WindowOptions
 
     /// <summary>Thèmes proposés ; par défaut Clair et Sombre.</summary>
     public Themes? Themes { get; init; }
+
+    /// <summary>Zoom de l'interface au démarrage (1 = 100 %, de 0,5 à 3), en plus du facteur d'échelle de l'écran.</summary>
+    public double Zoom { get; init; } = 1;
+
+    /// <summary>Ctrl + / Ctrl − / Ctrl 0 (Cmd sur macOS) zooment, dézooment, reviennent à 100 % ; vrai par défaut.</summary>
+    public bool ZoomShortcuts { get; init; } = true;
 }

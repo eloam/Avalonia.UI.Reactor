@@ -1,15 +1,25 @@
+namespace Avalonia.UI.Reactor.Tests.Probes;
+
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
+using static Avalonia.UI.Reactor.Views.Ui;
 
-namespace Avalonia.UI.Reactor.Tests;
-
-/// <summary>Formulaire dont les contrôles sont liés à ses états : TextField(Bind.Name), Checkbox(Bind.Agreed).</summary>
-public partial class FormProbe : Component
+/// <summary>Champ lié à un état ; Entrée ou « Ajouter » ajoute le texte à la liste et vide le champ.</summary>
+public sealed partial class FormProbe : Component
 {
-    [State] public partial string Name { get; set; } = "";
-    [State] public partial bool Agreed { get; set; }
+    [State] public partial string Draft { get; set; } = "";
 
-    public override View Body => VStack(
-        TextField(Bind.Name, "Nom"),
-        Checkbox(Bind.Agreed, "J'accepte"));
+    public StateList<string> Items { get; } = [];
+
+    public override View Body =>
+        VStack(
+            HStack(TextField(Bind.Draft, "Que faut-il faire ?", onSubmit: Add), Button("Ajouter", Add)),
+            ForEach(Items, item => Text(item), item => item));
+
+    void Add()
+    {
+        if (string.IsNullOrWhiteSpace(Draft)) return;
+        Items.Add(Draft.Trim());
+        Draft = "";
+    }
 }

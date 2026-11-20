@@ -45,7 +45,7 @@ internal abstract class ViewAdapter
         EditorView => EditorAdapter.Instance,
         NativeView => NativeAdapter.Instance,
         _ => throw new NotSupportedException(
-            $"The view '{view.GetType().Name}' is not supported by the Avalonia host yet. Use the SDL host ('Desktop.Run') for this screen."),
+            $"The view '{view.GetType().Name}' is not supported. Wrap an Avalonia control with 'Native' to display it."),
     };
 }
 
