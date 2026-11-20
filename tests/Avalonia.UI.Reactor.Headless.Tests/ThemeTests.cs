@@ -29,6 +29,17 @@ public class ThemeTests
     }
 
     [AvaloniaFact]
+    public void A_text_too_long_for_its_place_ends_with_an_ellipsis()
+    {
+        using var t = new ReactorTestHost(new ViewProbe(() => VStack(Text(new string('m', 200)))), width: 200);
+
+        var text = t.Texts.Single();
+
+        Assert.True(text.Bounds.Width <= 200);
+        Assert.True(text.TextLayout.TextLines[0].HasCollapsed);
+    }
+
+    [AvaloniaFact]
     public void A_button_takes_the_colors_of_its_style()
     {
         using var t = new ReactorTestHost(new ViewProbe(() =>

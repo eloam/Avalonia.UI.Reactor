@@ -6,30 +6,6 @@ namespace Avalonia.UI.Reactor.Tests;
 public class ReactivityTests
 {
     [Fact]
-    public void Demo_recomputes_only_what_depends_on_the_changed_state()
-    {
-        using var t = new TestHost(new TodoApp(), themes: DemoThemes.Create());
-
-        t.ClickButton("+");
-        Assert.Equal(1, t.Stats.Evaluated); // la carte compteur seule
-
-        t.Click(v => v is TextFieldView);
-        t.Type("x");
-        Assert.Equal(1, t.Stats.Evaluated); // la ligne de saisie seule
-
-        t.ClickText("Ajouter un backend mobile");
-        Assert.Equal(3, t.Stats.Evaluated); // la ligne cochée + le pied « N restante(s) » + l'anneau de progression
-    }
-
-    [Fact]
-    public void Unchanged_scopes_reuse_their_layout()
-    {
-        using var t = new TestHost(new TodoApp(), themes: DemoThemes.Create());
-        t.ClickButton("+");
-        Assert.True(t.Stats.Reused >= 1); // la liste de tâches n'est ni réévaluée ni remesurée
-    }
-
-    [Fact]
     public void State_changed_from_a_background_thread_updates_the_view()
     {
         var probe = new Probe();

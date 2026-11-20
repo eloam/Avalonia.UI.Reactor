@@ -26,6 +26,9 @@ internal abstract class ViewAdapter
     /// <summary>Part de place que le contrôle tient de ses enfants quand la vue n'en déclare pas (un ZStack, celle de son contenu).</summary>
     public virtual float GrowOf(Node node) => 0;
 
+    /// <summary>Le nœud qui occupait la place peut-il afficher cette vue (même sorte de contrôle) ?</summary>
+    public virtual bool CanReuse(Node existing, View view) => true;
+
     public static ViewAdapter For(View view) => view switch
     {
         TextView => TextAdapter.Instance,
@@ -39,6 +42,8 @@ internal abstract class ViewAdapter
         ZStackView => ZStackAdapter.Instance,
         CanvasView => CanvasAdapter.Instance,
         MenuBarView => MenuBarAdapter.Instance,
+        EditorView => EditorAdapter.Instance,
+        NativeView => NativeAdapter.Instance,
         _ => throw new NotSupportedException(
             $"The view '{view.GetType().Name}' is not supported by the Avalonia host yet. Use the SDL host ('Desktop.Run') for this screen."),
     };

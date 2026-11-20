@@ -1,8 +1,8 @@
-using Avalonia.UI.Reactor.Desktop;
 using Avalonia.UI.Reactor.Primitives;
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
+using static Avalonia.UI.Reactor.AvaloniaViews;
 
 namespace TodoDemo;
 
@@ -36,7 +36,7 @@ public sealed partial class TodoApp : Component
             .ColorScheme(Scheme); // …en clair, en sombre, ou selon le système
 
     /// <summary>
-    /// Dessinée en haut de la fenêtre, ou barre du système selon <c>WindowOptions.MenuBar</c>.
+    /// Dessinée en haut de la fenêtre, ou celle du système quand la plateforme en a une (macOS).
     /// Les coches, les éléments grisés et les listes suivent l'état, comme le reste de la vue.
     /// </summary>
     View Menus() =>
@@ -45,7 +45,7 @@ public sealed partial class TodoApp : Component
                 MenuItem("&Nouvelle idée", todos.Suggest).Shortcut("Ctrl+N"),
                 MenuItem("&Purger les tâches faites", todos.Purge).Shortcut("Ctrl+Shift+P").Enabled(todos.HasDone),
                 Divider(),
-                MenuItem("&Quitter", Desktop.Quit).Shortcut("Ctrl+Q")),
+                MenuItem("&Quitter", ReactorApp.Quit).Shortcut("Ctrl+Q")),
             Menu("&Affichage",
                 Menu("&Thème", [.. Themes.Families.Select(f =>
                     MenuItem(f.Name, () => ThemeName = f.Name).Checked(ThemeName == f.Name))]),
@@ -68,13 +68,16 @@ public sealed partial class TodoApp : Component
                         Segmented(Bind.Scheme,
                             ("Système", null), ("Clair", ColorScheme.Light), ("Sombre", ColorScheme.Dark)))
                     .Spacing(12),
-                Text("UI déclarative en C# — ni XAML, ni framework tiers").Foreground(ColorRole.TextMuted))
+                Text("UI déclarative en C#, sans XAML, rendue par Avalonia").Foreground(ColorRole.TextMuted))
             .Spacing(2);
 
     View About() =>
         Card(
             Text("À propos").Font(TextStyle.Headline),
-            Text("Framework UI maison : SDL3 pour la fenêtre, Skia pour le dessin, le même rendu partout.")
+            Text("Vues et état écrits en C#, rendus par les contrôles d'Avalonia : le même rendu partout.")
                 .Foreground(ColorRole.TextMuted),
+            // Un contrôle Avalonia sans équivalent dans le framework s'intègre tel quel.
+            Text("Un contrôle Avalonia quelconque, avec Native(…) :").Foreground(ColorRole.TextMuted),
+            Native(() => new Avalonia.Controls.Calendar()),
             HStack(Spacer(), Button("Fermer", () => ShowAbout = false).Style(ButtonStyle.Secondary)));
 }

@@ -74,11 +74,4 @@ public class ExtensibilityTests
         Assert.Equal(new Color(255, 0, 0), t.PixelAt(10, 10));
         Assert.Equal(Theme.Light.Palette.Accent, t.PixelAt(10, 30));
     }
-
-    [Fact]
-    public void ProgressRing_from_the_demo_shows_percentage()
-    {
-        using var t = new TestHost(new ViewProbe(() => VStack(Widgets.ProgressRing(1, 4))));
-        Assert.True(t.HasText("25%"));
-    }
 }

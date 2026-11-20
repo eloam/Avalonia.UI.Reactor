@@ -73,44 +73,59 @@ internal static class ReactorThemes
             new Setter(InputElement.CursorProperty, new Cursor(StandardCursorType.Ibeam)),
             new Setter(Control.FocusAdornerProperty, null),
             new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ReactorTextBox>((_, scope) =>
-                Named(scope, "PART_Frame", new Border
-                {
-                    Child = Named(scope, "PART_ScrollViewer", new ScrollViewer
-                    {
-                        HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
-                        VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
-                        Content = new Panel
-                        {
-                            Children =
-                            {
-                                Named(scope, "PART_Placeholder", new TextBlock { VerticalAlignment = VerticalAlignment.Center }
-                                    .Bound(TextBlock.TextProperty, Avalonia.Controls.TextBox.PlaceholderTextProperty)
-                                    .Bound(TextBlock.ForegroundProperty, Avalonia.Controls.TextBox.PlaceholderForegroundProperty)),
-                                Named(scope, "PART_TextPresenter", new TextPresenter { VerticalAlignment = VerticalAlignment.Center }
-                                    .Bound(TextPresenter.TextProperty, Avalonia.Controls.TextBox.TextProperty, BindingMode.TwoWay)
-                                    .Bound(TextPresenter.CaretIndexProperty, Avalonia.Controls.TextBox.CaretIndexProperty)
-                                    .Bound(TextPresenter.SelectionStartProperty, Avalonia.Controls.TextBox.SelectionStartProperty)
-                                    .Bound(TextPresenter.SelectionEndProperty, Avalonia.Controls.TextBox.SelectionEndProperty)
-                                    .Bound(TextPresenter.CaretBrushProperty, Avalonia.Controls.TextBox.CaretBrushProperty)
-                                    .Bound(TextPresenter.CaretBlinkIntervalProperty, Avalonia.Controls.TextBox.CaretBlinkIntervalProperty)
-                                    .Bound(TextPresenter.SelectionBrushProperty, Avalonia.Controls.TextBox.SelectionBrushProperty)
-                                    .Bound(TextPresenter.SelectionForegroundBrushProperty, Avalonia.Controls.TextBox.SelectionForegroundBrushProperty)
-                                    .Bound(TextPresenter.PasswordCharProperty, Avalonia.Controls.TextBox.PasswordCharProperty)
-                                    .Bound(TextPresenter.RevealPasswordProperty, Avalonia.Controls.TextBox.RevealPasswordProperty)
-                                    .Bound(TextPresenter.TextAlignmentProperty, Avalonia.Controls.TextBox.TextAlignmentProperty)
-                                    .Bound(TextPresenter.TextWrappingProperty, Avalonia.Controls.TextBox.TextWrappingProperty)
-                                    .Bound(TextPresenter.LineHeightProperty, Avalonia.Controls.TextBox.LineHeightProperty)
-                                    .Bound(TextPresenter.LetterSpacingProperty, Avalonia.Controls.TextBox.LetterSpacingProperty)),
-                            },
-                        },
-                    }.Bound(Layoutable.MarginProperty, TemplatedControl.PaddingProperty)),
-                }
-                .Bound(Border.BackgroundProperty, TemplatedControl.BackgroundProperty)
-                .Bound(Border.BorderBrushProperty, TemplatedControl.BorderBrushProperty)
-                .Bound(Border.BorderThicknessProperty, TemplatedControl.BorderThicknessProperty)
-                .Bound(Border.CornerRadiusProperty, TemplatedControl.CornerRadiusProperty)))),
+                Named(scope, "PART_Frame", new Border { Child = EditingArea(scope).Bound(Layoutable.MarginProperty, TemplatedControl.PaddingProperty) }
+                    .Bound(Border.BackgroundProperty, TemplatedControl.BackgroundProperty)
+                    .Bound(Border.BorderBrushProperty, TemplatedControl.BorderBrushProperty)
+                    .Bound(Border.BorderThicknessProperty, TemplatedControl.BorderThicknessProperty)
+                    .Bound(Border.CornerRadiusProperty, TemplatedControl.CornerRadiusProperty)))),
         },
     };
+
+    /// <summary>
+    /// Champ dont un modèle dessine l'apparence : la vue du modèle (posée dans <c>PART_Custom</c>), puis la zone d'édition,
+    /// placée par <see cref="EditorLayout"/> sur l'emplacement <c>field.Editor</c> du modèle.
+    /// </summary>
+    public static ControlTheme TemplatedTextBox { get; } = new(typeof(ReactorTextBox))
+    {
+        Setters =
+        {
+            new Setter(InputElement.CursorProperty, new Cursor(StandardCursorType.Ibeam)),
+            new Setter(Control.FocusAdornerProperty, null),
+            new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ReactorTextBox>((_, scope) =>
+                new EditorLayout { Children = { Named(scope, "PART_Custom", new Decorator()), EditingArea(scope) } })),
+        },
+    };
+
+    /// <summary>La zone d'édition d'un champ : le texte (lié au champ) et le texte indicatif, défilant sans barres.</summary>
+    static ScrollViewer EditingArea(INameScope scope) => Named(scope, "PART_ScrollViewer", new ScrollViewer
+    {
+        HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
+        VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+        Content = new Panel
+        {
+            Children =
+            {
+                Named(scope, "PART_Placeholder", new TextBlock { VerticalAlignment = VerticalAlignment.Center }
+                    .Bound(TextBlock.TextProperty, Avalonia.Controls.TextBox.PlaceholderTextProperty)
+                    .Bound(TextBlock.ForegroundProperty, Avalonia.Controls.TextBox.PlaceholderForegroundProperty)),
+                Named(scope, "PART_TextPresenter", new TextPresenter { VerticalAlignment = VerticalAlignment.Center }
+                    .Bound(TextPresenter.TextProperty, Avalonia.Controls.TextBox.TextProperty, BindingMode.TwoWay)
+                    .Bound(TextPresenter.CaretIndexProperty, Avalonia.Controls.TextBox.CaretIndexProperty)
+                    .Bound(TextPresenter.SelectionStartProperty, Avalonia.Controls.TextBox.SelectionStartProperty)
+                    .Bound(TextPresenter.SelectionEndProperty, Avalonia.Controls.TextBox.SelectionEndProperty)
+                    .Bound(TextPresenter.CaretBrushProperty, Avalonia.Controls.TextBox.CaretBrushProperty)
+                    .Bound(TextPresenter.CaretBlinkIntervalProperty, Avalonia.Controls.TextBox.CaretBlinkIntervalProperty)
+                    .Bound(TextPresenter.SelectionBrushProperty, Avalonia.Controls.TextBox.SelectionBrushProperty)
+                    .Bound(TextPresenter.SelectionForegroundBrushProperty, Avalonia.Controls.TextBox.SelectionForegroundBrushProperty)
+                    .Bound(TextPresenter.PasswordCharProperty, Avalonia.Controls.TextBox.PasswordCharProperty)
+                    .Bound(TextPresenter.RevealPasswordProperty, Avalonia.Controls.TextBox.RevealPasswordProperty)
+                    .Bound(TextPresenter.TextAlignmentProperty, Avalonia.Controls.TextBox.TextAlignmentProperty)
+                    .Bound(TextPresenter.TextWrappingProperty, Avalonia.Controls.TextBox.TextWrappingProperty)
+                    .Bound(TextPresenter.LineHeightProperty, Avalonia.Controls.TextBox.LineHeightProperty)
+                    .Bound(TextPresenter.LetterSpacingProperty, Avalonia.Controls.TextBox.LetterSpacingProperty)),
+            },
+        },
+    });
 
     /// <summary>Lie une propriété d'une partie du modèle à celle du contrôle qui porte le modèle.</summary>
     static T Bound<T>(this T part, AvaloniaProperty property, AvaloniaProperty source, BindingMode mode = BindingMode.OneWay)

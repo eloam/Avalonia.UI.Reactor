@@ -52,6 +52,9 @@ internal sealed class Node
 
     public IReadOnlyList<Node> Children { get; set; } = [];
 
+    /// <summary>Vue du modèle du contrôle (<c>.Template(…)</c> ou modèle du thème), si le contrôle en a un.</summary>
+    public Node? Template { get; set; }
+
     /// <summary>Prend toute la largeur disponible (<c>.FillWidth()</c>, ou une pile dont un enfant le fait).</summary>
     public bool FillWidth { get; set; }
 

@@ -18,6 +18,9 @@ using Avalonia.UI.Reactor.Widgets;
 /// </summary>
 internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 {
+    /// <summary>Suffixe du chemin de la vue d'un modèle, sous celui de son contrôle (comme dans l'ancien moteur).</summary>
+    const string TemplateSuffix = "~";
+
     readonly Dictionary<string, Scope> _scopes = [];
     readonly Dictionary<Scope, Node> _content = [];
     readonly Stack<List<Scope>> _collectors = new();
@@ -78,7 +81,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
         env = env.Enter(view);
         var adapter = ViewAdapter.For(view);
-        var node = existing is not null && existing.Adapter == adapter && existing.Id == id
+        var node = existing is not null && existing.Adapter == adapter && existing.Id == id && adapter.CanReuse(existing, view)
             ? existing
             : new Node(id, adapter, view, n => adapter.Create(this, n));
         node.View = view;
@@ -100,6 +103,22 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         node.Applying = true;
         try { set(); }
         finally { node.Applying = false; }
+    }
+
+    /// <summary>
+    /// Vue produite par le modèle d'un contrôle (son apparence, recalculée quand son état change) : appliquée comme un
+    /// sous-arbre du contrôle, dans l'environnement du contrôle (son thème, sa police et sa couleur), en reprenant les
+    /// contrôles de la version précédente. Renvoie le contrôle à afficher.
+    /// </summary>
+    internal Control RenderTemplate(Node owner, View template)
+    {
+        var env = owner.Environment with
+        {
+            Font = owner.Environment.FontFor(owner.View),
+            Foreground = owner.Environment.ForegroundFor(owner.View),
+        };
+        owner.Template = Reconcile(owner.Template, template, env, owner.Id + TemplateSuffix);
+        return owner.Template.Root;
     }
 
     /// <summary>

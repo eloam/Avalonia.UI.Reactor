@@ -3,6 +3,6 @@
     <OutputType>WinExe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Avalonia.UI.Reactor.Desktop\Avalonia.UI.Reactor.Desktop.csproj" />
+    <ProjectReference Include="..\..\src\Avalonia.UI.Reactor\Avalonia.UI.Reactor.csproj" />
   </ItemGroup>
 </Project>

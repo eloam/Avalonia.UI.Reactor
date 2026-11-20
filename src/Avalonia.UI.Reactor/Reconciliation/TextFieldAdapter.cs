@@ -30,7 +30,7 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextB
         {
             if (e.Property == InputElement.IsPointerOverProperty || e.Property == InputElement.IsFocusedProperty)
             {
-                PaintFrame(node, field);
+                Paint(reconciler, node, field);
                 return;
             }
             if (e.Property != TextBox.TextProperty || node.Applying) return;
@@ -60,43 +60,57 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextB
         field.PlaceholderText = view.Placeholder;
         field.SetEditMenu(style.EditMenu);
         field.SetFont(env.FontFor(view));
-        field.SetBrush(TemplatedControl.BackgroundProperty, theme[view.Background ?? style.Background]);
         field.SetBrush(TemplatedControl.ForegroundProperty, theme[view.Foreground ?? style.Foreground]);
         field.SetBrush(TextBox.PlaceholderForegroundProperty, theme[style.Placeholder]);
         field.SetBrush(TextBox.CaretBrushProperty, theme[style.Caret]);
         field.SetBrush(TextBox.SelectionBrushProperty, theme[style.Selection].WithAlpha(style.SelectionOpacity));
         field.CaretBlinkInterval = TimeSpan.FromMilliseconds(style.CaretBlinkMs);
-        field.CornerRadius = new CornerRadius(view.CornerRadius ?? style.Radius);
-        // Largeur naturelle du thème (le texte saisi ne la change pas) ; hauteur : la ligne de texte et la marge.
-        field.MinWidth = style.MinWidth + (view.Padding ?? style.Padding).Horizontal;
         field.MinHeight = 0;
         field.VerticalContentAlignment = VerticalAlignment.Center;
-        PaintFrame(node, field);
+        Paint(reconciler, node, field);
     }
 
     /// <summary>
-    /// Bordure selon l'état : celle du focus pendant la saisie, celle du survol, sinon celle de la vue ou du thème. Une
-    /// bordure plus épaisse prend sur la marge intérieure : le texte ne bouge pas quand le champ prend le focus.
+    /// Apparence selon l'état (survol, focus). Avec un modèle, la vue du modèle dessine le champ et la zone d'édition se
+    /// pose sur son <c>field.Editor</c>. Sans modèle : le cadre du thème, bordure du focus pendant la saisie, du survol,
+    /// sinon celle de la vue ; une bordure plus épaisse prend sur la marge, le texte ne bouge pas quand le champ prend le focus.
     /// </summary>
-    static void PaintFrame(Node node, ReactorTextBox field)
+    static void Paint(Reconciler reconciler, Node node, ReactorTextBox field)
     {
         var view = (TextFieldView)node.View;
         var theme = node.Environment.Theme;
         var style = theme.TextField;
+        bool focused = field.IsFocused, hovered = field.IsPointerOver;
+
+        if (ControlTemplates.Build(view, theme, hovered, pressed: false, focused) is { } template)
+        {
+            field.Theme = ReactorThemes.TemplatedTextBox;
+            field.CustomContent = reconciler.RenderTemplate(node, template);
+            field.ClearValue(TemplatedControl.BackgroundProperty);
+            field.ClearValue(TemplatedControl.BorderBrushProperty);
+            field.BorderThickness = default;
+            field.CornerRadius = default;
+            field.Padding = default; // le modèle gère ses marges
+            field.MinWidth = 0;
+            return;
+        }
+
+        node.Template = null;
+        field.Theme = ReactorThemes.TextBox;
+        field.CustomContent = null;
         float rest = view.BorderWidth ?? style.BorderWidth;
-        bool focused = field.IsFocused;
-
-        var color = focused ? style.FocusBorderColor
-            : field.IsPointerOver ? style.HoverBorderColor
-            : view.BorderColor ?? style.BorderColor;
+        var color = focused ? style.FocusBorderColor : hovered ? style.HoverBorderColor : view.BorderColor ?? style.BorderColor;
         float width = focused ? style.FocusBorderWidth : rest;
-        field.SetBrush(TemplatedControl.BorderBrushProperty, theme[color]);
-        field.BorderThickness = new Thickness(width);
-
         var padding = view.Padding ?? style.Padding;
         float shift = rest - width;
+        field.SetBrush(TemplatedControl.BackgroundProperty, theme[view.Background ?? style.Background]);
+        field.SetBrush(TemplatedControl.BorderBrushProperty, theme[color]);
+        field.BorderThickness = new Thickness(width);
+        field.CornerRadius = new CornerRadius(view.CornerRadius ?? style.Radius);
         field.Padding = new Thickness(
             Math.Max(0, padding.Left + shift), Math.Max(0, padding.Top + shift),
             Math.Max(0, padding.Right + shift), Math.Max(0, padding.Bottom + shift));
+        // Largeur naturelle du thème (le texte saisi ne la change pas).
+        field.MinWidth = style.MinWidth + padding.Horizontal;
     }
 }

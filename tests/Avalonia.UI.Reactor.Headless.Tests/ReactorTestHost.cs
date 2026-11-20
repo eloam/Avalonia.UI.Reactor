@@ -116,6 +116,18 @@ internal sealed class ReactorTestHost : IDisposable
     }
 
     /// <summary>Exécute le travail en attente sur le thread d'interface (mises à jour planifiées, suites d'await), puis la mise en page.</summary>
+    /// <summary>Laisse tourner le thread d'interface (suites d'await, minuteries) jusqu'à ce que la condition soit vraie.</summary>
+    public void WaitUntil(Func<bool> condition, int timeoutMs = 5000)
+    {
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (!condition())
+        {
+            if (Environment.TickCount64 > deadline) throw new TimeoutException("The condition was not met in time.");
+            Thread.Sleep(10);
+            Settle();
+        }
+    }
+
     public void Settle()
     {
         Dispatcher.UIThread.RunJobs();

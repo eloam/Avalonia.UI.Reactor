@@ -156,27 +156,6 @@ public class ThemingTests
     }
 
     [Fact]
-    public void Demo_theme_choice_is_plain_state()
-    {
-        var catalog = DemoThemes.Create();
-        using var t = new TestHost(new TodoApp(), themes: catalog);
-        foreach (var label in new[] { "Standard", "Sable", "Système", "Clair", "Sombre" }) Assert.True(t.HasButton(label), label);
-
-        // Ce que la famille Sable du catalogue fournit pour chaque mode (« Sable nuit » s'il y en a une).
-        var sable = catalog.FamilyNamed("Sable")!;
-
-        t.ClickButton("Sable");
-        Assert.Equal(sable.For(ColorScheme.Light).Name, t.Ui.CurrentTheme.Name);   // le système est en clair dans les tests
-        Assert.Equal(sable.For(ColorScheme.Light).Palette.Page, t.Ui.ClearColor);
-
-        t.ClickButton("Sombre");
-        Assert.Equal(sable.For(ColorScheme.Dark).Name, t.Ui.CurrentTheme.Name);
-
-        t.ClickButton("Système");
-        Assert.Equal(sable.For(ColorScheme.Light).Name, t.Ui.CurrentTheme.Name);
-    }
-
-    [Fact]
     public void Zoom_is_clamped()
     {
         using var t = new TestHost(new ViewProbe(() => Text("x")));

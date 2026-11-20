@@ -16,6 +16,8 @@ internal sealed class ReactorTextBox : TextBox
 {
     readonly MenuItem _cut = new(), _copy = new(), _paste = new();
     TextBlock? _placeholder;
+    Decorator? _custom;
+    Control? _customContent;
 
     public ReactorTextBox()
     {
@@ -33,6 +35,21 @@ internal sealed class ReactorTextBox : TextBox
         ContextFlyout = menu;
     }
 
+    /// <summary>
+    /// Vue du modèle du champ (avec <see cref="ReactorThemes.TemplatedTextBox"/>) : elle dessine le cadre, la zone d'édition
+    /// est posée sur son emplacement <see cref="EditorSlot"/>. null sans modèle.
+    /// </summary>
+    public Control? CustomContent
+    {
+        get => _customContent;
+        set
+        {
+            if (ReferenceEquals(value, _customContent)) return;
+            _customContent = value;
+            ShowCustomContent();
+        }
+    }
+
     /// <summary>Libellés du menu contextuel, pris dans le thème de la branche.</summary>
     public void SetEditMenu(EditMenuLabels labels)
     {
@@ -45,6 +62,9 @@ internal sealed class ReactorTextBox : TextBox
     {
         base.OnApplyTemplate(e);
         _placeholder = e.NameScope.Find<TextBlock>("PART_Placeholder");
+        if (_custom is not null) _custom.Child = null;
+        _custom = e.NameScope.Find<Decorator>("PART_Custom");
+        ShowCustomContent();
         ShowPlaceholder();
     }
 
@@ -64,7 +84,19 @@ internal sealed class ReactorTextBox : TextBox
         if (change.Property == TextProperty) ShowPlaceholder();
     }
 
-    protected override Size MeasureOverride(Size availableSize) => base.MeasureOverride(availableSize).WithWidth(0);
+    /// <summary>Sans modèle, la largeur naturelle est celle du thème (<c>MinWidth</c>) ; avec, celle de la vue du modèle.</summary>
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var size = base.MeasureOverride(availableSize);
+        return _customContent is null ? size.WithWidth(0) : size;
+    }
+
+    void ShowCustomContent()
+    {
+        if (_custom is null || ReferenceEquals(_custom.Child, _customContent)) return;
+        if (_customContent?.Parent is Decorator previous) previous.Child = null;
+        _custom.Child = _customContent;
+    }
 
     void ShowPlaceholder()
     {

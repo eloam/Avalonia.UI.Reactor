@@ -14,6 +14,7 @@ internal sealed class ReactorCheckBox : CheckBox
     StackPanel? _layout;
     CheckGlyph? _glyph;
     Theme? _look;
+    bool _showsGlyph = true;
 
     public ReactorCheckBox() => Theme = ReactorThemes.CheckBox;
 
@@ -24,6 +25,17 @@ internal sealed class ReactorCheckBox : CheckBox
         set
         {
             _look = value;
+            Refresh();
+        }
+    }
+
+    /// <summary>Case dessinée par le thème ; faux quand un modèle fournit toute l'apparence (case et libellé) dans le contenu.</summary>
+    public bool ShowsGlyph
+    {
+        get => _showsGlyph;
+        set
+        {
+            _showsGlyph = value;
             Refresh();
         }
     }
@@ -44,8 +56,9 @@ internal sealed class ReactorCheckBox : CheckBox
 
     void Refresh()
     {
+        if (_glyph is not null) _glyph.IsVisible = _showsGlyph;
         if (_look is not { } theme) return;
-        if (_layout is not null) _layout.Spacing = Content is null ? 0 : theme.Checkbox.LabelSpacing;
-        _glyph?.Show(theme, IsChecked == true, IsPointerOver);
+        if (_layout is not null) _layout.Spacing = Content is null || !_showsGlyph ? 0 : theme.Checkbox.LabelSpacing;
+        if (_showsGlyph) _glyph?.Show(theme, IsChecked == true, IsPointerOver);
     }
 }
