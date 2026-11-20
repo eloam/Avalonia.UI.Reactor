@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Avalonia.UI.Reactor</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Avalonia 12 : contrôles, hôte de bureau (Windows, macOS, Linux) et thème Fluent, en attendant nos thèmes de contrôles. -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Avalonia.UI.Reactor.Core\Avalonia.UI.Reactor.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Les tests vérifient aussi le réconciliateur et ses contrôles (internes). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Avalonia.UI.Reactor.Headless.Tests" />
+  </ItemGroup>
+</Project>

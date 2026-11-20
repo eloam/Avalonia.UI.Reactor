@@ -1,5 +1,4 @@
 using Avalonia.UI.Reactor.Layout;
-using Avalonia.UI.Reactor.Runtime;
 using Avalonia.UI.Reactor.Views;
 
 namespace Avalonia.UI.Reactor.State;
@@ -9,7 +8,7 @@ namespace Avalonia.UI.Reactor.State;
 /// lors de son dernier calcul ; seul un changement de l'un d'eux la refait calculer.
 /// Garde aussi le résultat du layout pour le réutiliser tant que rien n'a changé dessous.
 /// </summary>
-internal sealed class Scope(UiHost host, string id, object? identity)
+internal sealed class Scope(IScopeHost host, string id, object? identity)
 {
     [ThreadStatic] internal static Scope? Current;
 

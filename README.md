@@ -304,13 +304,38 @@ place dans la fenêtre ; les raccourcis restent gérés par le framework.
 | La barre Win32 reste claire en mode sombre | Windows n'offre pas de mode sombre officiel pour ses menus |
 | Les menus dessinés restent dans la fenêtre (ils s'ouvrent vers le haut ou la gauche s'il le faut) | ils sont dessinés dans la fenêtre ; les en faire sortir demande des fenêtres surgissantes SDL |
 
+## Moteur Avalonia (migration en cours)
+
+Le même code d'application s'affiche avec les contrôles d'Avalonia : seul le lancement change.
+
+```csharp
+ReactorApp.Run<CounterApp>("Compteur", 400, 300);   // au lieu de Desktop.Run<CounterApp>(…)
+```
+
+Un réconciliateur applique l'arbre de vues à des contrôles Avalonia qu'il garde d'une mise à jour à l'autre : un
+contrôle est repris tant que sa vue garde le même chemin (son `Key`, sinon son rang) ; seules ses propriétés changent,
+il garde donc focus et survol, et une liste réordonnée déplace ses contrôles au lieu de les recréer. Le recalcul
+sélectif est celui de l'ancien moteur : seules les portées dont un état lu a changé sont réévaluées.
+
+| Déjà rendu par Avalonia | Pas encore (ancien moteur : `Desktop.Run`) |
+|---|---|
+| `Text`, `VStack` / `HStack` (`Spacer`, `.Grow()`, `.FillWidth()`, alignements), `Button` et ses styles, fond / bordure / angles / marge intérieure, polices et couleurs du thème, `.Theme(…)` / `.ColorScheme(…)` par branche, `ForEach`, `Observe`, composants imbriqués | `TextField`, `Checkbox`, `ZStack` / `Overlay`, `Canvas`, `Divider`, `Box`, menus, modèles de contrôles, actions `async`, hot reload, thème du système |
+
+Différences voulues avec l'ancien moteur :
+- **une bordure prend sa place**, comme en CSS et dans tous les contrôles Avalonia : avec `.Padding(16).Border(…, 2)`,
+  le contenu commence à 18 (l'ancien moteur la traçait par-dessus le contenu) ;
+- les contrôles sont habillés par le thème Fluent d'Avalonia (le survol d'un bouton prend sa couleur) en attendant nos
+  propres thèmes de contrôles.
+
 ## Architecture
 
 | Projet | Rôle | Dépendances |
 |---|---|---|
 | `Avalonia.UI.Reactor.Core` | Vues (records immuables), DSL, modificateurs, thèmes, état réactif, layout avec recalcul sélectif, rendu des widgets, runtime (événements, focus, édition de texte, async, hot reload) | **aucune** |
+| `Avalonia.UI.Reactor` | Moteur Avalonia : `ReactorApp`, réconciliateur (vues → contrôles), pile `FlexStack` | Avalonia 12 |
 | `Avalonia.UI.Reactor.Generators` | Générateur des propriétés `[State]` et analyseur de diagnostics (s'exécutent à la compilation) | Roslyn |
 | `tests/Avalonia.UI.Reactor.Tests` | Tests sans fenêtre (xUnit) | xUnit |
+| `tests/Avalonia.UI.Reactor.Headless.Tests` | Tests du moteur Avalonia, dans une vraie fenêtre sans écran : clics, mise en page, thèmes | xUnit v3, Avalonia.Headless |
 | `Avalonia.UI.Reactor.Skia` | Dessin sur Skia (GPU, antialiasing, texte) — réutilisable tel quel sur mobile | SkiaSharp |
 | `Avalonia.UI.Reactor.Desktop` | Fenêtre, moteur GPU (Direct3D 12 ou OpenGL sous Skia), entrées, presse-papiers, DPI, thème système, barre de menus Win32 | SDL3 (`ppy.SDL3-CS`), CsWin32 (déclarations Windows générées à la compilation) |
 | `samples/TodoDemo` | Démo : compteur, todo list, action async, sélecteur de thème | — |

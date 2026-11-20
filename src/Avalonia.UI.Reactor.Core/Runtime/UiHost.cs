@@ -12,7 +12,7 @@ namespace Avalonia.UI.Reactor.Runtime;
 /// gère survol / appui / focus / curseur texte, et dessine via un <see cref="IDrawingContext"/>.
 /// Un hôte (SDL3 aujourd'hui, Android/iOS demain) ne fait que relayer ses événements ici.
 /// </summary>
-public sealed class UiHost : IDisposable
+public sealed class UiHost : IDisposable, IScopeHost
 {
     readonly View _rootView;
     readonly ITextMeasurer _measurer;
@@ -49,7 +49,7 @@ public sealed class UiHost : IDisposable
     public Themes Themes { get; }
 
     /// <summary>Thème de la racine de la fenêtre (fond, réglages globaux comme le clignotement du curseur).</summary>
-    public Theme CurrentTheme => _root?.Theme ?? ViewTree.RootEnv(Themes).Theme;
+    public Theme CurrentTheme => _root?.Theme ?? ViewEnvironment.Root(Themes).Theme;
 
     /// <summary>Couleur de fond de la fenêtre (fond de page du thème racine).</summary>
     public Color ClearColor => CurrentTheme.Palette.Page;
@@ -189,6 +189,8 @@ public sealed class UiHost : IDisposable
         if (Interlocked.Exchange(ref _updatePending, 1) == 1) return;
         if (SynchronizationContext.Current != Dispatcher) Dispatcher.Post(static _ => { }, null);
     }
+
+    void IScopeHost.RequestUpdate() => RequestUpdate();
 
     /// <summary>Hot reload : tout réévaluer (appelé sur le thread d'interface).</summary>
     internal void ReloadAll()

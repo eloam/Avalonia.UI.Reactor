@@ -26,7 +26,7 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
     {
         _pass++;
         _evaluated = _reused = 0;
-        var env = RootEnv(themes);
+        var env = ViewEnvironment.Root(themes);
         var node = Measure(root, env, "r");
 
         // Les portées qui ont disparu de l'arbre se désabonnent de leurs états.
@@ -59,55 +59,13 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
     }
 
     /// <summary>Mesure une vue hors de l'arbre (vue produite par le modèle d'un contrôle).</summary>
-    public LayoutNode MeasureDetached(View view, LayoutEnv env, string id) => Measure(view, env, id);
-
-    static Font BaseFont(Theme t) => new(t.Typography.Family, t.Typography.Body.Size, t.Typography.Body.Weight);
-
-    /// <summary>Départ de la mise en page : première famille du catalogue, mode du système.</summary>
-    internal static LayoutEnv RootEnv(Themes themes)
-    {
-        var family = themes.DefaultFamily;
-        var scheme = themes.SystemScheme;
-        var theme = family.For(scheme);
-        return new LayoutEnv(themes, family, scheme, theme, BaseFont(theme), theme.Palette.Text);
-    }
+    public LayoutNode MeasureDetached(View view, ViewEnvironment env, string id) => Measure(view, env, id);
 
     /// <summary>Environnement de la vue produite par le modèle d'un contrôle : celui du contrôle.</summary>
-    internal static LayoutEnv EnvOf(LayoutNode owner, Themes themes) => new(
-        themes,
-        themes.FamilyOf(owner.Theme) ?? ThemeFamily.Of(owner.Theme.Name, owner.Theme),
-        owner.Theme.Scheme, owner.Theme, owner.Font, owner.Foreground);
+    internal static ViewEnvironment EnvOf(LayoutNode owner, Themes themes) =>
+        ViewEnvironment.Under(themes, owner.Theme, owner.Font, owner.Foreground);
 
-    /// <summary>
-    /// Thème d'une branche, déclaré par la vue elle-même :
-    /// <c>.Theme("Sable")</c> (famille du catalogue), <c>.Theme(famille)</c>, <c>.Theme(thème)</c> (thème précis)
-    /// et/ou <c>.ColorScheme(…)</c> (variante claire ou sombre). Sans rien de tout cela, la branche hérite du parent.
-    /// </summary>
-    static LayoutEnv BranchEnv(View v, LayoutEnv env)
-    {
-        if (v.Theme is null && v.ThemeName is null && v.ThemeFamily is null && v.Scheme is null) return env;
-
-        var family = env.Family;
-        var exact = v.Theme;
-        if (v.ThemeFamily is { } f) family = f;
-        else if (v.ThemeName is { } name)
-        {
-            if (env.Themes.FamilyNamed(name) is { } named) family = named;
-            else if (env.Themes[name] is { } byName) exact ??= byName;
-            else env.Themes.WarnUnknown(name);
-        }
-
-        // Un thème précis apporte sa famille (pour les .ColorScheme plus bas) et son mode.
-        if (exact is not null) family = env.Themes.FamilyOf(exact) ?? ThemeFamily.Of(exact.Name, exact);
-        var scheme = v.Scheme ?? exact?.Scheme ?? env.Scheme;
-        var theme = exact is not null && v.Scheme is null ? exact : family.For(scheme);
-
-        if (!ReferenceEquals(theme, env.Theme))
-            env = env with { Theme = theme, Font = BaseFont(theme), Foreground = theme.Palette.Text };
-        return env with { Family = family, Scheme = scheme };
-    }
-
-    LayoutNode MeasureScope(ScopeView sv, LayoutEnv env, string id)
+    LayoutNode MeasureScope(ScopeView sv, ViewEnvironment env, string id)
     {
         if (!_scopes.TryGetValue(id, out var scope) || !ReferenceEquals(scope.Identity, sv.Identity))
         {
@@ -126,7 +84,7 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
                           || (sv.Identity is null && !ReferenceEquals(sv, scope.LastView));
         scope.LastView = sv;
 
-        if (!reevaluate && scope.Node is not null && scope.EnvKey is LayoutEnv cached && cached == env
+        if (!reevaluate && scope.Node is not null && scope.EnvKey is ViewEnvironment cached && cached == env
             && !scope.Descendants.Any(d => d.IsDirty))
         {
             foreach (var d in scope.Descendants) d.LastVisit = _pass;
@@ -154,48 +112,20 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
         return node;
     }
 
-    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ScopeView, ZStackView> Wrappers = new();
-
-    /// <summary>
-    /// Modificateurs posés sur un composant (<c>counter.Padding(8)</c>) : ils s'appliquent à une enveloppe
-    /// autour de son contenu. L'enveloppe est mise en cache pour garder des références stables.
-    /// </summary>
-    static ZStackView? WrapperFor(ScopeView sv)
-    {
-        var plain = new ScopeView(sv.Build) { Identity = sv.Identity };
-        if (sv with { Key = null } == plain) return null;
-        return Wrappers.GetValue(sv, s =>
-            new ZStackView([plain]) { Alignment = Alignment.TopLeft }.CopyFrom(s) with { Key = null });
-    }
-
-    LayoutNode Measure(View v, LayoutEnv env, string id)
+    LayoutNode Measure(View v, ViewEnvironment env, string id)
     {
         if (v is ScopeView sv)
-            return WrapperFor(sv) is { } wrapper ? Measure(wrapper, env, id) : MeasureScope(sv, env, id);
+            return sv.ModifierWrapper() is { } wrapper ? Measure(wrapper, env, id) : MeasureScope(sv, env, id);
 
         // Groupe non déplié dans une pile (seul, ou avec des modificateurs) : il s'empile verticalement.
         if (v is GroupView group)
             return Measure(Ui.VStack([.. group.Children]).CopyFrom(group), env, id);
 
         // 1. Thème de la branche (déclaré par la vue, sinon hérité) ; s'il change, on repart de ses valeurs de base.
-        env = BranchEnv(v, env);
+        env = env.Enter(v);
         var theme = env.Theme;
 
-        // 2. Style de texte : modificateur explicite > style du thème > défaut de la primitive > hérité.
-        var typo = theme.Typography;
-        var spec = v.TextStyleName is { } styleName ? typo[styleName]
-                   : v.TextStyle is { } style ? typo[style]
-                   : null;
-        float size = v.FontSize
-                     ?? spec?.Size
-                     ?? (v is ButtonView ? theme.Button.FontSize : null)
-                     ?? env.Font.Size;
-        int weight = v.Bold is { } bold ? (bold ? typo.BoldWeight : typo.Body.Weight)
-                     : spec?.Weight
-                       ?? (v is ButtonView && theme.Button.Bold ? typo.BoldWeight : (int?)null)
-                       ?? env.Font.Weight;
-
-        // 3. Contrôle avec modèle : sa taille est celle de la vue du modèle (au repos) ; le modèle gère ses marges.
+        // 2. Contrôle avec modèle : sa taille est celle de la vue du modèle (au repos) ; le modèle gère ses marges.
         var template = ControlTemplates.Build(v, theme, hovered: false, pressed: false, focused: false);
 
         // Barre de menus du système (ou sans menus) : la vue ne prend aucune place, ni d'espacement dans sa pile.
@@ -207,8 +137,8 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
             View = v,
             Id = id,
             Theme = theme,
-            Font = new Font(typo.Family, size, weight),
-            Foreground = v.Foreground?.Resolve(theme.Palette) ?? env.Foreground,
+            Font = env.FontFor(v),
+            Foreground = env.ForegroundFor(v),
             Collapsed = collapsed,
             Padding = collapsed ? default : v.Padding ?? (template is not null ? default : v switch
             {
@@ -275,7 +205,7 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
         _ => (false, false),
     };
 
-    Size MeasureZStack(ZStackView z, LayoutNode node, LayoutEnv env)
+    Size MeasureZStack(ZStackView z, LayoutNode node, ViewEnvironment env)
     {
         float w = 0, h = 0;
         for (int i = 0; i < z.Children.Count; i++)
@@ -290,7 +220,7 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
     }
 
     /// <summary>Titres de la barre dessinée, côte à côte.</summary>
-    Size MeasureMenuBar(MenuBarView bar, LayoutNode node, LayoutEnv env)
+    Size MeasureMenuBar(MenuBarView bar, LayoutNode node, ViewEnvironment env)
     {
         float w = 0, h = 0;
         for (int i = 0; i < bar.Menus.Count; i++)
@@ -323,7 +253,7 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
         return new Size(ct.Size + ct.LabelSpacing + t.Width, Math.Max(ct.Size, t.Height));
     }
 
-    Size MeasureStack(StackView s, LayoutNode node, LayoutEnv env)
+    Size MeasureStack(StackView s, LayoutNode node, ViewEnvironment env)
     {
         bool vertical = s.Axis == Axis.Vertical;
         float main = 0, cross = 0;

@@ -1,4 +1,3 @@
-using Avalonia.UI.Reactor.Runtime;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 
@@ -24,7 +23,7 @@ public abstract class Component
     public abstract View Body { get; }
 
     /// <summary>Fenêtre qui affiche ce composant (renseignée à son premier affichage).</summary>
-    internal UiHost? Host { get; set; }
+    internal IScopeHost? Host { get; set; }
 
     /// <summary>
     /// Catalogue des thèmes de l'application, par exemple pour construire un sélecteur avec <c>Themes.Families</c>.
