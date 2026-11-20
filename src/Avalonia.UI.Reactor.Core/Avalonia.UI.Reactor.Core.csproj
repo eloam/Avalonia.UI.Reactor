@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Avalonia.UI.Reactor</RootNamespace>
+    <!-- Le paquet embarque le générateur [State] : une application n'a rien à configurer. -->
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);ReactorPackGenerator</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <!-- Les tests vérifient aussi des invariants internes (ex. ViewProps.CopyFrom n'oublie aucune propriété). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Avalonia.UI.Reactor.Tests" />
+  </ItemGroup>
+
+  <!-- Le générateur est demandé à son projet (chemin réel de sa sortie, même avec un dossier de sortie personnalisé), jamais lu dans bin/. -->
+  <Target Name="ReactorPackGenerator">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)../Avalonia.UI.Reactor.Generators/Avalonia.UI.Reactor.Generators.csproj" Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_ReactorGeneratorAssembly" />
+    </MSBuild>
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="@(_ReactorGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
+</Project>

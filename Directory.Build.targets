@@ -1,11 +1,11 @@
 <Project>
   <!--
     Générateur et analyseur [State] branchés automatiquement dans tous les projets du dépôt
-    (une application externe les reçoit via le paquet Mvu.Core, voir Mvu.Core.csproj).
-    PrivateAssets : le générateur n'est pas une dépendance des paquets, il est embarqué dans Mvu.Core.
+    (une application externe les reçoit via le paquet Avalonia.UI.Reactor.Core, voir Avalonia.UI.Reactor.Core.csproj).
+    PrivateAssets : le générateur n'est pas une dépendance des paquets, il est embarqué dans Avalonia.UI.Reactor.Core.
   -->
-  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Mvu.Generators' and '$(MvuAutoGenerator)' != 'false'">
-    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Mvu.Generators/Mvu.Generators.csproj"
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Avalonia.UI.Reactor.Generators' and '$(ReactorAutoGenerator)' != 'false'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.Generators/Avalonia.UI.Reactor.Generators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
@@ -19,6 +19,6 @@
     <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
   </PropertyGroup>
 
-  <!-- Mêmes règles de compilation que les applications qui utilisent le paquet Mvu.Desktop. -->
-  <Import Project="$(MSBuildThisFileDirectory)src/Mvu.Desktop/buildTransitive/Mvu.Desktop.targets" />
+  <!-- Mêmes règles de compilation que les applications qui utilisent le paquet Avalonia.UI.Reactor.Desktop. -->
+  <Import Project="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.Desktop/buildTransitive/Avalonia.UI.Reactor.Desktop.targets" />
 </Project>

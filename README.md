@@ -1,7 +1,10 @@
-# POC — UI déclarative en C#, sans XAML
+# Avalonia.UI.Reactor — UI déclarative en C#, sans XAML
 
-Framework maison, écriture façon SwiftUI : un composant = de l'état (`[State]`) + un `Body`.
+Écriture façon SwiftUI, la plus concise possible : un composant = de l'état (`[State]`) + un `Body`.
 Les actions s'écrivent directement dans la vue ; seul ce qui dépend de l'état modifié est recalculé.
+
+> **Migration en cours vers Avalonia** : les vues seront rendues par les contrôles d'Avalonia, à la place de l'hôte
+> actuel (SDL3 + Skia) décrit plus bas. Le code des applications (`Body`, `[State]`, modificateurs) ne change pas.
 
 ```csharp
 Desktop.Run<CounterApp>("Compteur", 400, 300);
@@ -35,10 +38,10 @@ une vue qui **lit** un état s'y abonne, et le **modifier** ne recalcule que les
 | `TextField(Bind.Draft)`, `Checkbox(todo.Bind.Done)` | Liaison à double sens, générée pour chaque `[State]` modifiable (comme `$draft` en SwiftUI). |
 | `Observe(() => …)` | Isole un bloc d'un `Body` sans créer de composant (ex. la ligne de saisie). |
 
-- Le code des propriétés est écrit à la compilation par un générateur Roslyn ([StateGenerator.cs](src/Mvu.Generators/StateGenerator.cs)),
-  l'équivalent du compilateur de Svelte. **Rien à configurer** : il est embarqué dans le package `Mvu.Core`
+- Le code des propriétés est écrit à la compilation par un générateur Roslyn ([StateGenerator.cs](src/Avalonia.UI.Reactor.Generators/StateGenerator.cs)),
+  l'équivalent du compilateur de Svelte. **Rien à configurer** : il est embarqué dans le package `Avalonia.UI.Reactor.Core`
   (et branché automatiquement dans ce dépôt par [Directory.Build.targets](Directory.Build.targets)).
-- Un analyseur ([StateAnalyzer.cs](src/Mvu.Generators/StateAnalyzer.cs)) signale les erreurs dès la compilation :
+- Un analyseur ([StateAnalyzer.cs](src/Avalonia.UI.Reactor.Generators/StateAnalyzer.cs)) signale les erreurs dès la compilation :
 
   | Code | Cas |
   |---|---|
@@ -67,8 +70,8 @@ dotnet run --project samples/TodoDemo
 dotnet test
 ```
 
-[tests/Mvu.Tests](tests/Mvu.Tests) fait tourner le vrai runtime et le vrai moteur de texte Skia sans fenêtre
-([TestHost.cs](tests/Mvu.Tests/TestHost.cs) : `ClickButton("+")`, `Type("…")`, `HasText("…")`, `WaitUntil(…)`) :
+[tests/Avalonia.UI.Reactor.Tests](tests/Avalonia.UI.Reactor.Tests) fait tourner le vrai runtime et le vrai moteur de texte Skia sans fenêtre
+([TestHost.cs](tests/Avalonia.UI.Reactor.Tests/TestHost.cs) : `ClickButton("+")`, `Type("…")`, `HasText("…")`, `WaitUntil(…)`) :
 
 - scénarios de la démo (compteur, saisie, coche, async, filtres, purge, thèmes) ;
 - recalcul sélectif (`UiHost.LastUpdate`), thread de fond, `StateList`, composants imbriqués ;
@@ -83,13 +86,13 @@ dotnet watch --project samples/TodoDemo
 Modifier une vue (`Body`, une méthode, une lambda) et enregistrer : la fenêtre se met à jour en ~1 s,
 **sans perdre l'état** (compteur, saisie, liste…). Fonctionne aussi avec le Hot Reload de Visual Studio et Rider.
 
-- Branchement : [HotReload.cs](src/Mvu.Core/Runtime/HotReload.cs) — un `MetadataUpdateHandler` qui réévalue tous les composants de chaque fenêtre ouverte.
+- Branchement : [HotReload.cs](src/Avalonia.UI.Reactor.Core/Runtime/HotReload.cs) — un `MetadataUpdateHandler` qui réévalue tous les composants de chaque fenêtre ouverte.
 - Non rechargé à chaud : les champs `static readonly` déjà initialisés (ex. un thème statique), et les modifications
   que .NET refuse (changer une signature, renommer une classe…) : `dotnet watch` redémarre alors l'application.
 
 ## Écrire des vues
 
-- **Primitives** (`using static Mvu.Views.Ui;`) : `Text`, `Button`, `TextField`, `Checkbox`, `VStack`, `HStack`, `ZStack`, `Group`, `ForEach`, `Canvas`, `Spacer`, `Divider`, `Box`.
+- **Primitives** (`using static Avalonia.UI.Reactor.Views.Ui;`) : `Text`, `Button`, `TextField`, `Checkbox`, `VStack`, `HStack`, `ZStack`, `Group`, `ForEach`, `Canvas`, `Spacer`, `Divider`, `Box`.
 - **Piles** : les enfants d'abord, le reste en modificateurs. Une pile **s'étire toute seule** si un enfant s'étire
   (`Spacer()`, `.Grow()`, `.FillWidth()`) : inutile d'écrire `.FillWidth()` sur la pile.
   ```csharp
@@ -134,7 +137,7 @@ pour le reste. Exemple complet : `ProgressRing` dans la démo — un contrôle s
 
 ## Thèmes
 
-Aucune couleur ni dimension n'est codée en dur : tout vient d'un `Theme` ([Theming/](src/Mvu.Core/Theming)).
+Aucune couleur ni dimension n'est codée en dur : tout vient d'un `Theme` ([Theming/](src/Avalonia.UI.Reactor.Core/Theming)).
 Clair et Sombre sont fournis ; un thème à soi se crée en partant de l'un d'eux et en ne changeant que ce qui diffère.
 
 ```csharp
@@ -261,7 +264,7 @@ var theme = Theme.Light.WithFont("Inter");
 - Pour une graisse non fournie, la plus proche est utilisée ; si elle est trop légère, le gras est simulé.
 - Le zoom se change aussi pendant l'exécution : `UiHost.Zoom`.
 - Moteur GPU : Skia dessine la même image ; sur Windows, elle passe par Direct3D 12 (chaîne d'affichage DXGI « flip »),
-  avec repli automatique sur OpenGL (message `[Mvu]`). Mesuré sur la démo : environ 20 % de processeur en moins par rendu
+  avec repli automatique sur OpenGL (message `[Reactor]`). Mesuré sur la démo : environ 20 % de processeur en moins par rendu
   qu'avec OpenGL, environ 20 Mo de mémoire privée en plus (tampons d'affichage), plateau stable.
 - Au repos (aucun champ actif), la boucle de la fenêtre dort jusqu'au prochain événement : aucune consommation de processeur.
 
@@ -297,7 +300,7 @@ place dans la fenêtre ; les raccourcis restent gérés par le framework.
 
 | Limite actuelle | Pourquoi |
 |---|---|
-| Barre du système de macOS pas encore faite : la barre dessinée la remplace (message `[Mvu]`) | il faut un hôte `net10.0-macos` (AppKit), à compiler sur un Mac |
+| Barre du système de macOS pas encore faite : la barre dessinée la remplace (message `[Reactor]`) | il faut un hôte `net10.0-macos` (AppKit), à compiler sur un Mac |
 | La barre Win32 reste claire en mode sombre | Windows n'offre pas de mode sombre officiel pour ses menus |
 | Les menus dessinés restent dans la fenêtre (ils s'ouvrent vers le haut ou la gauche s'il le faut) | ils sont dessinés dans la fenêtre ; les en faire sortir demande des fenêtres surgissantes SDL |
 
@@ -305,17 +308,17 @@ place dans la fenêtre ; les raccourcis restent gérés par le framework.
 
 | Projet | Rôle | Dépendances |
 |---|---|---|
-| `Mvu.Core` | Vues (records immuables), DSL, modificateurs, thèmes, état réactif, layout avec recalcul sélectif, rendu des widgets, runtime (événements, focus, édition de texte, async, hot reload) | **aucune** |
-| `Mvu.Generators` | Générateur des propriétés `[State]` et analyseur de diagnostics (s'exécutent à la compilation) | Roslyn |
-| `tests/Mvu.Tests` | Tests sans fenêtre (xUnit) | xUnit |
-| `Mvu.Skia` | Dessin sur Skia (GPU, antialiasing, texte) — réutilisable tel quel sur mobile | SkiaSharp |
-| `Mvu.Desktop` | Fenêtre, moteur GPU (Direct3D 12 ou OpenGL sous Skia), entrées, presse-papiers, DPI, thème système, barre de menus Win32 | SDL3 (`ppy.SDL3-CS`), CsWin32 (déclarations Windows générées à la compilation) |
+| `Avalonia.UI.Reactor.Core` | Vues (records immuables), DSL, modificateurs, thèmes, état réactif, layout avec recalcul sélectif, rendu des widgets, runtime (événements, focus, édition de texte, async, hot reload) | **aucune** |
+| `Avalonia.UI.Reactor.Generators` | Générateur des propriétés `[State]` et analyseur de diagnostics (s'exécutent à la compilation) | Roslyn |
+| `tests/Avalonia.UI.Reactor.Tests` | Tests sans fenêtre (xUnit) | xUnit |
+| `Avalonia.UI.Reactor.Skia` | Dessin sur Skia (GPU, antialiasing, texte) — réutilisable tel quel sur mobile | SkiaSharp |
+| `Avalonia.UI.Reactor.Desktop` | Fenêtre, moteur GPU (Direct3D 12 ou OpenGL sous Skia), entrées, presse-papiers, DPI, thème système, barre de menus Win32 | SDL3 (`ppy.SDL3-CS`), CsWin32 (déclarations Windows générées à la compilation) |
 | `samples/TodoDemo` | Démo : compteur, todo list, action async, sélecteur de thème | — |
 
 Un type par fichier, rangé par rôle :
 
 ```
-src/Mvu.Core/
+src/Avalonia.UI.Reactor.Core/
   Primitives/   Color, Point, Size, Rect, Thickness, Font, Alignment… et les petites énumérations
   Theming/      Theme, ThemeFamily, Themes (catalogue), Palette, Typography, ColorValue, thèmes des contrôles
   Views/        View et ses records (TextView, ButtonView, StackView, ZStackView, CanvasView…),
@@ -331,11 +334,11 @@ samples/TodoDemo/
   Components/   TodoApp, CounterCard, TodoList
   Models/       Todo, Filter, Appearance
   Widgets.cs    Card, Segmented, ProgressRing (composants sans état)
-tests/Mvu.Tests/
+tests/Avalonia.UI.Reactor.Tests/
   *Tests.cs     un fichier par thème ; Probes/ contient les petits composants de test
 ```
 
-Chaque dossier est un espace de noms (`Mvu.Views`, `Mvu.State`, `Mvu.Theming`…). Une application les importe une fois dans un `GlobalUsings.cs` (voir celui de la démo).
+Chaque dossier est un espace de noms (`Avalonia.UI.Reactor.Views`, `Avalonia.UI.Reactor.State`, `Avalonia.UI.Reactor.Theming`…). Une application les importe une fois dans un `GlobalUsings.cs` (voir celui de la démo).
 
 Le flux : `événement → action → état modifié → Body des seuls composants abonnés → layout (le reste vient du cache) → rendu`.
 Survol, appui, focus et curseur texte sont gérés par le runtime, hors de l'état de l'application.
@@ -349,7 +352,7 @@ SDL3 et Skia ne sont **pas** des frameworks UI : ce sont les couches fenêtre/en
   (fenêtres surgissantes SDL, aussi utiles pour le menu contextuel et les listes déroulantes), menu contextuel.
 - **Navigation** (`NavigationStack`, push/pop) : les composants imbriqués avec état sont en place, c'est la brique suivante.
 - Listes virtualisées (ne construire que les lignes visibles), à faire avec le `ScrollView`.
-- **Mobile** : hôtes Android/iOS réutilisant `Mvu.Core` et `Mvu.Skia` tels quels (rendu identique partout), puis tactile et clavier virtuel.
+- **Mobile** : hôtes Android/iOS réutilisant `Avalonia.UI.Reactor.Core` et `Avalonia.UI.Reactor.Skia` tels quels (rendu identique partout), puis tactile et clavier virtuel.
 - `ScrollView`, texte multi-ligne, images, animations.
 - Robustesse : barrière d'erreur dans les `Body`, cache de mesure du texte.
 - Modèles pour les futurs contrôles (`ScrollView`, listes…), table de raccourcis clavier modifiable, caractère de troncature (`…`) réglable.

@@ -1,6 +1,6 @@
-using Mvu.Primitives;
-using Mvu.Theming;
-using Mvu.Views;
+using Avalonia.UI.Reactor.Primitives;
+using Avalonia.UI.Reactor.Theming;
+using Avalonia.UI.Reactor.Views;
 
 namespace TodoDemo;
 

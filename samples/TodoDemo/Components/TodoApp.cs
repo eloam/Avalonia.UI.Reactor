@@ -1,8 +1,8 @@
-using Mvu.Desktop;
-using Mvu.Primitives;
-using Mvu.State;
-using Mvu.Theming;
-using Mvu.Views;
+using Avalonia.UI.Reactor.Desktop;
+using Avalonia.UI.Reactor.Primitives;
+using Avalonia.UI.Reactor.State;
+using Avalonia.UI.Reactor.Theming;
+using Avalonia.UI.Reactor.Views;
 
 namespace TodoDemo;
 
