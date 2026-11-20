@@ -27,6 +27,9 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     /// <summary>Bilan de la dernière mise à jour : portées réévaluées, reprises telles quelles, total.</summary>
     public UpdateStats LastStats { get; private set; }
 
+    /// <summary>Nœud de la barre de menus affichée dans la fenêtre (ses raccourcis), null s'il n'y en a pas.</summary>
+    public Node? MenuBar { get; set; }
+
     /// <summary>Thème de la vue racine à la dernière mise à jour (fond de la fenêtre).</summary>
     public Theme? RootTheme => _root?.Environment.Theme;
 

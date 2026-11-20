@@ -201,33 +201,13 @@ internal sealed class MenuController(UiHost host)
         return true;
     }
 
-    /// <summary>
-    /// Raccourci d'un élément de la barre, actif même menus fermés. Pendant une saisie de texte, seuls les raccourcis
-    /// avec Ctrl, Alt, Cmd ou une touche de fonction s'appliquent (une simple lettre reste une lettre tapée).
-    /// </summary>
+    /// <summary>Raccourci d'un élément de la barre (voir <see cref="MenuShortcuts"/>) : ferme les menus et exécute son action.</summary>
     public bool TryShortcut(KeyCode key, KeyModifiers modifiers, bool editingText)
     {
-        if (Bar is null || Find(Bar.Menus, key, modifiers) is not (var item, var gesture)) return false;
-        if (editingText && !gesture.IsCommand) return false;
+        if (Bar is null || MenuShortcuts.Find(Bar, key, modifiers, editingText) is not { } item) return false;
         Close();
         if (item.IsEnabled) host.RunAction(item.Action);
         return true;
-    }
-
-    /// <summary>Élément (et son raccourci) qui répond à cette touche, dans tous les menus et sous-menus.</summary>
-    static (MenuItemView Item, KeyGesture Gesture)? Find(IEnumerable<View> items, KeyCode key, KeyModifiers modifiers)
-    {
-        foreach (var item in items)
-        {
-            var found = item switch
-            {
-                MenuItemView { Gesture: { } g } i when g.Matches(key, modifiers) => (i, g),
-                MenuView m => Find(m.Items, key, modifiers),
-                _ => null,
-            };
-            if (found is not null) return found;
-        }
-        return null;
     }
 
     // ── Mise en page des menus ouverts ──

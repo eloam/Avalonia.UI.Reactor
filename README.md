@@ -319,7 +319,7 @@ sélectif est celui de l'ancien moteur : seules les portées dont un état lu a 
 
 | Déjà rendu par Avalonia | Pas encore (ancien moteur : `Desktop.Run`) |
 |---|---|
-| `Text`, `VStack` / `HStack` (`Spacer`, `.Grow()`, `.FillWidth()`, alignements), `Button` et ses styles, `TextField` (TextBox d'Avalonia : sélection, annuler, IME), `Checkbox`, `ZStack` / `Overlay`, `Canvas`, `Divider`, `Box`, `.OnTap`, fond / bordure / angles / marge, thème par branche, `ForEach`, `Observe`, modificateurs sur un composant, actions `async`, erreurs non fatales, hot reload | menus, modèles de contrôles (`.Template`), menu contextuel des champs, polices embarquées |
+| `Text`, `VStack` / `HStack` (`Spacer`, `.Grow()`, `.FillWidth()`, alignements), `Button` et ses styles, `TextField` (TextBox d'Avalonia : sélection, annuler, IME), `Checkbox`, `ZStack` / `Overlay`, `Canvas`, `Divider`, `Box`, `.OnTap`, fond / bordure / angles / marge, thème par branche, `ForEach`, `Observe`, modificateurs sur un composant, actions `async`, erreurs non fatales, hot reload, barre de menus (dessinée, ou celle du système sur macOS ; raccourcis, coches, lettres d'accès, sous-menus), menu contextuel des champs | modèles de contrôles (`.Template`), apparence des menus ouverts (thème Fluent), polices embarquées |
 
 Champs et cases sont **contrôlés** : la saisie part vers l'état, puis le contrôle affiche la valeur de sa vue (un état
 qui refuse ou transforme la saisie l'emporte). Un `Canvas` suit les états lus pendant son dessin : il est redessiné

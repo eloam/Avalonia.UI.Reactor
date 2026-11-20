@@ -38,6 +38,7 @@ internal abstract class ViewAdapter
         BoxView => BoxAdapter.Instance,
         ZStackView => ZStackAdapter.Instance,
         CanvasView => CanvasAdapter.Instance,
+        MenuBarView => MenuBarAdapter.Instance,
         _ => throw new NotSupportedException(
             $"The view '{view.GetType().Name}' is not supported by the Avalonia host yet. Use the SDL host ('Desktop.Run') for this screen."),
     };

@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -7,6 +9,7 @@ using Avalonia.VisualTree;
 
 namespace Avalonia.UI.Reactor.Hosting;
 
+using Avalonia.UI.Reactor.Menus;
 using Avalonia.UI.Reactor.Reconciliation;
 using Avalonia.UI.Reactor.Runtime;
 using Avalonia.UI.Reactor.State;
@@ -25,8 +28,10 @@ internal sealed class ReactorHost : Border, IScopeHost
     readonly Reconciler _reconciler;
     readonly Action _themesChanged;
     readonly EventHandler<PlatformColorValues> _systemColorsChanged;
+    readonly EventHandler<KeyEventArgs> _keyDown;
     readonly ThemeVariantScope _variant = new();
     IPlatformSettings? _platform;
+    TopLevel? _window;
     int _updatePending = 1;
     bool _attached;
 
@@ -37,6 +42,7 @@ internal sealed class ReactorHost : Border, IScopeHost
         _reconciler = new Reconciler(this, Run);
         _themesChanged = RequestUpdate;
         _systemColorsChanged = (_, colors) => Themes.SystemScheme = SchemeOf(colors);
+        _keyDown = OnKeyDown;
         Child = _variant;
     }
 
@@ -104,6 +110,8 @@ internal sealed class ReactorHost : Border, IScopeHost
         _attached = true;
         Themes.Changed += _themesChanged;
         HotReload.Register(this);
+        _window = TopLevel.GetTopLevel(this);
+        _window?.AddHandler(KeyDownEvent, _keyDown, RoutingStrategies.Bubble);
         // Mode clair ou sombre du système, suivi tant que la fenêtre est ouverte.
         _platform = this.GetPlatformSettings();
         if (_platform is not null)
@@ -126,8 +134,24 @@ internal sealed class ReactorHost : Border, IScopeHost
         Themes.Changed -= _themesChanged;
         HotReload.Unregister(this);
         if (_platform is not null) _platform.ColorValuesChanged -= _systemColorsChanged;
+        _window?.RemoveHandler(KeyDownEvent, _keyDown);
+        _window = null;
         _platform = null;
         _reconciler.Dispose();
+    }
+
+    /// <summary>
+    /// Raccourcis de la barre de menus, actifs dans toute la fenêtre même menus fermés : reçus après le contrôle qui a
+    /// le focus (un champ garde ses touches d'édition). La barre du système, quand elle s'affiche, les exécute elle-même.
+    /// </summary>
+    void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Handled || _reconciler.MenuBar is not { View: MenuBarView bar, Content: ReactorMenuBar { UsesSystemBar: false } }) return;
+        if (KeyMap.ToKeyCode(e.Key) is not { } key) return;
+        bool editing = _window?.FocusManager?.GetFocusedElement() is TextBox;
+        if (MenuShortcuts.Find(bar, key, KeyMap.ToModifiers(e.KeyModifiers), editing) is not { } item) return;
+        e.Handled = true;
+        if (item.IsEnabled) Run(item.Action);
     }
 
     static ColorScheme SchemeOf(PlatformColorValues colors) =>

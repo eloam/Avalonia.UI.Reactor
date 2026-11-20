@@ -58,6 +58,7 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextB
 
         if (field.Text != view.Value) field.Text = view.Value;
         field.PlaceholderText = view.Placeholder;
+        field.SetEditMenu(style.EditMenu);
         field.SetFont(env.FontFor(view));
         field.SetBrush(TemplatedControl.BackgroundProperty, theme[view.Background ?? style.Background]);
         field.SetBrush(TemplatedControl.ForegroundProperty, theme[view.Foreground ?? style.Foreground]);

@@ -41,13 +41,14 @@ internal sealed class FlexStack : Panel
             : new Size(double.PositiveInfinity, availableSize.Height);
 
         double main = 0, cross = 0;
-        foreach (var child in Children)
+        foreach (var child in Shown)
         {
             child.Measure(offered);
             main += MainOf(child.DesiredSize);
             cross = Math.Max(cross, CrossOf(child.DesiredSize));
         }
-        if (Children.Count > 1) main += Spacing * (Children.Count - 1);
+        int shown = Shown.Count();
+        if (shown > 1) main += Spacing * (shown - 1);
         return Vertical ? new Size(cross, main) : new Size(main, cross);
     }
 
@@ -57,16 +58,16 @@ internal sealed class FlexStack : Panel
         double crossAvailable = CrossOf(finalSize);
 
         double fixedSum = 0, growSum = 0;
-        foreach (var child in Children)
+        foreach (var child in Shown)
         {
             fixedSum += MainOf(child.DesiredSize);
             growSum += GrowOf(child);
         }
-        double spacing = Spacing * Math.Max(0, Children.Count - 1);
+        double spacing = Spacing * Math.Max(0, Shown.Count() - 1);
         double remaining = Math.Max(0, mainAvailable - fixedSum - spacing);
 
         double position = 0;
-        foreach (var child in Children)
+        foreach (var child in Shown)
         {
             double grow = GrowOf(child);
             double main = MainOf(child.DesiredSize) + (grow > 0 ? remaining * grow / growSum : 0);
@@ -81,6 +82,9 @@ internal sealed class FlexStack : Panel
         }
         return finalSize;
     }
+
+    /// <summary>Enfants affichés : un enfant masqué (barre de menus confiée au système) ne prend ni place ni espacement.</summary>
+    IEnumerable<Control> Shown => Children.Where(child => child.IsVisible);
 
     double MainOf(Size size) => Vertical ? size.Height : size.Width;
 

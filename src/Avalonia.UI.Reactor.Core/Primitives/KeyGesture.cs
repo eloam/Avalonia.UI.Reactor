@@ -59,7 +59,7 @@ public readonly record struct KeyGesture(KeyCode Key, KeyModifiers Modifiers = K
     internal static KeyModifiers CommandModifier => OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Ctrl;
 
     /// <summary>Modificateurs réellement attendus sur cette plateforme (Ctrl devient Cmd sur macOS).</summary>
-    KeyModifiers Effective => Modifiers.HasFlag(KeyModifiers.Ctrl)
+    internal KeyModifiers Effective => Modifiers.HasFlag(KeyModifiers.Ctrl)
         ? (Modifiers & ~KeyModifiers.Ctrl) | CommandModifier
         : Modifiers;
 

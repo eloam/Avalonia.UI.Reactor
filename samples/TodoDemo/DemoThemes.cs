@@ -7,14 +7,16 @@ namespace TodoDemo;
 /// <summary>
 /// Le catalogue de thèmes de la démo : la famille Standard (Clair et Sombre du framework) et la famille
 /// « Sable », faite maison, avec sa variante de nuit. Chaque thème reçoit ce que la démo utilise en plus
-/// des rôles standard : une couleur « success », un style de bouton « success » et un style de texte « caption ».
+/// des rôles standard : une couleur « success », un style de bouton « success », un style de texte « caption »
+/// et le menu contextuel des champs en français.
 /// </summary>
 public static class DemoThemes
 {
     static Theme WithDemoExtras(this Theme theme, Color success) => theme
         .WithColor("success", success)
         .WithButtonStyle("success", new ButtonVariant(Background: "success", Foreground: ColorRole.OnAccent))
-        .WithTextStyle("caption", size: 12);
+        .WithTextStyle("caption", size: 12)
+        .WithTextField(f => f with { EditMenu = new("Couper", "Copier", "Coller") });
 
     public static readonly Theme Light = Theme.Light.WithDemoExtras(success: "#16A34A");
     public static readonly Theme Dark = Theme.Dark.WithDemoExtras(success: "#22C55E");

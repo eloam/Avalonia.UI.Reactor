@@ -91,10 +91,17 @@ internal sealed class ReactorTestHost : IDisposable
         Settle();
     }
 
-    public void Press(Key key, PhysicalKey physicalKey)
+    /// <summary>
+    /// Touche des commandes de la plateforme (Cmd sur macOS, Ctrl ailleurs) : celle que l'utilisateur enfonce pour un
+    /// raccourci déclaré <c>"Ctrl+…"</c>.
+    /// </summary>
+    public static RawInputModifiers Command =>
+        Primitives.KeyGesture.CommandModifier == Primitives.KeyModifiers.Meta ? RawInputModifiers.Meta : RawInputModifiers.Control;
+
+    public void Press(Key key, PhysicalKey physicalKey, RawInputModifiers modifiers = RawInputModifiers.None)
     {
-        Window.KeyPress(key, RawInputModifiers.None, physicalKey, null);
-        Window.KeyRelease(key, RawInputModifiers.None, physicalKey, null);
+        Window.KeyPress(key, modifiers, physicalKey, null);
+        Window.KeyRelease(key, modifiers, physicalKey, null);
         Settle();
     }
 
