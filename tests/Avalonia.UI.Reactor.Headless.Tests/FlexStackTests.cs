@@ -1,4 +1,3 @@
-using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Headless.Tests;
@@ -7,6 +6,7 @@ using Avalonia.UI.Reactor.Headless.Tests.Probes;
 using Avalonia.UI.Reactor.Panels;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
+using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
 /// <summary>Les piles suivent les règles de SwiftUI, comme dans l'ancien moteur (fenêtre de 400 × 300).</summary>
@@ -49,7 +49,7 @@ public class FlexStackTests
     {
         using var t = new ReactorTestHost(new ViewProbe(() => HStack(Text("a"), Button("b"))));
 
-        Assert.Equal(t.BoundsOf(t.ButtonLabeled("b")).Center.Y, t.BoundsOf(t.TextShowing("a")).Center.Y, precision: 1);
+        Assert.Equal(t.BoundsOf(t.ButtonLabeled("b")).Center.Y, t.BoundsOf(t.TextShowing("a")).Center.Y, tolerance: 1);
     }
 
     [AvaloniaFact]
@@ -70,16 +70,16 @@ public class FlexStackTests
     }
 
     [AvaloniaFact]
-    public void Padding_background_border_and_radius_are_drawn_by_an_enclosing_border()
+    public void Padding_background_border_and_radius_are_drawn_by_an_enclosing_surface()
     {
         using var t = new ReactorTestHost(new ViewProbe(() =>
             VStack(Text("a")).Padding(16).Background(ColorRole.Surface).Border(ColorRole.Border, 2).Radius(10)));
 
-        var border = Assert.IsType<Border>(t.Host.Child);
-        Assert.Equal(new Thickness(16), border.Padding);
-        Assert.Equal(new Thickness(2), border.BorderThickness);
-        Assert.Equal(new CornerRadius(10), border.CornerRadius);
-        Assert.Equal(Theme.Light.Palette.Surface.ToAvaloniaColor(), border.Background.ColorOf());
+        var surface = Assert.IsType<Surface>(t.Host.Child);
+        Assert.Equal(new Thickness(16), surface.Padding);
+        Assert.Equal(new Thickness(2), surface.BorderThickness);
+        Assert.Equal(new CornerRadius(10), surface.CornerRadius);
+        Assert.Equal(Theme.Light.Palette.Surface.ToAvaloniaColor(), surface.Background.ColorOf());
         // La bordure prend sa place, comme en CSS et dans les contrôles Avalonia : le contenu commence après elle.
         Assert.Equal(new Point(18, 18), t.BoundsOf(t.TextShowing("a")).TopLeft);
     }

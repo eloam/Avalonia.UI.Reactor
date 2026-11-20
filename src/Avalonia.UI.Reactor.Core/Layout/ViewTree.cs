@@ -70,7 +70,7 @@ internal sealed class ViewTree(UiHost host, ITextMeasurer measurer)
         if (!_scopes.TryGetValue(id, out var scope) || !ReferenceEquals(scope.Identity, sv.Identity))
         {
             scope?.Dispose();
-            scope = new Scope(host, id, sv.Identity);
+            scope = new Scope(host.RequestUpdate, id, sv.Identity);
             _scopes[id] = scope;
             if (sv.Identity is Component component) component.Host = host; // accès à Themes depuis le composant
         }

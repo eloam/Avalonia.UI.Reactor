@@ -1,6 +1,10 @@
+using System.Runtime.InteropServices;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -11,14 +15,17 @@ using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 
 /// <summary>
-/// Une vraie fenêtre Avalonia, sans écran : le composant y est affiché par le moteur réel, et les clics passent par
-/// les entrées de la plateforme (pointeur enfoncé puis relâché au centre du contrôle), comme pour un utilisateur.
+/// Une vraie fenêtre Avalonia, sans écran : le composant y est affiché par le moteur réel et dessiné par Skia. Clics,
+/// survol et saisie passent par les entrées de la plateforme, comme pour un utilisateur.
 /// </summary>
 internal sealed class ReactorTestHost : IDisposable
 {
+    readonly List<Exception> _errors = [];
+
     public ReactorTestHost(Component root, double width = 400, double height = 300, Themes? themes = null)
     {
         Host = new ReactorHost(root, themes ?? Themes.Default);
+        Host.UnhandledException += _errors.Add;
         Window = new Window { Width = width, Height = height, Content = Host };
         Window.Show();
         Settle();
@@ -31,15 +38,24 @@ internal sealed class ReactorTestHost : IDisposable
     /// <summary>Portées réévaluées, reprises telles quelles et total à la dernière mise à jour.</summary>
     public UpdateStats Stats => Host.LastUpdate;
 
+    /// <summary>Erreurs signalées par les actions, sans que l'application s'arrête.</summary>
+    public IReadOnlyList<Exception> Errors => _errors;
+
     public IEnumerable<Control> Controls => Window.GetVisualDescendants().OfType<Control>();
 
     public Button ButtonLabeled(string label) => Controls.OfType<Button>().Single(b => Equals(b.Content, label));
 
     public bool HasButton(string label) => Controls.OfType<Button>().Any(b => Equals(b.Content, label));
 
-    /// <summary>Textes affichés par des vues <c>Text</c> (pas les libellés des boutons).</summary>
+    /// <summary>Le seul champ de saisie de la fenêtre.</summary>
+    public TextBox Field => Controls.OfType<TextBox>().Single();
+
+    /// <summary>Une case par son libellé (null : la case sans libellé).</summary>
+    public CheckBox CheckBoxLabeled(string? label) => Controls.OfType<CheckBox>().Single(b => Equals(b.Content, label));
+
+    /// <summary>Textes affichés par des vues <c>Text</c> (pas les libellés des boutons, cases et champs).</summary>
     public IReadOnlyList<TextBlock> Texts =>
-        [.. Controls.OfType<TextBlock>().Where(t => t.FindAncestorOfType<Button>() is null)];
+        [.. Controls.OfType<TextBlock>().Where(t => !t.GetVisualAncestors().TakeWhile(a => a != Host).Any(a => a is TemplatedControl))];
 
     public TextBlock TextShowing(string text) => Texts.Single(t => t.Text == text);
 
@@ -52,15 +68,47 @@ internal sealed class ReactorTestHost : IDisposable
 
     public void ClickButton(string label) => Click(ButtonLabeled(label));
 
-    public void Click(Control control)
+    public void Click(Control control) => ClickAt(BoundsOf(control).Center);
+
+    public void ClickAt(Point point)
     {
-        var center = BoundsOf(control).Center;
-        Window.MouseDown(center, MouseButton.Left);
-        Window.MouseUp(center, MouseButton.Left);
+        Window.MouseDown(point, MouseButton.Left);
+        Window.MouseUp(point, MouseButton.Left);
         Settle();
     }
 
-    /// <summary>Exécute le travail en attente sur le thread d'interface (mises à jour planifiées), puis la mise en page.</summary>
+    /// <summary>Pointeur au-dessus du contrôle, sans cliquer.</summary>
+    public void Hover(Control control)
+    {
+        Window.MouseMove(BoundsOf(control).Center);
+        Settle();
+    }
+
+    /// <summary>Texte tapé dans le contrôle qui a le focus.</summary>
+    public void Type(string text)
+    {
+        Window.KeyTextInput(text);
+        Settle();
+    }
+
+    public void Press(Key key, PhysicalKey physicalKey)
+    {
+        Window.KeyPress(key, RawInputModifiers.None, physicalKey, null);
+        Window.KeyRelease(key, RawInputModifiers.None, physicalKey, null);
+        Settle();
+    }
+
+    /// <summary>Couleur d'un pixel de la fenêtre, après un rendu complet par Skia.</summary>
+    public Color PixelAt(double x, double y)
+    {
+        using var frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("The window has not been rendered.");
+        using var buffer = frame.Lock();
+        int value = Marshal.ReadInt32(buffer.Address, (int)y * buffer.RowBytes + (int)x * 4);
+        byte c0 = (byte)value, c1 = (byte)(value >> 8), c2 = (byte)(value >> 16), a = (byte)(value >> 24);
+        return buffer.Format == PixelFormat.Rgba8888 ? Color.FromArgb(a, c0, c1, c2) : Color.FromArgb(a, c2, c1, c0);
+    }
+
+    /// <summary>Exécute le travail en attente sur le thread d'interface (mises à jour planifiées, suites d'await), puis la mise en page.</summary>
     public void Settle()
     {
         Dispatcher.UIThread.RunJobs();

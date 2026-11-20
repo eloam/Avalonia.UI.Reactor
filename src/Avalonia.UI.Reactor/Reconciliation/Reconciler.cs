@@ -4,9 +4,11 @@ using Avalonia.Controls;
 
 namespace Avalonia.UI.Reactor.Reconciliation;
 
+using Avalonia.UI.Reactor.Panels;
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
+using Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
 /// Applique un arbre de vues (records immuables) à un arbre de contrôles Avalonia qu'il garde d'une mise à jour à
@@ -56,6 +58,12 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         _root = null;
     }
 
+    /// <summary>Hot reload : toutes les portées seront réévaluées à la prochaine mise à jour.</summary>
+    public void MarkAllDirty()
+    {
+        foreach (var scope in _scopes.Values) scope.MarkDirty();
+    }
+
     /// <summary>Applique une vue à la place <paramref name="id"/>, en reprenant le nœud qui l'occupait s'il convient.</summary>
     internal Node Reconcile(Node? existing, View view, ViewEnvironment env, string id)
     {
@@ -72,10 +80,23 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             : new Node(id, adapter, view, n => adapter.Create(this, n));
         node.View = view;
         node.Environment = env;
-        adapter.Update(this, node, view, env);
-        if (!adapter.DrawsDecoration) Decorate(node, view, env.Theme);
+        Apply(node, () => adapter.Update(this, node, view, env));
+        Decorate(node, view, env.Theme);
         Place(node, view);
         return node;
+    }
+
+    /// <summary>
+    /// Pose des propriétés sur le contrôle d'un nœud : les événements qu'elles déclenchent (texte, case) viennent de la
+    /// vue et ne repartent pas vers l'état. Sert aussi après l'action d'un contrôle « contrôlé » (champ, case) : si
+    /// l'état n'a pas suivi (pas d'action, saisie refusée), aucune portée n'est réévaluée et c'est ainsi que le
+    /// contrôle reprend la valeur de sa vue.
+    /// </summary>
+    internal static void Apply(Node node, Action set)
+    {
+        node.Applying = true;
+        try { set(); }
+        finally { node.Applying = false; }
     }
 
     /// <summary>
@@ -141,7 +162,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         if (!_scopes.TryGetValue(id, out var scope) || !ReferenceEquals(scope.Identity, view.Identity))
         {
             if (scope is not null) Release(scope);
-            scope = new Scope(host, id, view.Identity);
+            scope = new Scope(host.RequestUpdate, id, view.Identity);
             _scopes[id] = scope;
             if (view.Identity is Component component) component.Host = host; // accès à Themes depuis le composant
         }
@@ -192,17 +213,20 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     }
 
     /// <summary>
-    /// Fond, bordure, angles et marge intérieure d'une vue dont le contrôle ne les dessine pas (texte, pile, espace) :
-    /// une enveloppe <see cref="Border"/> les porte, posée seulement quand la vue en déclare.
+    /// Enveloppe d'une vue dont le contrôle ne dessine pas lui-même fond, bordure, angles et marge intérieure (texte,
+    /// pile, case…), ou d'une vue cliquable (<c>.OnTap</c>) : une <see cref="Surface"/>, posée seulement quand la vue en
+    /// a besoin. Le contrôle passe dedans, puis en ressort, sans être recréé.
     /// </summary>
-    static void Decorate(Node node, View view, Theme theme)
+    void Decorate(Node node, View view, Theme theme)
     {
-        bool needed = view.Background is not null || view.BorderColor is not null
-                      || view.CornerRadius is not null || view.Padding is not null;
+        if (node.Content is Surface) return; // une boîte est déjà une surface : son adaptateur l'habille
+        bool decorated = view.Background is not null || view.BorderColor is not null
+                         || view.CornerRadius is not null || view.Padding is not null;
+        bool needed = view.TapAction is not null || (decorated && !node.Adapter.DrawsDecoration);
         if (needed && node.Decoration is null)
         {
             Detach(node.Content);
-            node.Decoration = new Border { Child = node.Content };
+            node.Decoration = new Surface { Child = node.Content, TapAction = () => Run(node.View.TapAction) };
         }
         else if (!needed && node.Decoration is { } unused)
         {
@@ -210,24 +234,31 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             node.Decoration = null;
         }
 
-        if (node.Decoration is not { } border) return;
-        border.SetBrush(Border.BackgroundProperty, view.Background?.Resolve(theme.Palette));
-        border.SetBrush(Border.BorderBrushProperty, view.BorderColor?.Resolve(theme.Palette));
-        border.BorderThickness = new Thickness(view.BorderColor is null ? 0 : view.BorderWidth ?? 1);
-        border.CornerRadius = new CornerRadius(view.CornerRadius ?? 0);
-        border.Padding = (view.Padding ?? default).ToAvalonia();
+        if (node.Decoration is not { } surface) return;
+        if (node.Adapter.DrawsDecoration) surface.Paint(null, theme, tappable: true); // le contrôle garde son fond
+        else ApplyDecoration(surface, view, theme);
+    }
+
+    /// <summary>Fond, bordure, angles, marge intérieure et clic d'une vue, sur la surface qui les porte.</summary>
+    internal static void ApplyDecoration(Surface surface, View view, Theme theme)
+    {
+        surface.Paint(view.Background?.Resolve(theme.Palette), theme, tappable: view.TapAction is not null);
+        surface.SetBrush(Border.BorderBrushProperty, view.BorderColor?.Resolve(theme.Palette));
+        surface.BorderThickness = new Thickness(view.BorderColor is null ? 0 : view.BorderWidth ?? 1);
+        surface.CornerRadius = new CornerRadius(view.CornerRadius ?? 0);
+        surface.Padding = (view.Padding ?? default).ToAvalonia();
     }
 
     /// <summary>
     /// Taille et souplesse : une taille explicite l'emporte (<c>.Width(72)</c>, ou +∞ pour remplir) ; sinon un conteneur
-    /// est aussi souple que ses enfants. La pile parente lit ces valeurs pour répartir sa place.
+    /// est aussi souple que ses enfants. Le conteneur parent lit ces valeurs pour répartir sa place.
     /// </summary>
     static void Place(Node node, View view)
     {
         var (fillWidth, fillHeight) = node.Adapter.FlexOf(node, view);
         node.FillWidth = view.Width is { } width ? float.IsPositiveInfinity(width) : fillWidth;
         node.FillHeight = view.Height is { } height ? float.IsPositiveInfinity(height) : fillHeight;
-        node.Grow = view.Grow;
+        node.Grow = view.Grow > 0 ? view.Grow : node.Adapter.GrowOf(node);
 
         var root = node.Root;
         root.Width = view.Width is { } w && !float.IsInfinity(w) ? w : double.NaN;
@@ -237,9 +268,9 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             node.Content.Width = double.NaN;
             node.Content.Height = double.NaN;
         }
-        Panels.FlexStack.SetGrow(root, node.Grow);
-        Panels.FlexStack.SetFillWidth(root, node.FillWidth);
-        Panels.FlexStack.SetFillHeight(root, node.FillHeight);
-        Panels.FlexStack.SetSelfAlign(root, view.SelfAlign);
+        Flex.SetGrow(root, node.Grow);
+        Flex.SetFillWidth(root, node.FillWidth);
+        Flex.SetFillHeight(root, node.FillHeight);
+        Flex.SetSelfAlign(root, view.SelfAlign);
     }
 }

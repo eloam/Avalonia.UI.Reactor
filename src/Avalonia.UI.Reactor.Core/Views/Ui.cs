@@ -20,11 +20,15 @@ public static class Ui
     /// Une exception est remontée à <see cref="UiHost.UnhandledException"/> au lieu de fermer l'application.</summary>
     public static ButtonView Button(string label, Func<Task> action) => new(label, Async(action));
 
-    /// <summary>Lance une tâche depuis le thread d'interface ; ses erreurs sont signalées à l'hôte.</summary>
+    /// <summary>
+    /// Lance une tâche depuis une action de l'interface ; ses erreurs sont signalées à l'hôte qui l'a lancée (retenu avant
+    /// le premier <c>await</c>), sans fermer l'application. Hors d'une action, une erreur remonte normalement.
+    /// </summary>
     internal static Action Async(Func<Task> action) => async () =>
     {
+        var host = RunningAction.Host;
         try { await action(); }
-        catch (Exception e) when (SynchronizationContext.Current is UiDispatcher dispatcher) { dispatcher.Report(e); }
+        catch (Exception e) when (host is not null) { host.Report(e); }
     };
 
     /// <summary>Champ lié à un état : <c>TextField(Bind.Draft, "Nom")</c> lit et modifie <c>Draft</c>.</summary>

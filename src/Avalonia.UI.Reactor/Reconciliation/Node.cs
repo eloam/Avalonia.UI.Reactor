@@ -4,6 +4,7 @@ namespace Avalonia.UI.Reactor.Reconciliation;
 
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
+using Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
 /// Nœud vivant du réconciliateur : le contrôle Avalonia qui affiche une vue. Il est repris d'une mise à jour à l'autre
@@ -37,11 +38,17 @@ internal sealed class Node
     /// <summary>Contrôle qui affiche la vue.</summary>
     public Control Content { get; }
 
-    /// <summary>Enveloppe qui dessine fond, bordure, angles et marge intérieure quand le contrôle ne sait pas le faire.</summary>
-    public Border? Decoration { get; set; }
+    /// <summary>Enveloppe qui dessine fond, bordure, angles et marge intérieure (quand le contrôle ne sait pas le faire), et qui reçoit le clic d'une vue <c>.OnTap</c>.</summary>
+    public Surface? Decoration { get; set; }
 
     /// <summary>Contrôle placé dans le parent : l'enveloppe s'il y en a une, sinon le contrôle.</summary>
     public Control Root => Decoration ?? Content;
+
+    /// <summary>
+    /// Le réconciliateur pose en ce moment les propriétés du contrôle : les événements qu'il déclenche (texte, case)
+    /// viennent de la vue, pas de l'utilisateur, et ne doivent pas repartir vers l'état.
+    /// </summary>
+    public bool Applying { get; set; }
 
     public IReadOnlyList<Node> Children { get; set; } = [];
 

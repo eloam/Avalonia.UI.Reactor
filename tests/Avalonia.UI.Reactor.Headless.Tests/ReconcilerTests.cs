@@ -9,6 +9,7 @@ using Avalonia.UI.Reactor.Reconciliation;
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
+using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
 /// <summary>Le réconciliateur reprend les contrôles d'une mise à jour à l'autre et ne recalcule que les portées concernées.</summary>
@@ -72,7 +73,7 @@ public class ReconcilerTests
 
         t.ClickButton("Surligner");
         Assert.Same(text, t.TextShowing("mot"));
-        Assert.IsType<Border>(text.Parent);
+        Assert.IsType<Surface>(text.Parent);
 
         t.ClickButton("Surligner");
         Assert.Same(text, t.TextShowing("mot"));
@@ -95,5 +96,9 @@ public class ReconcilerTests
         public Themes Themes { get; } = Themes.Default;
 
         public void RequestUpdate() { }
+
+        public void Report(Exception error) => throw error;
+
+        public void Reload() { }
     }
 }

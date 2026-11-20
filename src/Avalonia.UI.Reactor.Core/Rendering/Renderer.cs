@@ -63,17 +63,12 @@ internal static class Renderer
         }
     }
 
-    /// <summary>Voile de survol/appui : la couleur de texte du thème, en transparence
-    /// (assombrit en clair, éclaircit en sombre — sans réglage par thème).</summary>
-    static Color Overlay(Color bg, Theme t, float amount) =>
-        amount <= 0 ? bg : bg.A == 0 ? t.Palette.Text.WithAlpha(amount) : bg.Mix(t.Palette.Text with { A = bg.A }, amount);
-
     static void PaintBox(LayoutNode n, IDrawingContext ctx, UiHost s)
     {
         var v = n.View;
         var bg = v.Background is { } b ? n.Theme[b] : Color.Transparent;
         if (v.TapAction is not null && s.Hovered == n.Id)
-            bg = Overlay(bg, n.Theme, s.Pressed == n.Id ? n.Theme.PressedOverlay : n.Theme.HoverOverlay);
+            bg = n.Theme.Overlay(bg, s.Pressed == n.Id ? n.Theme.PressedOverlay : n.Theme.HoverOverlay);
         ctx.FillRect(n.Bounds, bg, n.Radius);
         if (v.BorderColor is { } bc) ctx.StrokeRect(n.Bounds, n.Theme[bc], v.BorderWidth ?? 1, n.Radius);
     }
@@ -86,7 +81,7 @@ internal static class Renderer
         var fg = t[b.Foreground ?? style.Foreground];
 
         bool hover = s.Hovered == n.Id, pressed = hover && s.Pressed == n.Id;
-        bg = Overlay(bg, t, pressed ? style.PressedOverlay : hover ? style.HoverOverlay : 0);
+        bg = t.Overlay(bg, pressed ? style.PressedOverlay : hover ? style.HoverOverlay : 0);
 
         ctx.FillRect(n.Bounds, bg, n.Radius);
         if ((b.BorderColor ?? style.BorderColor) is { } bc)
@@ -159,7 +154,7 @@ internal static class Renderer
         if (cb.IsChecked)
         {
             var bg = t[ct.CheckedBackground];
-            ctx.FillRect(box, hover ? Overlay(bg, t, ct.HoverOverlay) : bg, ct.Radius);
+            ctx.FillRect(box, hover ? t.Overlay(bg, ct.HoverOverlay) : bg, ct.Radius);
             // Coche en proportion de la taille de la case (une autre forme : Template).
             var mark = Shapes.Fit(Shapes.CheckboxMark, box);
             float thickness = ct.CheckThickness * size / Shapes.CheckboxReferenceSize;
@@ -191,7 +186,7 @@ internal static class Renderer
 
     /// <summary>Fond d'un titre ouvert ou d'un élément surligné : couleur du thème, sinon voile de la couleur du texte.</summary>
     static Color MenuHighlight(Theme t) =>
-        t.Menu.HighlightBackground is { } hb ? t[hb] : Overlay(Color.Transparent, t, t.Menu.HighlightOverlay);
+        t.Menu.HighlightBackground is { } hb ? t[hb] : t.Overlay(Color.Transparent, t.Menu.HighlightOverlay);
 
     static Color Faded(Color c, float opacity) => c with { A = (byte)Math.Round(c.A * Math.Clamp(opacity, 0, 1)) };
 
@@ -216,7 +211,7 @@ internal static class Renderer
             ctx.FillRect(n.Bounds, MenuHighlight(t), n.Radius);
             if (t.Menu.HighlightForeground is { } hf) fg = t[hf];
         }
-        else if (s.Hovered == n.Id) ctx.FillRect(n.Bounds, Overlay(Color.Transparent, t, t.HoverOverlay), n.Radius);
+        else if (s.Hovered == n.Id) ctx.FillRect(n.Bounds, t.Overlay(Color.Transparent, t.HoverOverlay), n.Radius);
         PaintLabel(title.Menu.Title, n.Content, n.Font, fg, s.Menus.ShowMnemonics, ctx);
     }
 

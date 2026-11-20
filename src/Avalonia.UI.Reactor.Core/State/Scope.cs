@@ -4,11 +4,12 @@ using Avalonia.UI.Reactor.Views;
 namespace Avalonia.UI.Reactor.State;
 
 /// <summary>
-/// Portée de recalcul : un composant (ou un élément de <c>ForEach</c>). Elle retient les états lus
-/// lors de son dernier calcul ; seul un changement de l'un d'eux la refait calculer.
-/// Garde aussi le résultat du layout pour le réutiliser tant que rien n'a changé dessous.
+/// Portée de recalcul : un composant, un élément de <c>ForEach</c>, un bloc <c>Observe</c>, ou le dessin d'un
+/// <c>Canvas</c>. Elle retient les états lus lors de son dernier calcul ; seul un changement de l'un d'eux la marque,
+/// et elle appelle alors <paramref name="requestUpdate"/> (depuis le thread qui a changé l'état).
+/// Garde aussi le résultat du layout de l'ancien moteur pour le réutiliser tant que rien n'a changé dessous.
 /// </summary>
-internal sealed class Scope(IScopeHost host, string id, object? identity)
+internal sealed class Scope(Action requestUpdate, string id, object? identity)
 {
     [ThreadStatic] internal static Scope? Current;
 
@@ -38,11 +39,11 @@ internal sealed class Scope(IScopeHost host, string id, object? identity)
     public void MarkDirty()
     {
         _dirty = true;
-        host.RequestUpdate();
+        requestUpdate();
     }
 
     /// <summary>Recalcule le contenu en enregistrant les états lus.</summary>
-    public View Evaluate(Func<View> build)
+    public T Evaluate<T>(Func<T> build)
     {
         _dirty = false; // avant le calcul : un changement concurrent la remettra à recalculer
         ClearDeps();
@@ -51,6 +52,13 @@ internal sealed class Scope(IScopeHost host, string id, object? identity)
         try { return build(); }
         finally { Current = previous; }
     }
+
+    /// <summary>Exécute un travail (un dessin) en enregistrant les états qu'il lit.</summary>
+    public void Evaluate(Action work) => Evaluate(() =>
+    {
+        work();
+        return true;
+    });
 
     public void Dispose() => ClearDeps();
 

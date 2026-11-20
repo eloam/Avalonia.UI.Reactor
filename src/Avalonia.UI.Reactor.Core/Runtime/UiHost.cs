@@ -175,7 +175,7 @@ public sealed class UiHost : IDisposable, IScopeHost
     void Run(Action? action)
     {
         if (action is null) return;
-        try { action(); }
+        try { RunningAction.Run(this, action); }
         catch (Exception e) { Report(e); }
         Invalidate();
     }
@@ -191,6 +191,10 @@ public sealed class UiHost : IDisposable, IScopeHost
     }
 
     void IScopeHost.RequestUpdate() => RequestUpdate();
+
+    void IScopeHost.Report(Exception error) => Report(error);
+
+    void IScopeHost.Reload() => Dispatcher.Post(static h => ((UiHost)h!).ReloadAll(), this);
 
     /// <summary>Hot reload : tout réévaluer (appelé sur le thread d'interface).</summary>
     internal void ReloadAll()

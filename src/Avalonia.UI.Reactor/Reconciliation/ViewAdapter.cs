@@ -23,12 +23,21 @@ internal abstract class ViewAdapter
     /// <summary>Souplesse que le contrôle tient de ses enfants : une pile qui contient un <c>Spacer()</c> s'étire, comme dans SwiftUI.</summary>
     public virtual (bool Width, bool Height) FlexOf(Node node, View view) => (false, false);
 
+    /// <summary>Part de place que le contrôle tient de ses enfants quand la vue n'en déclare pas (un ZStack, celle de son contenu).</summary>
+    public virtual float GrowOf(Node node) => 0;
+
     public static ViewAdapter For(View view) => view switch
     {
         TextView => TextAdapter.Instance,
         ButtonView => ButtonAdapter.Instance,
         StackView => StackAdapter.Instance,
         SpacerView => SpacerAdapter.Instance,
+        TextFieldView => TextFieldAdapter.Instance,
+        CheckboxView => CheckboxAdapter.Instance,
+        DividerView => DividerAdapter.Instance,
+        BoxView => BoxAdapter.Instance,
+        ZStackView => ZStackAdapter.Instance,
+        CanvasView => CanvasAdapter.Instance,
         _ => throw new NotSupportedException(
             $"The view '{view.GetType().Name}' is not supported by the Avalonia host yet. Use the SDL host ('Desktop.Run') for this screen."),
     };

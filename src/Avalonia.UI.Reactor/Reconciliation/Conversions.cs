@@ -38,7 +38,7 @@ internal static class Conversions
     }
 
     /// <summary>Une seule instance par nom de police (thread d'interface uniquement).</summary>
-    static FontFamily FamilyNamed(string name)
+    internal static FontFamily FamilyNamed(string name)
     {
         if (!Families.TryGetValue(name, out var family)) Families[name] = family = new FontFamily(name);
         return family;

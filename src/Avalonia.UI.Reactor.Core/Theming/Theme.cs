@@ -38,6 +38,15 @@ public sealed record Theme(
 
     public Color this[ColorValue c] => c.Resolve(Palette);
 
+    /// <summary>
+    /// Voile de survol ou d'appui : la couleur du texte du thème, en transparence, posée sur un fond (assombrit en clair,
+    /// éclaircit en sombre, sans réglage par thème). Sur un fond transparent, le voile seul.
+    /// </summary>
+    internal Color Overlay(Color background, float amount) =>
+        amount <= 0 ? background
+        : background.A == 0 ? Palette.Text.WithAlpha(amount)
+        : background.Mix(Palette.Text with { A = background.A }, amount);
+
     // ── Personnalisation chaînable ──
 
     /// <summary>Copie sous un autre nom : point de départ d'un thème à soi.</summary>
