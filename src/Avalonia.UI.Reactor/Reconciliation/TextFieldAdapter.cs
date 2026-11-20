@@ -11,22 +11,28 @@ using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
-/// <c>TextField</c> : un <see cref="TextBox"/> d'Avalonia (sélection, copier-coller, annuler, IME), aux couleurs du thème.
-/// Le champ est contrôlé : chaque saisie part vers l'état (<c>OnChange</c>), puis le champ affiche la valeur de la vue
-/// — un état qui refuse ou transforme la saisie l'emporte donc sur ce qui a été tapé. Entrée exécute <c>OnSubmit</c>.
+/// <c>TextField</c> : un <see cref="ReactorTextBox"/> (sélection, copier-coller, annuler, IME), aux couleurs du thème ;
+/// bordure du survol au survol, bordure du focus pendant la saisie. Le champ est contrôlé : chaque saisie part vers l'état
+/// (<c>OnChange</c>), puis le champ affiche la valeur de la vue — un état qui refuse ou transforme la saisie l'emporte.
+/// Entrée exécute <c>OnSubmit</c>.
 /// </summary>
-internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, FieldBox>
+internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextBox>
 {
     public static readonly TextFieldAdapter Instance = new();
 
     public override bool DrawsDecoration => true;
 
-    protected override void Attach(Reconciler reconciler, Node node, FieldBox field)
+    protected override void Attach(Reconciler reconciler, Node node, ReactorTextBox field)
     {
         // La propriété Text, pas l'événement TextChanged : Avalonia publie celui-ci plus tard sur le répartiteur, et une
         // action qui suit aussitôt la saisie (Entrée, clic, raccourci) lirait encore l'état d'avant.
         field.PropertyChanged += (_, e) =>
         {
+            if (e.Property == InputElement.IsPointerOverProperty || e.Property == InputElement.IsFocusedProperty)
+            {
+                PaintFrame(node, field);
+                return;
+            }
             if (e.Property != TextBox.TextProperty || node.Applying) return;
             string text = field.Text ?? "";
             reconciler.Run(() => ((TextFieldView)node.View).OnChange?.Invoke(text));
@@ -45,11 +51,10 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, FieldBox>
         }, RoutingStrategies.Tunnel);
     }
 
-    protected override void Update(Reconciler reconciler, Node node, FieldBox field, TextFieldView view, ViewEnvironment env)
+    protected override void Update(Reconciler reconciler, Node node, ReactorTextBox field, TextFieldView view, ViewEnvironment env)
     {
         var theme = env.Theme;
         var style = theme.TextField;
-        var padding = view.Padding ?? style.Padding;
 
         if (field.Text != view.Value) field.Text = view.Value;
         field.PlaceholderText = view.Placeholder;
@@ -58,13 +63,39 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, FieldBox>
         field.SetBrush(TemplatedControl.ForegroundProperty, theme[view.Foreground ?? style.Foreground]);
         field.SetBrush(TextBox.PlaceholderForegroundProperty, theme[style.Placeholder]);
         field.SetBrush(TextBox.CaretBrushProperty, theme[style.Caret]);
-        field.SetBrush(TemplatedControl.BorderBrushProperty, theme[view.BorderColor ?? style.BorderColor]);
-        field.BorderThickness = new Thickness(view.BorderWidth ?? style.BorderWidth);
+        field.SetBrush(TextBox.SelectionBrushProperty, theme[style.Selection].WithAlpha(style.SelectionOpacity));
+        field.CaretBlinkInterval = TimeSpan.FromMilliseconds(style.CaretBlinkMs);
         field.CornerRadius = new CornerRadius(view.CornerRadius ?? style.Radius);
-        field.Padding = padding.ToAvalonia();
         // Largeur naturelle du thème (le texte saisi ne la change pas) ; hauteur : la ligne de texte et la marge.
-        field.MinWidth = style.MinWidth + padding.Horizontal;
+        field.MinWidth = style.MinWidth + (view.Padding ?? style.Padding).Horizontal;
         field.MinHeight = 0;
         field.VerticalContentAlignment = VerticalAlignment.Center;
+        PaintFrame(node, field);
+    }
+
+    /// <summary>
+    /// Bordure selon l'état : celle du focus pendant la saisie, celle du survol, sinon celle de la vue ou du thème. Une
+    /// bordure plus épaisse prend sur la marge intérieure : le texte ne bouge pas quand le champ prend le focus.
+    /// </summary>
+    static void PaintFrame(Node node, ReactorTextBox field)
+    {
+        var view = (TextFieldView)node.View;
+        var theme = node.Environment.Theme;
+        var style = theme.TextField;
+        float rest = view.BorderWidth ?? style.BorderWidth;
+        bool focused = field.IsFocused;
+
+        var color = focused ? style.FocusBorderColor
+            : field.IsPointerOver ? style.HoverBorderColor
+            : view.BorderColor ?? style.BorderColor;
+        float width = focused ? style.FocusBorderWidth : rest;
+        field.SetBrush(TemplatedControl.BorderBrushProperty, theme[color]);
+        field.BorderThickness = new Thickness(width);
+
+        var padding = view.Padding ?? style.Padding;
+        float shift = rest - width;
+        field.Padding = new Thickness(
+            Math.Max(0, padding.Left + shift), Math.Max(0, padding.Top + shift),
+            Math.Max(0, padding.Right + shift), Math.Max(0, padding.Bottom + shift));
     }
 }

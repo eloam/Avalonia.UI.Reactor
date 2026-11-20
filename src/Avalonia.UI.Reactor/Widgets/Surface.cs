@@ -13,6 +13,8 @@ using Avalonia.UI.Reactor.Theming;
 /// </summary>
 internal sealed class Surface : Border
 {
+    static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+
     Primitives.Color? _background;
     Theme? _theme;
     bool _tappable, _pressed;
@@ -27,6 +29,7 @@ internal sealed class Surface : Border
         _theme = theme;
         _tappable = tappable;
         if (!tappable) _pressed = false;
+        Cursor = tappable ? HandCursor : null;
         Refresh();
     }
 

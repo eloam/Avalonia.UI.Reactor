@@ -149,23 +149,7 @@ internal static class Renderer
         float size = ct.Size;
         var content = n.Content;
         var box = new Rect(content.X, content.Y + (content.Height - size) / 2, size, size);
-        bool hover = s.Hovered == n.Id;
-
-        if (cb.IsChecked)
-        {
-            var bg = t[ct.CheckedBackground];
-            ctx.FillRect(box, hover ? t.Overlay(bg, ct.HoverOverlay) : bg, ct.Radius);
-            // Coche en proportion de la taille de la case (une autre forme : Template).
-            var mark = Shapes.Fit(Shapes.CheckboxMark, box);
-            float thickness = ct.CheckThickness * size / Shapes.CheckboxReferenceSize;
-            ctx.DrawLine(mark[0], mark[1], t[ct.CheckMark], thickness);
-            ctx.DrawLine(mark[1], mark[2], t[ct.CheckMark], thickness);
-        }
-        else
-        {
-            ctx.FillRect(box, t[ct.Background], ct.Radius);
-            ctx.StrokeRect(box, t[hover ? ct.HoverBorderColor : ct.BorderColor], ct.BorderWidth, ct.Radius);
-        }
+        CheckboxGlyph.Draw(ctx, box, t, cb.IsChecked, hovered: s.Hovered == n.Id);
 
         if (cb.Label is { } label)
         {

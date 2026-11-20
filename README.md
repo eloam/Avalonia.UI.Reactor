@@ -319,7 +319,7 @@ sélectif est celui de l'ancien moteur : seules les portées dont un état lu a 
 
 | Déjà rendu par Avalonia | Pas encore (ancien moteur : `Desktop.Run`) |
 |---|---|
-| `Text`, `VStack` / `HStack` (`Spacer`, `.Grow()`, `.FillWidth()`, alignements), `Button` et ses styles, `TextField` (TextBox d'Avalonia : sélection, annuler, IME), `Checkbox`, `ZStack` / `Overlay`, `Canvas`, `Divider`, `Box`, `.OnTap`, fond / bordure / angles / marge, thème par branche, `ForEach`, `Observe`, modificateurs sur un composant, actions `async`, erreurs non fatales, hot reload | menus, modèles de contrôles (`.Template`), nos thèmes de contrôles (Fluent en attendant), thème du système, polices embarquées |
+| `Text`, `VStack` / `HStack` (`Spacer`, `.Grow()`, `.FillWidth()`, alignements), `Button` et ses styles, `TextField` (TextBox d'Avalonia : sélection, annuler, IME), `Checkbox`, `ZStack` / `Overlay`, `Canvas`, `Divider`, `Box`, `.OnTap`, fond / bordure / angles / marge, thème par branche, `ForEach`, `Observe`, modificateurs sur un composant, actions `async`, erreurs non fatales, hot reload | menus, modèles de contrôles (`.Template`), menu contextuel des champs, polices embarquées |
 
 Champs et cases sont **contrôlés** : la saisie part vers l'état, puis le contrôle affiche la valeur de sa vue (un état
 qui refuse ou transforme la saisie l'emporte). Un `Canvas` suit les états lus pendant son dessin : il est redessiné
@@ -328,8 +328,9 @@ seul quand l'un d'eux change.
 Différences voulues avec l'ancien moteur :
 - **une bordure prend sa place**, comme en CSS et dans tous les contrôles Avalonia : avec `.Padding(16).Border(…, 2)`,
   le contenu commence à 18 (l'ancien moteur la traçait par-dessus le contenu) ;
-- les contrôles sont habillés par le thème Fluent d'Avalonia (le survol d'un bouton prend sa couleur) en attendant nos
-  propres thèmes de contrôles.
+- bouton, case et champ portent **notre** apparence (`ReactorThemes` : structure seule) ; leurs couleurs par état (repos,
+  survol, appui, focus) viennent du thème de leur branche. Fluent ne sert plus qu'à l'infrastructure (fenêtre, défilement
+  dans un champ). La fenêtre suit le mode clair ou sombre du système.
 
 ## Architecture
 

@@ -75,7 +75,7 @@ public class FlexStackTests
         using var t = new ReactorTestHost(new ViewProbe(() =>
             VStack(Text("a")).Padding(16).Background(ColorRole.Surface).Border(ColorRole.Border, 2).Radius(10)));
 
-        var surface = Assert.IsType<Surface>(t.Host.Child);
+        var surface = Assert.IsType<Surface>(t.Host.Content);
         Assert.Equal(new Thickness(16), surface.Padding);
         Assert.Equal(new Thickness(2), surface.BorderThickness);
         Assert.Equal(new CornerRadius(10), surface.CornerRadius);

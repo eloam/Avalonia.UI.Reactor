@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using Avalonia.Controls;
+using Avalonia.Platform;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Avalonia.UI.Reactor.Hosting;
 
@@ -21,6 +24,9 @@ internal sealed class ReactorHost : Border, IScopeHost
     readonly View _root;
     readonly Reconciler _reconciler;
     readonly Action _themesChanged;
+    readonly EventHandler<PlatformColorValues> _systemColorsChanged;
+    readonly ThemeVariantScope _variant = new();
+    IPlatformSettings? _platform;
     int _updatePending = 1;
     bool _attached;
 
@@ -30,9 +36,14 @@ internal sealed class ReactorHost : Border, IScopeHost
         Themes = themes;
         _reconciler = new Reconciler(this, Run);
         _themesChanged = RequestUpdate;
+        _systemColorsChanged = (_, colors) => Themes.SystemScheme = SchemeOf(colors);
+        Child = _variant;
     }
 
     public Themes Themes { get; }
+
+    /// <summary>Contrôle de la vue racine (sous la portée de variante d'Avalonia).</summary>
+    internal Control? Content => _variant.Child;
 
     /// <summary>Bilan de la dernière mise à jour : portées réévaluées, reprises telles quelles, total.</summary>
     public UpdateStats LastUpdate => _reconciler.LastStats;
@@ -76,12 +87,15 @@ internal sealed class ReactorHost : Border, IScopeHost
     {
         if (!_attached || Interlocked.Exchange(ref _updatePending, 0) == 0) return;
         var content = _reconciler.Update(_root, Themes);
-        if (!ReferenceEquals(Child, content))
+        if (!ReferenceEquals(_variant.Child, content))
         {
             Reconciler.Detach(content);
-            Child = content;
+            _variant.Child = content;
         }
-        this.SetBrush(BackgroundProperty, _reconciler.RootTheme?.Palette.Page);
+        if (_reconciler.RootTheme is not { } theme) return;
+        this.SetBrush(BackgroundProperty, theme.Palette.Page);
+        // Ce que Fluent dessine encore (défilement, fenêtre) suit le mode de la vue racine.
+        _variant.RequestedThemeVariant = theme.Scheme == ColorScheme.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -90,6 +104,13 @@ internal sealed class ReactorHost : Border, IScopeHost
         _attached = true;
         Themes.Changed += _themesChanged;
         HotReload.Register(this);
+        // Mode clair ou sombre du système, suivi tant que la fenêtre est ouverte.
+        _platform = this.GetPlatformSettings();
+        if (_platform is not null)
+        {
+            Themes.SystemScheme = SchemeOf(_platform.GetColorValues());
+            _platform.ColorValuesChanged += _systemColorsChanged;
+        }
         Interlocked.Exchange(ref _updatePending, 1);
         Update();
     }
@@ -104,6 +125,11 @@ internal sealed class ReactorHost : Border, IScopeHost
         _attached = false;
         Themes.Changed -= _themesChanged;
         HotReload.Unregister(this);
+        if (_platform is not null) _platform.ColorValuesChanged -= _systemColorsChanged;
+        _platform = null;
         _reconciler.Dispose();
     }
+
+    static ColorScheme SchemeOf(PlatformColorValues colors) =>
+        colors.ThemeVariant == PlatformThemeVariant.Dark ? ColorScheme.Dark : ColorScheme.Light;
 }

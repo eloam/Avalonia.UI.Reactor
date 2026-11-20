@@ -6,7 +6,8 @@ namespace Avalonia.UI.Reactor.Hosting;
 
 /// <summary>
 /// Application Avalonia d'un programme Reactor : styles des contrôles et fenêtre principale (aucune sans fabrique,
-/// pour les tests). Le thème Fluent habille les contrôles en attendant nos propres thèmes de contrôles.
+/// pour les tests). Nos contrôles portent leur propre apparence (<see cref="Widgets.ReactorThemes"/>) ; le thème Fluent
+/// ne sert qu'à l'infrastructure : fenêtre, défilement dans un champ.
 /// </summary>
 internal sealed class ReactorApplication(Func<Window>? createMainWindow = null) : Application
 {
