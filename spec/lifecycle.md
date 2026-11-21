@@ -94,8 +94,28 @@ took them again (fixed, with a test in `NativeTests`).
 ### Identity
 
 The lifecycle follows the identity of the view: a view that the reconciler recreates disappears and appears again, and
-its task restarts. Today an unkeyed child is matched by its index, so a branch that appears before it recreates it; the
-identity rules of [view builder blocks](view-builder.md#identity) fix this and should ship first.
+its task restarts. The identity rules of [view builder blocks](view-builder.md#identity), which shipped first, keep a
+view whose sibling appears before it: by its key, its component or its binding, otherwise by its type and rank.
+
+### Cancelling actions
+
+*Proposed, to be validated before it is built.* An asynchronous action has no token: a loop started by a button keeps
+running until it ends, and keeps the closed window in memory meanwhile (the action holds its host to report its
+errors). An overload gives the action a token, cancelled when the window closes:
+
+```csharp
+Button("Refresh", async cancellation =>
+{
+    while (!cancellation.IsCancellationRequested)
+    {
+        Items = await api.GetItemsAsync(cancellation);
+        await Task.Delay(TimeSpan.FromMinutes(1), cancellation);
+    }
+})
+```
+
+The token belongs to the host, not to the view: an action may outlive the view that started it, such as a dialog that
+closes while its action saves. Work tied to a view belongs in `.Task(…)`.
 
 ### Diagnostics
 
@@ -114,8 +134,11 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
    `OnDisappear` runs when a branch closes, a row is removed and the window closes, not when a control moves into a
    decoration. **Done.**
 2. `Task` with and without a key, and MVU017. Tests: cancelled on removal and when the window closes, restarted when the
-   key changes, an exception reported (`ReactorTestHost.Errors`).
-3. The sample app shows a clock or a search that uses them.
+   key changes, an exception reported (`ReactorTestHost.Errors`). **Done.**
+3. The sample app shows a clock or a search that uses them. **Done**: the About card counts the seconds while it is
+   open.
+4. A cancellation token for asynchronous actions (see [Cancelling actions](#cancelling-actions)): proposed, to be
+   validated before it is built.
 
 ## Strengths
 
@@ -151,11 +174,13 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 | `IDisposable` components | `class TickCounter : Component, IDisposable`, disposed on removal | A component held in a field can be shown again after its removal; only components would get it |
 | Avalonia's visual tree events | `AttachedToVisualTree` on the control | Raised again when a control moves into a decoration or within a panel |
 | Methods to override | `protected override void OnAppear()` on `Component` | Only for components; could come later, on top of the modifiers |
+| `.OnChange(value, action)` | `.OnChange(Query, Search)`, like SwiftUI's `.onChange(of:)` | `.Task(Query, …)` covers it, with cancellation: a second way to react to a change |
 
 ## Unresolved questions
 
-- Should `.OnChange(value, action)` be added, like SwiftUI's `.onChange(of:)`, or is `.Task(value, …)` enough?
 - Should an analyzer suggest a key when a task reads a state before its first `await`?
+- Should the token of an action be cancelled when the view that started it disappears, rather than when the window
+  closes?
 
 ## Spike results
 
