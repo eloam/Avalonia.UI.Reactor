@@ -126,8 +126,8 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 
 ## Weaknesses
 
-- **Depends on identity**: until the identity rules of view builder blocks ship, a branch that appears before a view
-  restarts its task.
+- **Depends on identity**: a view that the reconciler recreates disappears and appears again. With the identity rules
+  (shipped), only an unkeyed view without an identity, shifted by a view of the same type, is recreated.
 - **Hot reload**: a running task keeps its old code until it restarts.
 - **A forgotten key gives a stale task**: a task without a key does not restart when the state it read changes (SwiftUI
   has the same rule).

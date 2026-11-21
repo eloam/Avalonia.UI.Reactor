@@ -359,7 +359,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 
 1. MVU013, MVU016 and `IIdentifiable` keys, useful today. **Done.**
 2. Identity by components, bindings, then view type and rank, which fixes `cond ? view : null` today (a behavior
-   change).
+   change). **Done.**
 3. Group modifiers applied to each child: a breaking change (`refactor!`).
 4. Fragments.
 5. Blocks: `[ViewBuilder]` parameters, interceptors, `Show`, MVU014, MVU015 and the code fixes.

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Avalonia.UI.Reactor.Primitives;
+using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 
 namespace Avalonia.UI.Reactor.Views;
@@ -116,4 +117,10 @@ public abstract record View
     /// Gets the action run when the view is clicked, or <see langword="null"/> if the view is not clickable.
     /// </summary>
     public Action? TapAction { get; init; }
+
+    /// <summary>
+    /// Gets the property that a bound control reads and writes, which identifies the control among its siblings, or
+    /// <see langword="null"/>.
+    /// </summary>
+    internal BindingTarget? BindingTarget { get; init; }
 }

@@ -35,10 +35,15 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     // The suffix of the path of the view of a template, below the path of its control.
     private const string TemplateSuffix = "~";
 
-    // The prefixes of the place of a child below its container: a keyed child and an unkeyed one never share a place,
-    // even when the key looks like an index (a row keyed by the id 0, next to an unkeyed header).
+    // The prefixes of the place of a child below its container, one per rule (see SlotOf): two rules never give the same
+    // place, even when a key looks like a rank (a row keyed by the id 0, next to an unkeyed header).
     private const string KeySlotPrefix = "k";
-    private const string IndexSlotPrefix = "i";
+    private const string IdentitySlotPrefix = "o";
+    private const string RankSlotPrefix = "t";
+
+    // Separates the type of a view from its rank in a place given by rule 3, and the owner of a property from its name.
+    private const char RankSeparator = '#';
+    private const char PropertySeparator = '.';
 
     private readonly Dictionary<string, Scope> _scopes = [];
     private readonly Dictionary<Scope, Node> _content = [];
@@ -264,9 +269,14 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     }
 
     /// <summary>
-    /// Applies the children of a container: each one reuses the node that held its place (the <c>Key</c> of the view,
-    /// otherwise its index), which keeps the controls of a list when its items change order.
+    /// Applies the children of a container: each one reuses the node that held its place, which keeps its control, focus
+    /// and hover when a sibling appears, disappears or moves.
     /// </summary>
+    /// <remarks>
+    /// The place of a child comes from, in this order: its <c>Key</c>; an identity it already has (a component by its
+    /// instance, a bound control by the property of its binding); otherwise its view type and its rank among the
+    /// children of that type, so that a view of another type that appears before it does not shift it.
+    /// </remarks>
     /// <param name="parent">The node of the container.</param>
     /// <param name="children">The child views.</param>
     /// <param name="environment">The environment of the container.</param>
@@ -281,19 +291,12 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         }
 
         var slots = new HashSet<string>();
+        var ranks = new Dictionary<Type, int>();
         var result = new Node[children.Count];
         for (int i = 0; i < children.Count; i++)
         {
             View view = children[i];
-            string slot = view.Key is { } key
-                ? $"{parent.Id}/{KeySlotPrefix}{key}"
-                : $"{parent.Id}/{IndexSlotPrefix}{i.ToString(CultureInfo.InvariantCulture)}";
-            if (!slots.Add(slot))
-            {
-                throw new InvalidOperationException(
-                    $"Two children of the same container have the key '{view.Key}'. Give each child a unique key.");
-            }
-
+            string slot = SlotOf(parent, view, slots, ranks);
             previous.TryGetValue(slot, out Node? existing);
             Node node = Reconcile(existing, view, environment, slot);
             node.Slot = slot;
@@ -303,6 +306,47 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         parent.Children = result;
         return result;
     }
+
+    // The place of a child (see ReconcileChildren). Two children that share an identity (the same component shown twice,
+    // two fields bound to the same property) fall back to their rank; two children that share a key are an error.
+    private static string SlotOf(Node parent, View view, HashSet<string> slots, Dictionary<Type, int> ranks)
+    {
+        if (view.Key is { } key)
+        {
+            string keyed = $"{parent.Id}/{KeySlotPrefix}{key}";
+            if (!slots.Add(keyed))
+            {
+                throw new InvalidOperationException(
+                    $"Two children of the same container have the key '{key}'. Give each child a unique key.");
+            }
+
+            return keyed;
+        }
+
+        if (IdentityOf(view) is { } identity)
+        {
+            string identified = $"{parent.Id}/{IdentitySlotPrefix}{identity}";
+            if (slots.Add(identified))
+            {
+                return identified;
+            }
+        }
+
+        Type type = view.GetType();
+        ranks.TryGetValue(type, out int rank);
+        ranks[type] = rank + 1;
+        string ranked = $"{parent.Id}/{RankSlotPrefix}{type.Name}{RankSeparator}{rank.ToString(CultureInfo.InvariantCulture)}";
+        slots.Add(ranked);
+        return ranked;
+    }
+
+    // A component by its instance, a bound control by the property of its binding.
+    private static string? IdentityOf(View view) => view switch
+    {
+        ScopeView { Identity: { } identity } => ReferenceKeys.Of(identity),
+        { BindingTarget: { } target } => $"{ReferenceKeys.Of(target.Owner)}{PropertySeparator}{target.Property}",
+        _ => null,
+    };
 
     // Size and flexibility: an explicit size wins (.Width(72), or infinity to fill); otherwise a container is as flexible
     // as its children. The parent container reads these values to share its space.

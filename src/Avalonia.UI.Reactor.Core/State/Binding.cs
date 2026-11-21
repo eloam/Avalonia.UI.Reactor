@@ -25,9 +25,36 @@ namespace Avalonia.UI.Reactor.State;
 public readonly struct Binding<T>(Func<T> get, Action<T> set)
 {
     /// <summary>
+    /// Initializes a new instance of the <see cref="Binding{T}"/> struct that reads and writes a property of an object.
+    /// </summary>
+    /// <remarks>
+    /// The generated bindings use this constructor: a control bound to the property is identified by it among its
+    /// siblings, so that it keeps its control, focus and caret when a view appears or disappears before it.
+    /// </remarks>
+    /// <param name="get">The function that reads the value.</param>
+    /// <param name="set">The function that writes the value.</param>
+    /// <param name="owner">The object that has the property.</param>
+    /// <param name="property">The name of the property.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="owner"/> or <paramref name="property"/> is
+    /// <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="property"/> is empty.</exception>
+    public Binding(Func<T> get, Action<T> set, object owner, string property)
+        : this(get, set)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentException.ThrowIfNullOrEmpty(property);
+        Target = new BindingTarget(owner, property);
+    }
+
+    /// <summary>
     /// Gets the current value.
     /// </summary>
     public T Value => get();
+
+    /// <summary>
+    /// Gets the property that the binding reads and writes, or <see langword="null"/> for a computed binding.
+    /// </summary>
+    internal BindingTarget? Target { get; }
 
     /// <summary>
     /// Writes a new value.

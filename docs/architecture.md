@@ -3,9 +3,11 @@
 ## How it works
 
 A **reconciler** applies the tree of views to Avalonia controls that it keeps from one update to the next. A control
-is reused as long as its view keeps the same path (its `Key`, otherwise its index) and the same kind; only its changed
-properties are set. Controls therefore keep focus, hover and caret, and a reordered list moves its controls instead of
-recreating them.
+is reused as long as its view keeps the same place and the same kind; only its changed properties are set. The place of
+a child comes from its `Key`, otherwise from an identity it already has (a component by its instance, a control bound to
+a property by that property), otherwise from its view type and its rank among the children of that type: a view of
+another type that appears before it does not shift it. Controls therefore keep focus, hover and caret, and a reordered
+list moves its controls instead of recreating them.
 
 ```
 Avalonia event (click, typing) → action → state changed → subscribed scopes marked

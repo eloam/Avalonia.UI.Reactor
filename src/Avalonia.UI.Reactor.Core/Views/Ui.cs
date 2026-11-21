@@ -1,7 +1,6 @@
 // Copyright (c) Yohann Breuil.
 // Licensed under the MIT License.
 
-using System.Runtime.CompilerServices;
 using Avalonia.UI.Reactor.Primitives;
 using Avalonia.UI.Reactor.Rendering;
 using Avalonia.UI.Reactor.State;
@@ -18,9 +17,6 @@ namespace Avalonia.UI.Reactor.Views;
 /// </remarks>
 public static class Ui
 {
-    private static readonly ConditionalWeakTable<object, string> s_referenceKeys = [];
-    private static int s_nextReferenceKey;
-
     /// <summary>
     /// Creates a single line of text.
     /// </summary>
@@ -56,7 +52,7 @@ public static class Ui
     /// <param name="onSubmit">The action run when the user presses Enter.</param>
     /// <returns>The text field view.</returns>
     public static TextFieldView TextField(Binding<string> text, string placeholder = "", Action? onSubmit = null) =>
-        TextField(text.Value, text.Set, placeholder, onSubmit);
+        TextField(text.Value, text.Set, placeholder, onSubmit) with { BindingTarget = text.Target };
 
     /// <summary>
     /// Creates a text field with a computed value: the value, then what to do when the user changes it.
@@ -76,7 +72,7 @@ public static class Ui
     /// <param name="label">The label of the checkbox.</param>
     /// <returns>The checkbox view.</returns>
     public static CheckboxView Checkbox(Binding<bool> isChecked, string? label = null) =>
-        Checkbox(isChecked.Value, isChecked.Set, label);
+        Checkbox(isChecked.Value, isChecked.Set, label) with { BindingTarget = isChecked.Target };
 
     /// <summary>
     /// Creates a checkbox with a computed value: the value, then what to do when the user toggles it.
@@ -264,7 +260,7 @@ public static class Ui
             return item.ToString();
         }
 
-        return s_referenceKeys.GetValue(item, _ => $"#{Interlocked.Increment(ref s_nextReferenceKey)}");
+        return ReferenceKeys.Of(item);
     }
 
     private static StackView Stack(Axis axis, View?[] children) =>

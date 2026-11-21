@@ -106,9 +106,10 @@ public sealed class StateGenerator : IIncrementalGenerator
             && containing.GetMembers(BindName).IsEmpty
             && containing.GetMembers(BindingsTypeName).IsEmpty;
 
-        // In a struct, a lambda cannot capture the fields of the struct: the owner goes through a local variable.
+        // In a struct, a lambda cannot capture the fields of the struct: the owner goes through a local variable. The
+        // owner and the name of the property identify a control bound to it among its siblings.
         string member =
-            $"global::Avalonia.UI.Reactor.State.Binding<{type}> {name} {{ get {{ var o = _owner; return new(() => o.{name}, v => o.{name} = v); }} }}";
+            $"global::Avalonia.UI.Reactor.State.Binding<{type}> {name} {{ get {{ var o = _owner; return new(() => o.{name}, v => o.{name} = v, o, nameof(o.{name})); }} }}";
         TypeDeclarationSyntax innermost = types[types.Count - 1];
 
         return new StateModel(
