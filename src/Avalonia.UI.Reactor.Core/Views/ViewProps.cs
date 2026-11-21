@@ -45,6 +45,8 @@ internal static class ViewProps
             TapAction = source.TapAction,
             AppearAction = source.AppearAction,
             DisappearAction = source.DisappearAction,
+            TaskAction = source.TaskAction,
+            TaskKey = source.TaskKey,
         });
 
     /// <summary>

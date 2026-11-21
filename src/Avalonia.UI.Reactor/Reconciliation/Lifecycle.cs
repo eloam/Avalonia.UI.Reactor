@@ -6,7 +6,7 @@ namespace Avalonia.UI.Reactor.Reconciliation;
 using Avalonia.UI.Reactor.State;
 
 /// <summary>
-/// Represents the lifecycle of a node whose view declares <c>OnAppear</c> or <c>OnDisappear</c>.
+/// Represents the lifecycle of a node whose view declares <c>OnAppear</c>, <c>OnDisappear</c> or <c>Task</c>.
 /// </summary>
 /// <remarks>
 /// The lifecycle follows the node, not its control: a control moved into a decoration is detached from the visual tree
@@ -65,4 +65,19 @@ internal sealed class Lifecycle(Node node)
     /// Gets or sets a value indicating whether the view left the tree for good.
     /// </summary>
     public bool Gone { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a run of the task was decided by an update.
+    /// </summary>
+    public bool TaskStarted { get; set; }
+
+    /// <summary>
+    /// Gets or sets the key of the last run of the task that was decided.
+    /// </summary>
+    public object? TaskKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the cancellation of the running task, or <see langword="null"/> when no task runs.
+    /// </summary>
+    public CancellationTokenSource? Cancellation { get; set; }
 }

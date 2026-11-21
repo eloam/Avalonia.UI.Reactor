@@ -315,6 +315,46 @@ public class GeneratorTests
             """));
 
     [Fact]
+    public void Task_that_ignores_its_token_warns_with_what_to_write()
+    {
+        Diagnostic diagnostic = Assert.Single(Compile("""
+            public class C : Component
+            {
+                public override View Body => Text("x").Task(async _ => await System.Threading.Tasks.Task.Delay(1000));
+            }
+            """));
+        Assert.Equal("MVU017", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("pass the token", diagnostic.GetMessage(CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public void Task_of_a_component_that_ignores_its_token_warns() =>
+        Assert.Contains("MVU017", Ids("""
+            public class Child : Component { public override View Body => Text("child"); }
+            public class C : Component
+            {
+                private readonly Child _child = new();
+                public override View Body => _child.Task("key", async _ => await System.Threading.Tasks.Task.Delay(1000));
+            }
+            """));
+
+    [Fact]
+    public void Task_that_uses_its_token_or_is_a_method_does_not_warn() =>
+        Assert.Empty(Ids("""
+            public class C : Component
+            {
+                public override View Body => VStack(
+                    Text("a").Task(async cancellation => await System.Threading.Tasks.Task.Delay(1000, cancellation)),
+                    Text("b").Task("key", async cancellation => await System.Threading.Tasks.Task.Delay(1000, cancellation)),
+                    Text("c").Task(RunAsync));
+
+                private static System.Threading.Tasks.Task RunAsync(System.Threading.CancellationToken cancellation) =>
+                    System.Threading.Tasks.Task.CompletedTask;
+            }
+            """));
+
+    [Fact]
     public void Bind_and_StateBindings_are_reserved_in_classes_with_state()
     {
         var reserved = Compile("""

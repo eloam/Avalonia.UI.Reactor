@@ -78,3 +78,4 @@ An analyzer ([StateAnalyzer.cs](../src/Avalonia.UI.Reactor.Generators/StateAnaly
 | `MVU012` | Error | State passed to a control without its binding (`TextField(Name)`, `Checkbox(todo.Done)`): the message gives `Bind.Name`, `todo.Bind.Done` |
 | `MVU013` | Error | A view created as a statement, whose value is not used (`Text("Title");`): it would never be displayed |
 | `MVU016` | Error | A component with state created in a view (`VStack(new Counter())`): a new instance on every update loses its state |
+| `MVU017` | Warning | A task given to `.Task(…)` that ignores its cancellation token: it would keep running after its view disappears |

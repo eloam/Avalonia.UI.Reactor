@@ -24,6 +24,7 @@ public sealed partial class TodoApp : Component
 
     [State] private partial bool ShowCounter { get; set; } = true;
     [State] private partial bool ShowAbout { get; set; }
+    [State] private partial int AboutSeconds { get; set; }
 
     private readonly CounterCard _counter = new();
     private readonly TodoList _todos = new();
@@ -84,5 +85,15 @@ public sealed partial class TodoApp : Component
             Text("About").Font(TextStyle.Headline),
             Text("Views and state in C#, rendered by Avalonia's controls.")
                 .Foreground(ColorRole.TextMuted),
+            // A separately observed block, re-evaluated alone every second. The clock starts when the card opens and its
+            // task is cancelled when the card closes: nothing is left running.
+            Observe(() => Text($"Open for {AboutSeconds} s").Foreground(ColorRole.TextMuted))
+                .OnAppear(() => AboutSeconds = 0)
+                .Task(async cancellation =>
+                {
+                    using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+                    while (await timer.WaitForNextTickAsync(cancellation))
+                        AboutSeconds++;
+                }),
             HStack(Spacer(), Button("Close", () => ShowAbout = false).Style(ButtonStyle.Secondary)));
 }

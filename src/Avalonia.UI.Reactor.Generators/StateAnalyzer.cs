@@ -19,8 +19,9 @@ namespace Avalonia.UI.Reactor.Generators;
 /// <remarks>
 /// The analyzer reports a badly declared <c>[State]</c> property (MVU001–004), a member displayed by a view but changed
 /// without being observed, so that the interface would not update (MVU010–011), state passed to a control without its
-/// binding, so that the control would not change it (MVU012), a view created but never displayed (MVU013), and a
-/// component with state created in a view, which would lose its state on every update (MVU016).
+/// binding, so that the control would not change it (MVU012), a view created but never displayed (MVU013), a component
+/// with state created in a view, which would lose its state on every update (MVU016), and a task that ignores its
+/// cancellation token, which would keep running after its view disappears (MVU017).
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class StateAnalyzer : DiagnosticAnalyzer
@@ -124,11 +125,24 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
         Category, DiagnosticSeverity.Error, isEnabledByDefault: true,
         description: "A component keeps its state as long as the same instance is displayed. Created in 'Body' or in a method that returns a view, it is a new instance on every update, whose [State] properties start again from their initial values. Create the component once, in a field or a constructor, or move its state into the model it displays and draw it with a method.");
 
+    /// <summary>
+    /// Describes MVU017: a task started by <c>.Task(…)</c> that ignores its cancellation token.
+    /// </summary>
+    public static readonly DiagnosticDescriptor IgnoredCancellation = new(
+        "MVU017",
+        title: "Task ignores its cancellation token",
+        messageFormat: "The task passed to 'Task' ignores its cancellation token, so it keeps running after its view disappears; pass the token to the calls it awaits",
+        Category, DiagnosticSeverity.Warning, isEnabledByDefault: true,
+        description: "A task started by '.Task(…)' is stopped through the token it receives, which is cancelled when its view disappears, its key changes or the window closes. A task that never uses the token goes on: a timer or a request keeps running after the view is gone. Pass the token to the asynchronous calls that the task awaits, or check it in its loop.");
+
+    // The name of the modifier that runs a task while its view is displayed.
+    private const string TaskModifierName = "Task";
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(
             NotPartialProperty, NotPartialType, InvalidShape, ReservedName, UnobservedMember, UnobservedList, UnboundState,
-            DiscardedView, ComponentCreatedInView);
+            DiscardedView, ComponentCreatedInView, IgnoredCancellation);
 
     private static readonly ImmutableHashSet<string> s_listMutators = ImmutableHashSet.Create(
         "Add", "AddRange", "Insert", "InsertRange", "Remove", "RemoveAt", "RemoveAll", "RemoveRange", "Clear", "Sort", "Reverse");
@@ -163,6 +177,15 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
 
             start.RegisterOperationAction(c => CheckDiscardedView(c, view), OperationKind.ExpressionStatement);
             start.RegisterOperationAction(c => CheckComponentCreatedInView(c, component, view, stateAttr), OperationKind.ObjectCreation);
+
+            INamedTypeSymbol? modifiers = start.Compilation.GetTypeByMetadataName("Avalonia.UI.Reactor.Views.Modifiers");
+            INamedTypeSymbol? componentModifiers = start.Compilation.GetTypeByMetadataName("Avalonia.UI.Reactor.Views.ComponentModifiers");
+            INamedTypeSymbol? token = start.Compilation.GetTypeByMetadataName("System.Threading.CancellationToken");
+            if (modifiers is not null && componentModifiers is not null && token is not null)
+            {
+                start.RegisterOperationAction(
+                    c => CheckIgnoredCancellation(c, modifiers, componentModifiers, token), OperationKind.Invocation);
+            }
 
             // Members read by a view and changed elsewhere: matched at the end of the compilation.
             var readInView = new ConcurrentDictionary<ISymbol, byte>(SymbolEqualityComparer.Default);
@@ -308,6 +331,38 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             return;
 
         c.ReportDiagnostic(Diagnostic.Create(ComponentCreatedInView, creation.Syntax.GetLocation(), type.Name));
+    }
+
+    // MVU017: .Task(async _ => await Task.Delay(1000)): nothing stops the task. Only a lambda that awaits something is
+    // checked; a method group (.Task(LoadAsync)) is not analyzed.
+    private static void CheckIgnoredCancellation(
+        OperationAnalysisContext c, INamedTypeSymbol modifiers, INamedTypeSymbol componentModifiers, INamedTypeSymbol token)
+    {
+        var invocation = (IInvocationOperation)c.Operation;
+        IMethodSymbol method = invocation.TargetMethod;
+        if (method.Name != TaskModifierName
+            || !(SymbolEqualityComparer.Default.Equals(method.ContainingType, modifiers)
+                || SymbolEqualityComparer.Default.Equals(method.ContainingType, componentModifiers)))
+        {
+            return;
+        }
+
+        foreach (IArgumentOperation argument in invocation.Arguments)
+        {
+            if (argument.Value is not IDelegateCreationOperation { Target: IAnonymousFunctionOperation lambda })
+                continue;
+            ImmutableArray<IParameterSymbol> parameters = lambda.Symbol.Parameters;
+            if (parameters.Length != 1 || !SymbolEqualityComparer.Default.Equals(parameters[0].Type, token))
+                continue;
+
+            IParameterSymbol parameter = parameters[0];
+
+            bool awaits = lambda.Body.Descendants().OfType<IAwaitOperation>().Any();
+            bool usesToken = lambda.Body.Descendants().OfType<IParameterReferenceOperation>()
+                .Any(p => SymbolEqualityComparer.Default.Equals(p.Parameter, parameter));
+            if (awaits && !usesToken)
+                c.ReportDiagnostic(Diagnostic.Create(IgnoredCancellation, lambda.Syntax.GetLocation()));
+        }
     }
 
     // Inside a lambda or a local function that does not build a view: an action, which runs later, or a factory, whose

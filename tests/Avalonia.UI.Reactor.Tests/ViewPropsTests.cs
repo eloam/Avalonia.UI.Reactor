@@ -49,6 +49,8 @@ public class ViewPropsTests
         var t when t == typeof(ThemeFamily) => ThemeFamily.Standard,
         var t when t == typeof(ColorScheme) => ColorScheme.Dark,
         var t when t == typeof(Action) => (Action)(() => { }),
+        var t when t == typeof(Func<CancellationToken, Task>) => (Func<CancellationToken, Task>)(_ => Task.CompletedTask),
+        var t when t == typeof(object) => 42,
         var t => throw new InvalidOperationException(
             $"New property 'View.{p.Name}' of type '{t.Name}'. Add a sample value for it to this test."),
     };

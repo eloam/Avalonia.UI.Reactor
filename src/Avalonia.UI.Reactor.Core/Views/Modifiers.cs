@@ -301,6 +301,53 @@ public static class Modifiers
         where T : View => (T)(AsView(view) with { DisappearAction = action });
 
     /// <summary>
+    /// Runs a task while the view is displayed; the task is cancelled when the view disappears.
+    /// </summary>
+    /// <remarks>
+    /// The task starts once per appearance, after the update, on the user interface thread: after an <c>await</c>, it
+    /// resumes there, so its state changes are not concurrent. An update of the <c>Body</c> does not restart it; a task
+    /// that reads state when it starts takes that state as its key: <c>.Task(key, …)</c>. An
+    /// <see cref="OperationCanceledException"/> after cancellation is expected; another exception is reported.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// Text($"Tick: {Tick}").Task(async cancellation =&gt;
+    /// {
+    ///     using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+    ///     while (await timer.WaitForNextTickAsync(cancellation))
+    ///         Tick++;
+    /// })
+    /// </code>
+    /// </example>
+    /// <typeparam name="T">The type of the view.</typeparam>
+    /// <param name="view">The view to modify.</param>
+    /// <param name="action">The task, which receives the token cancelled when the view disappears.</param>
+    /// <returns>A copy of the view with the task.</returns>
+    public static T Task<T>(this T view, Func<CancellationToken, Task> action)
+        where T : View => (T)(AsView(view) with { TaskAction = action, TaskKey = null });
+
+    /// <summary>
+    /// Runs a task while the view is displayed, and starts it again when its key changes; the previous run is cancelled
+    /// then, and when the view disappears.
+    /// </summary>
+    /// <remarks>
+    /// The key is compared with <see cref="object.Equals(object, object)"/>; several values form a tuple:
+    /// <c>.Task((Query, Page), …)</c>.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// Results().Task(Query, async cancellation =&gt; Matches = await SearchAsync(Query, cancellation))
+    /// </code>
+    /// </example>
+    /// <typeparam name="T">The type of the view.</typeparam>
+    /// <param name="view">The view to modify.</param>
+    /// <param name="key">The value whose change starts the task again.</param>
+    /// <param name="action">The task, which receives the token cancelled when it must stop.</param>
+    /// <returns>A copy of the view with the task.</returns>
+    public static T Task<T>(this T view, object? key, Func<CancellationToken, Task> action)
+        where T : View => (T)(AsView(view) with { TaskAction = action, TaskKey = key });
+
+    /// <summary>
     /// Places a view over this one (a badge, an overlay), aligned within its bounds.
     /// </summary>
     /// <param name="view">The view below.</param>

@@ -168,4 +168,18 @@ public class TodoDemoTests
 
         Assert.True(t.HasText("25%"));
     }
+
+    [AvaloniaFact]
+    public void The_about_card_counts_the_seconds_while_it_is_open_and_stops_when_it_closes()
+    {
+        using ReactorTestHost t = Demo();
+
+        t.Press(Key.F1, PhysicalKey.F1);
+        t.WaitUntil(() => t.HasText("Open for 1 s"), timeoutMs: 3000);
+        t.ClickButton("Close");
+        t.Settle();
+
+        Assert.DoesNotContain(t.Texts, text => text.Text?.StartsWith("Open for", StringComparison.Ordinal) == true);
+        Assert.Empty(t.Errors);
+    }
 }

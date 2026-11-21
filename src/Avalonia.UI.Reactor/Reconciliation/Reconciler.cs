@@ -514,7 +514,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     // Visited before the children of the node, so that the order of the visits is the order of the tree.
     private void TrackLifecycle(Node node, View view)
     {
-        if (view.AppearAction is null && view.DisappearAction is null)
+        if (view.AppearAction is null && view.DisappearAction is null && view.TaskAction is null)
         {
             return;
         }
@@ -536,11 +536,13 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     // being re-evaluated: the nodes of such a scope are not visited, and without this rule a child component would
     // disappear whenever its parent is re-evaluated. The actions run after the update, on the dispatcher, so that a
     // state they change schedules the next update instead of changing a Body being computed: the disappearances first,
-    // children before their parents, then the appearances, parents before their children.
+    // children before their parents, then the appearances and the restarted tasks, parents before their children. A
+    // task is cancelled at once, when the update decides it.
     private void SweepLifecycles()
     {
         List<Lifecycle>? gone = null;
         List<Lifecycle>? appearing = null;
+        List<Lifecycle>? restarting = null;
         foreach (Lifecycle lifecycle in _lifecycles)
         {
             if (lifecycle.LastVisit != _pass && !IsKept(lifecycle.Owner))
@@ -550,11 +552,19 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             else if (!lifecycle.Appeared)
             {
                 lifecycle.Appeared = true;
+                DecideTask(lifecycle);
                 (appearing ??= []).Add(lifecycle);
+            }
+            else if (TaskChanged(lifecycle))
+            {
+                lifecycle.Cancellation?.Cancel();
+                DecideTask(lifecycle);
+                if (lifecycle.TaskStarted)
+                    (restarting ??= []).Add(lifecycle);
             }
         }
 
-        if (gone is null && appearing is null)
+        if (gone is null && appearing is null && restarting is null)
         {
             return;
         }
@@ -562,11 +572,28 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         gone?.ForEach(Forget);
         gone?.Sort(Lifecycle.ChildrenFirst);
         appearing?.Sort(Lifecycle.ParentsFirst);
+        restarting?.Sort(Lifecycle.ParentsFirst);
         Dispatcher.UIThread.Post(() =>
         {
             gone?.ForEach(Disappear);
             appearing?.ForEach(Appear);
+            restarting?.ForEach(StartTask);
         });
+    }
+
+    // The task was added to a view that had appeared, removed from it, or its key changed.
+    private static bool TaskChanged(Lifecycle lifecycle)
+    {
+        View view = lifecycle.Node.View;
+        return view.TaskAction is null
+            ? lifecycle.TaskStarted
+            : !lifecycle.TaskStarted || !Equals(lifecycle.TaskKey, view.TaskKey);
+    }
+
+    private static void DecideTask(Lifecycle lifecycle)
+    {
+        lifecycle.TaskStarted = lifecycle.Node.View.TaskAction is not null;
+        lifecycle.TaskKey = lifecycle.Node.View.TaskKey;
     }
 
     // Kept by the update: visited, not re-evaluated, and still the scope at its place.
@@ -581,13 +608,14 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     {
         _lifecycles.Remove(lifecycle);
         lifecycle.Gone = true;
+        lifecycle.Cancellation?.Cancel();
         if (ReferenceEquals(lifecycle.Node.Lifecycle, lifecycle))
         {
             lifecycle.Node.Lifecycle = null;
         }
     }
 
-    // A view that went away before its posted appearance ran gets neither OnAppear nor OnDisappear.
+    // A view that went away before its posted appearance ran gets neither OnAppear nor OnDisappear, nor its task.
     private void Appear(Lifecycle lifecycle)
     {
         if (lifecycle.Gone)
@@ -597,6 +625,49 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
         lifecycle.AppearRan = true;
         run(lifecycle.Node.View.AppearAction);
+        StartTask(lifecycle);
+    }
+
+    // Started on the user interface thread, after the update: after an await, the task resumes there. A run that is
+    // still going (two restarts decided before the first one started) is cancelled first, so that one run at most goes on.
+    private void StartTask(Lifecycle lifecycle)
+    {
+        if (lifecycle.Gone || !lifecycle.TaskStarted || lifecycle.Node.View.TaskAction is not { } task)
+        {
+            return;
+        }
+
+        lifecycle.Cancellation?.Cancel();
+        var cancellation = new CancellationTokenSource();
+        lifecycle.Cancellation = cancellation;
+        run(() => _ = WatchAsync(lifecycle, task, cancellation));
+    }
+
+    // Runs the task until it ends. An OperationCanceledException after cancellation is expected; another exception is
+    // reported as the exception of an action is. The cancellation is disposed when the task ends.
+    private async Task WatchAsync(Lifecycle lifecycle, Func<CancellationToken, Task> task, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await task(cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // Expected: the view disappeared, the key changed, or the window closed.
+        }
+        catch (Exception exception)
+        {
+            host.Report(exception);
+        }
+        finally
+        {
+            if (ReferenceEquals(lifecycle.Cancellation, cancellation))
+            {
+                lifecycle.Cancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
     }
 
     private void Disappear(Lifecycle lifecycle)
@@ -607,7 +678,8 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         }
     }
 
-    // The window closes: the dispatcher may not run again, so the views that appeared disappear at once.
+    // The window closes: the dispatcher may not run again, so the views that appeared disappear at once, and their tasks
+    // are cancelled.
     private void ReleaseLifecycles()
     {
         List<Lifecycle> all = [.. _lifecycles];

@@ -237,6 +237,25 @@ public static class ComponentModifiers
     public static View OnDisappear(this Component component, Action action) => AsView(component).OnDisappear(action);
 
     /// <summary>
+    /// Runs a task while the component is displayed; the task is cancelled when it disappears.
+    /// </summary>
+    /// <param name="component">The component to modify.</param>
+    /// <param name="action">The task, which receives the token cancelled when the component disappears.</param>
+    /// <returns>The view of the component with the modifier.</returns>
+    public static View Task(this Component component, Func<CancellationToken, Task> action) =>
+        AsView(component).Task(action);
+
+    /// <summary>
+    /// Runs a task while the component is displayed, and starts it again when its key changes.
+    /// </summary>
+    /// <param name="component">The component to modify.</param>
+    /// <param name="key">The value whose change starts the task again.</param>
+    /// <param name="action">The task, which receives the token cancelled when it must stop.</param>
+    /// <returns>The view of the component with the modifier.</returns>
+    public static View Task(this Component component, object? key, Func<CancellationToken, Task> action) =>
+        AsView(component).Task(key, action);
+
+    /// <summary>
     /// Places a view over the component (a badge, an overlay), aligned within its bounds.
     /// </summary>
     /// <param name="component">The component below.</param>

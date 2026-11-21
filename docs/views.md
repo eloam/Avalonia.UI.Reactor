@@ -63,6 +63,7 @@ ForEach(contacts, c => Text(c.Name))   // keyed by c.Id, even when the records a
 | `.Overlay(badge, Alignment.TopRight)` | Places a view over another |
 | `.Key("…")` | Identity of a view in a list: keeps its control, focus and hover |
 | `.OnAppear(…)`, `.OnDisappear(…)` | Runs an action when the view enters the tree and when it leaves it (see [Lifecycle](#lifecycle)) |
+| `.Task(async cancellation => …)`, `.Task(key, …)` | Runs a task while the view is displayed, cancelled when it disappears |
 
 Modifiers also apply to components: `counter.Padding(8).Background(ColorRole.Surface)`. Named arguments remove any
 ambiguity: `.Padding(horizontal: 6, vertical: 4)`. A border takes its own space, as in CSS: with
@@ -83,6 +84,27 @@ TextField(Bind.Draft).OnAppear(LoadDraft).OnDisappear(SaveDraft)
   for `OnDisappear`. A state they change schedules the next update. When the window closes, `OnDisappear` runs at once.
 - An exception in an action is reported like the exception of any other action.
 
+A view can also own a **task** for as long as it is displayed, as with `.task` in SwiftUI: the task is cancelled
+when the view disappears, so nothing it started keeps running.
+
+```csharp
+Text($"Open for {Seconds} s").Task(async cancellation =>
+{
+    using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+    while (await timer.WaitForNextTickAsync(cancellation))
+        Seconds++;
+})
+
+Results().Task(Query, async cancellation => Matches = await SearchAsync(Query, cancellation))
+```
+
+- The task starts after the update, once per appearance, on the user interface thread; after an `await`, it resumes
+  there. An update of the `Body` does not restart it.
+- With a key, the task is cancelled and started again when the key changes (`Equals`); several values form a tuple:
+  `.Task((Query, Page), …)`. A task that reads state when it starts takes that state as its key.
+- Cancellation goes through the token: pass it to what the task awaits (MVU017 warns otherwise). An
+  `OperationCanceledException` after cancellation is expected; another exception is reported.
+
 ## Actions and bindings
 
 ```csharp
@@ -98,6 +120,8 @@ State that rejects or transforms the input has the last word.
 ## Asynchronous code
 
 An action can be `async Task`. The interface updates before and after each `await`, with nothing to add.
+Work that must stop when a view goes away (a timer, a subscription, a search as you type) belongs in `.Task(…)` (see
+[Lifecycle](#lifecycle)).
 
 ```csharp
 Button("Load", Load)

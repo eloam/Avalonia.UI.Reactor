@@ -129,6 +129,16 @@ public abstract record View
     public Action? DisappearAction { get; init; }
 
     /// <summary>
+    /// Gets the task run while the view is displayed, cancelled when it disappears, or <see langword="null"/>.
+    /// </summary>
+    public Func<CancellationToken, Task>? TaskAction { get; init; }
+
+    /// <summary>
+    /// Gets the value whose change cancels the task and starts it again, or <see langword="null"/>.
+    /// </summary>
+    public object? TaskKey { get; init; }
+
+    /// <summary>
     /// Gets the property that a bound control reads and writes, which identifies the control among its siblings, or
     /// <see langword="null"/>.
     /// </summary>

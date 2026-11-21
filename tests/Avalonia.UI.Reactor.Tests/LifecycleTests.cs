@@ -169,6 +169,140 @@ public class LifecycleTests
         Assert.IsType<InvalidOperationException>(Assert.Single(t.Errors));
     }
 
+    [AvaloniaFact]
+    public void A_task_starts_once_per_appearance_and_an_update_does_not_restart_it()
+    {
+        var probe = new TaskProbe();
+        using var t = new ReactorTestHost(probe);
+        t.WaitUntil(() => probe.ResumedOnUIThread.Count == 1);
+
+        probe.Count++;
+        t.Settle();
+
+        Assert.True(t.HasText("Compte 1"));
+        Assert.Equal(1, probe.Starts);
+    }
+
+    [AvaloniaFact]
+    public void A_task_is_cancelled_when_its_view_disappears()
+    {
+        var probe = new TaskProbe();
+        using var t = new ReactorTestHost(probe);
+        t.WaitUntil(() => probe.Starts == 1);
+
+        probe.Shown = false;
+
+        t.WaitUntil(() => probe.Cancellations == 1);
+        Assert.Empty(t.Errors);
+    }
+
+    [AvaloniaFact]
+    public void A_task_is_cancelled_when_the_window_closes()
+    {
+        var probe = new TaskProbe();
+        var t = new ReactorTestHost(probe);
+        t.WaitUntil(() => probe.ResumedOnUIThread.Count == 1);
+
+        t.Dispose();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1, probe.Cancellations);
+    }
+
+    [AvaloniaFact]
+    public void A_task_restarts_when_its_key_changes()
+    {
+        var probe = new TaskProbe(useKey: true);
+        using var t = new ReactorTestHost(probe);
+        t.WaitUntil(() => probe.Starts == 1);
+
+        probe.Query = "b";
+        t.WaitUntil(() => probe.Starts == 2 && probe.Cancellations == 1);
+
+        probe.Count++;
+        t.Settle();
+        Assert.Equal(2, probe.Starts);
+    }
+
+    [AvaloniaFact]
+    public void A_task_added_to_a_displayed_view_starts_and_stops_when_it_is_removed()
+    {
+        var probe = new TaskProbe();
+        using var t = new ReactorTestHost(probe);
+        t.WaitUntil(() => probe.Starts == 1);
+
+        probe.WithTask = false;
+        t.WaitUntil(() => probe.Cancellations == 1);
+        probe.WithTask = true;
+
+        t.WaitUntil(() => probe.Starts == 2);
+    }
+
+    [AvaloniaFact]
+    public void One_run_at_most_goes_on_when_the_key_changes_twice_before_the_task_starts()
+    {
+        int starts = 0;
+        int cancellations = 0;
+        async Task RunAsync(CancellationToken cancellation)
+        {
+            starts++;
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellation);
+            }
+            catch (OperationCanceledException)
+            {
+                cancellations++;
+                throw;
+            }
+        }
+
+        var reconciler = new Reconciler(new StubHost(), action => action?.Invoke());
+        string[] keys = ["a", "b", "c"];
+        foreach (string key in keys)
+            reconciler.Update(Text("x").Task(key, RunAsync), Themes.Default);
+
+        Dispatcher.UIThread.RunJobs();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(3, starts);
+        Assert.Equal(2, cancellations);
+    }
+
+    [AvaloniaFact]
+    public void A_task_resumes_on_the_user_interface_thread()
+    {
+        var probe = new TaskProbe();
+        using var t = new ReactorTestHost(probe);
+
+        t.WaitUntil(() => probe.ResumedOnUIThread.Count == 1);
+
+        Assert.True(probe.ResumedOnUIThread[0]);
+    }
+
+    [AvaloniaFact]
+    public void A_task_that_fails_is_reported()
+    {
+        var probe = new TaskProbe(fail: true);
+        using var t = new ReactorTestHost(probe);
+
+        t.WaitUntil(() => t.Errors.Count == 1);
+
+        Assert.IsType<InvalidOperationException>(t.Errors[0]);
+    }
+
+    [AvaloniaFact]
+    public void A_task_given_to_a_component_is_cancelled_when_the_component_disappears()
+    {
+        var probe = new ComponentTaskProbe();
+        using var t = new ReactorTestHost(probe);
+        t.WaitUntil(() => probe.Starts == 1);
+
+        probe.Shown = false;
+
+        t.WaitUntil(() => probe.Cancellations == 1);
+    }
+
     private sealed class StubHost : IScopeHost
     {
         public Themes Themes { get; } = Themes.Default;
