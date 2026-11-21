@@ -68,7 +68,7 @@ public sealed partial class SignUp : Component
 - **Themes declared by the view.** Light and dark families that follow the system, named colors and styles, and
   `.Theme("Sable")` on any view or component. No visual value is hard-coded.
 - **Control templates.** Replace the whole look of a button, checkbox or text field with a view, keeping its behavior.
-- **Compile-time diagnostics.** An analyzer reports misuses (`MVU001`–`MVU012`) with the fix in the message.
+- **Compile-time diagnostics.** An analyzer reports misuses (`MVU001`–`MVU016`) with the fix in the message.
 - **Hot reload.** Edit a `Body` and save: the window updates in about a second and keeps its state.
 - **Escape hatch.** Any Avalonia control can be embedded with `Native(() => new Calendar())`.
 

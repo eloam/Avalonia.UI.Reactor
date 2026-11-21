@@ -14,12 +14,13 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Avalonia.UI.Reactor.Generators;
 
 /// <summary>
-/// Reports the pitfalls of reactive state at compile time.
+/// Reports the pitfalls of reactive state and views at compile time.
 /// </summary>
 /// <remarks>
 /// The analyzer reports a badly declared <c>[State]</c> property (MVU001–004), a member displayed by a view but changed
-/// without being observed, so that the interface would not update (MVU010–011), and state passed to a control without
-/// its binding, so that the control would not change it (MVU012).
+/// without being observed, so that the interface would not update (MVU010–011), state passed to a control without its
+/// binding, so that the control would not change it (MVU012), a view created but never displayed (MVU013), and a
+/// component with state created in a view, which would lose its state on every update (MVU016).
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class StateAnalyzer : DiagnosticAnalyzer
@@ -103,9 +104,31 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
         Category, DiagnosticSeverity.Error, isEnabledByDefault: true,
         description: "A control that supports two-way binding only displays a [State] property that is passed by value. Pass its generated binding ('Bind.Name', or 'item.Bind.Name' for a model object) so that the control can update it. To make the control read-only on purpose, pass 'null' as the change handler.");
 
+    /// <summary>
+    /// Describes MVU013: a view created as a statement, whose value is not used.
+    /// </summary>
+    public static readonly DiagnosticDescriptor DiscardedView = new(
+        "MVU013",
+        title: "View is created but never displayed",
+        messageFormat: "The view returned by '{0}' is not used, so it is never displayed; pass it to a container such as 'VStack', or return it",
+        Category, DiagnosticSeverity.Error, isEnabledByDefault: true,
+        description: "A view is a description that appears only when 'Body' returns it or a container receives it. A view created as a statement, whose value is not used, is never displayed. Pass it to a container ('VStack(a, b)'), return it, or remove the statement.");
+
+    /// <summary>
+    /// Describes MVU016: a component with state created in a view.
+    /// </summary>
+    public static readonly DiagnosticDescriptor ComponentCreatedInView = new(
+        "MVU016",
+        title: "Component is created in a view",
+        messageFormat: "'{0}' is created on every update of the view, so its state is lost each time; keep the instance in a field, or move its state into the item it displays",
+        Category, DiagnosticSeverity.Error, isEnabledByDefault: true,
+        description: "A component keeps its state as long as the same instance is displayed. Created in 'Body' or in a method that returns a view, it is a new instance on every update, whose [State] properties start again from their initial values. Create the component once, in a field or a constructor, or move its state into the model it displays and draw it with a method.");
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-        ImmutableArray.Create(NotPartialProperty, NotPartialType, InvalidShape, ReservedName, UnobservedMember, UnobservedList, UnboundState);
+        ImmutableArray.Create(
+            NotPartialProperty, NotPartialType, InvalidShape, ReservedName, UnobservedMember, UnobservedList, UnboundState,
+            DiscardedView, ComponentCreatedInView);
 
     private static readonly ImmutableHashSet<string> s_listMutators = ImmutableHashSet.Create(
         "Add", "AddRange", "Insert", "InsertRange", "Remove", "RemoveAt", "RemoveAll", "RemoveRange", "Clear", "Sort", "Reverse");
@@ -137,6 +160,9 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             INamedTypeSymbol? binding = start.Compilation.GetTypeByMetadataName("Avalonia.UI.Reactor.State.Binding`1");
             if (binding is not null)
                 start.RegisterSyntaxNodeAction(c => CheckUnboundState(c, stateAttr, binding), SyntaxKind.InvocationExpression);
+
+            start.RegisterOperationAction(c => CheckDiscardedView(c, view), OperationKind.ExpressionStatement);
+            start.RegisterOperationAction(c => CheckComponentCreatedInView(c, component, view, stateAttr), OperationKind.ObjectCreation);
 
             // Members read by a view and changed elsewhere: matched at the end of the compilation.
             var readInView = new ConcurrentDictionary<ISymbol, byte>(SymbolEqualityComparer.Default);
@@ -254,6 +280,88 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             : $"Bind.{args[0].Expression}";
         c.ReportDiagnostic(Diagnostic.Create(UnboundState, args[0].GetLocation(),
             state.Name, method?.Identifier.Text ?? invocation.Expression.ToString(), suggestion));
+    }
+
+    // MVU013: Text("Title"); as a statement. The view is a description: unused, it is lost without any error. Only a
+    // call or a creation makes a view; an assignment (node.View = view) has the type of a view but keeps it.
+    private static void CheckDiscardedView(OperationAnalysisContext c, INamedTypeSymbol view)
+    {
+        string? name = ((IExpressionStatementOperation)c.Operation).Operation switch
+        {
+            IInvocationOperation invocation when DerivesFrom(invocation.Type, view) => invocation.TargetMethod.Name,
+            IObjectCreationOperation creation when DerivesFrom(creation.Type, view) => creation.Type!.Name,
+            _ => null,
+        };
+        if (name is not null)
+            c.ReportDiagnostic(Diagnostic.Create(DiscardedView, c.Operation.Syntax.GetLocation(), name));
+    }
+
+    // MVU016: new CounterCard() in Body, or in a method that returns a view. A component created in an action, kept in a
+    // field (_counter ??= new()), or returned to a cache by a lambda keeps its instance, so it is not reported.
+    private static void CheckComponentCreatedInView(
+        OperationAnalysisContext c, INamedTypeSymbol component, INamedTypeSymbol view, INamedTypeSymbol stateAttr)
+    {
+        var creation = (IObjectCreationOperation)c.Operation;
+        if (creation.Type is not INamedTypeSymbol type || !DerivesFrom(type, component) || !DeclaresState(type, stateAttr))
+            return;
+        if (!IsViewMember(c.ContainingSymbol, view) || RunsOutsideTheView(creation, view) || IsKept(creation))
+            return;
+
+        c.ReportDiagnostic(Diagnostic.Create(ComponentCreatedInView, creation.Syntax.GetLocation(), type.Name));
+    }
+
+    // Inside a lambda or a local function that does not build a view: an action, which runs later, or a factory, whose
+    // result is kept by its caller.
+    private static bool RunsOutsideTheView(IOperation op, INamedTypeSymbol view)
+    {
+        for (IOperation? p = op.Parent; p is not null; p = p.Parent)
+        {
+            IMethodSymbol? function = p switch
+            {
+                IAnonymousFunctionOperation lambda => lambda.Symbol,
+                ILocalFunctionOperation local => local.Symbol,
+                _ => null,
+            };
+            if (function is not null && !DerivesFrom(function.ReturnType, view))
+                return true;
+        }
+
+        return false;
+    }
+
+    // Assigned to a field or a property (_counter ??= new CounterCard()): the instance is kept from one update to the next.
+    private static bool IsKept(IOperation op)
+    {
+        IOperation? value = op;
+        while (value.Parent is IConversionOperation conversion)
+            value = conversion;
+        return value.Parent is IAssignmentOperation { Target: IFieldReferenceOperation or IPropertyReferenceOperation } assignment
+            && assignment.Value == value;
+    }
+
+    private static bool DeclaresState(INamedTypeSymbol type, INamedTypeSymbol stateAttr)
+    {
+        for (INamedTypeSymbol? t = type; t is not null; t = t.BaseType)
+        {
+            if (t.GetMembers().OfType<IPropertySymbol>().Any(p =>
+                    p.GetAttributes().Any(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, stateAttr))))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool DerivesFrom(ITypeSymbol? type, INamedTypeSymbol baseType)
+    {
+        for (ITypeSymbol? t = type; t is not null; t = t.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(t, baseType))
+                return true;
+        }
+
+        return false;
     }
 
     // A Binding<T> parameter compatible with the type of the state (or generic, as in Segmented<T>).

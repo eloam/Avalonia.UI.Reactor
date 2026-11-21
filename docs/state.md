@@ -51,7 +51,8 @@ public sealed partial class Todo(string title)
 - A scope whose state did not change keeps its controls as they are: its `Body` is not called again and its controls
   are not touched.
 - Plain fields are **not** observed. Use `[State]`, or call `Refresh()` as a last resort.
-- A component keeps its state as long as the same instance is displayed.
+- A component keeps its state as long as the same instance is displayed: create it once, in a field
+  (`private readonly Counter _counter = new();`), not in `Body` (MVU016).
 
 In the sample app, clicking **+** re-evaluates one scope (the counter), typing re-evaluates one (the input row), and
 checking a task re-evaluates two (the row and the list footer).
@@ -75,3 +76,5 @@ An analyzer ([StateAnalyzer.cs](../src/Avalonia.UI.Reactor.Generators/StateAnaly
 | `MVU010` | Warning | A field displayed by the view and modified, but not `[State]`: the screen would not follow |
 | `MVU011` | Warning | A `List<T>` displayed by the view and modified: use `StateList<T>` |
 | `MVU012` | Error | State passed to a control without its binding (`TextField(Name)`, `Checkbox(todo.Done)`): the message gives `Bind.Name`, `todo.Bind.Done` |
+| `MVU013` | Error | A view created as a statement, whose value is not used (`Text("Title");`): it would never be displayed |
+| `MVU016` | Error | A component with state created in a view (`VStack(new Counter())`): a new instance on every update loses its state |

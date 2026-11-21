@@ -204,6 +204,117 @@ public class GeneratorTests
             """));
 
     [Fact]
+    public void View_created_as_a_statement_is_reported_with_what_to_write()
+    {
+        Diagnostic diagnostic = Assert.Single(Compile("""
+            public class C : Component
+            {
+                public override View Body => VStack(Header());
+
+                private View Header()
+                {
+                    Text("Title");
+                    return Divider();
+                }
+            }
+            """));
+        Assert.Equal("MVU013", diagnostic.Id);
+        string message = diagnostic.GetMessage(CultureInfo.InvariantCulture);
+        Assert.Contains("'Text'", message);
+        Assert.Contains("'VStack'", message);
+    }
+
+    [Fact]
+    public void View_lost_in_an_action_is_reported() =>
+        Assert.Contains("MVU013", Ids("""
+            public class C : Component
+            {
+                public override View Body => Button("Add", () => Text("Added"));
+            }
+            """));
+
+    [Fact]
+    public void Used_or_discarded_views_are_not_reported() =>
+        Assert.Empty(Ids("""
+            public class C : Component
+            {
+                public override View Body => VStack(Header());
+
+                private View Header()
+                {
+                    var title = Text("Title");
+                    _ = Text("Ignored on purpose");
+                    return title;
+                }
+            }
+            """));
+
+    [Fact]
+    public void Component_with_state_created_in_a_view_is_reported_with_what_to_write()
+    {
+        Diagnostic diagnostic = Assert.Single(Compile("""
+            public partial class Counter : Component
+            {
+                [State] partial int Count { get; set; }
+                public override View Body => Text($"{Count}");
+            }
+
+            public class Page : Component
+            {
+                public override View Body => VStack(new Counter());
+            }
+            """));
+        Assert.Equal("MVU016", diagnostic.Id);
+        string message = diagnostic.GetMessage(CultureInfo.InvariantCulture);
+        Assert.Contains("'Counter'", message);
+        Assert.Contains("field", message);
+    }
+
+    [Fact]
+    public void Component_with_state_created_for_each_row_is_reported() =>
+        Assert.Contains("MVU016", Ids("""
+            public partial class Row : Component
+            {
+                [State] partial bool Open { get; set; }
+                public override View Body => Text(Open ? "open" : "closed");
+            }
+
+            public class Page : Component
+            {
+                private readonly int[] _items = [1, 2];
+                public override View Body => VStack(ForEach(_items, item => new Row()));
+            }
+            """));
+
+    [Fact]
+    public void Components_kept_stateless_or_created_in_actions_are_not_reported() =>
+        Assert.Empty(Ids("""
+            public partial class Counter : Component
+            {
+                [State] partial int Count { get; set; }
+                public override View Body => Text($"{Count}");
+            }
+
+            public class Label : Component
+            {
+                public override View Body => Text("Label");
+            }
+
+            public class Page : Component
+            {
+                private readonly Counter _counter = new();
+                private readonly List<Counter> _added = [];
+                private Counter? _lazy;
+
+                public override View Body => VStack(
+                    _counter,
+                    _lazy ??= new Counter(),
+                    new Label(),
+                    Button("Add", () => _added.Add(new Counter())));
+            }
+            """));
+
+    [Fact]
     public void Bind_and_StateBindings_are_reserved_in_classes_with_state()
     {
         var reserved = Compile("""
