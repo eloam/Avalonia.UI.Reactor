@@ -149,6 +149,11 @@ It is written to the standard error output and to the debugger, prefixed with `[
 - A component with state is a class deriving from `Component`; a stateless one is just a function that returns a
   `View` (see `Card` and `Segmented` in the sample app).
 - Conditional display: `condition ? Text("…") : null`; several views at once: `condition ? Group(a, b) : null`.
+- Several views returned by a component, a `ForEach` row or an `Observe` block take their places among the children of
+  the container, as in SwiftUI: in an `HStack`, `ForEach(items, item => Group(Name(item), Badge(item)))` puts every
+  view side by side. A block re-evaluated alone updates its own views only; the modifiers of a component or a block
+  whose content is several views apply to each of them. In a place for one control (the root of a window, a
+  decoration), the views are stacked vertically.
 
 ## Layers and drawing
 

@@ -371,7 +371,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 2. Identity by components, bindings, then view type and rank, which fixes `cond ? view : null` today (a behavior
    change). **Done.**
 3. Group modifiers applied to each child: a breaking change. **Done.**
-4. Fragments.
+4. Fragments. **Done.**
 5. Blocks: `[ViewBuilder]` parameters, interceptors, `Show`, MVU014, MVU015 and the code fixes.
 6. Scopes of view methods and the `Observe` block, measured (see [Risks](#risks)).
 7. `Tags.Bindings`.

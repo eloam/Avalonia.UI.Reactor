@@ -47,7 +47,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     private const char PropertySeparator = '.';
 
     private readonly Dictionary<string, Scope> _scopes = [];
-    private readonly Dictionary<Scope, Node> _content = [];
+    private readonly Dictionary<Scope, IReadOnlyList<Node>> _content = [];
     private readonly Stack<List<Scope>> _collectors = new();
     private readonly HashSet<Lifecycle> _lifecycles = [];
     private readonly Stack<Scope> _owners = new();
@@ -305,15 +305,18 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
         var slots = new HashSet<string>();
         var ranks = new Dictionary<Type, int>();
-        var result = new Node[children.Count];
-        for (int i = 0; i < children.Count; i++)
+        var result = new List<Node>(children.Count);
+        foreach (View view in children)
         {
-            View view = children[i];
-            string slot = SlotOf(parent, view, slots, ranks);
-            previous.TryGetValue(slot, out Node? existing);
-            Node node = Reconcile(existing, view, environment, slot);
-            node.Slot = slot;
-            result[i] = node;
+            string slot = SlotOf(parent.Id, view, slots, ranks);
+            if (view is ScopeView scope)
+            {
+                result.AddRange(ReconcileFragment(scope, environment, slot));
+            }
+            else
+            {
+                result.Add(ReconcileAt(previous, view, environment, slot));
+            }
         }
 
         parent.Children = result;
@@ -322,11 +325,11 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
     // The place of a child (see ReconcileChildren). Two children that share an identity (the same component shown twice,
     // two fields bound to the same property) fall back to their rank; two children that share a key are an error.
-    private static string SlotOf(Node parent, View view, HashSet<string> slots, Dictionary<Type, int> ranks)
+    private static string SlotOf(string parentId, View view, HashSet<string> slots, Dictionary<Type, int> ranks)
     {
         if (view.Key is { } key)
         {
-            string keyed = $"{parent.Id}/{KeySlotPrefix}{key}";
+            string keyed = $"{parentId}/{KeySlotPrefix}{key}";
             if (!slots.Add(keyed))
             {
                 throw new InvalidOperationException(
@@ -338,7 +341,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
         if (IdentityOf(view) is { } identity)
         {
-            string identified = $"{parent.Id}/{IdentitySlotPrefix}{identity}";
+            string identified = $"{parentId}/{IdentitySlotPrefix}{identity}";
             if (slots.Add(identified))
             {
                 return identified;
@@ -348,7 +351,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         Type type = view.GetType();
         ranks.TryGetValue(type, out int rank);
         ranks[type] = rank + 1;
-        string ranked = $"{parent.Id}/{RankSlotPrefix}{type.Name}{RankSeparator}{rank.ToString(CultureInfo.InvariantCulture)}";
+        string ranked = $"{parentId}/{RankSlotPrefix}{type.Name}{RankSeparator}{rank.ToString(CultureInfo.InvariantCulture)}";
         slots.Add(ranked);
         return ranked;
     }
@@ -385,7 +388,80 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         Flex.SetSelfAlign(root, view.SelfAlign);
     }
 
-    private Node ReconcileScope(ScopeView view, ViewEnvironment environment, string id)
+    // A scope in a place that holds one control (the root, a decoration, a template): a content made of several views is
+    // a group, which stacks them vertically.
+    private Node ReconcileScope(ScopeView view, ViewEnvironment environment, string id) =>
+        ReconcileScopeContent(view, environment, id, (scope, previous) =>
+            [Reconcile(previous is { Count: > 0 } ? previous[0] : null, scope.Content!, environment, id + ScopeContentSuffix)])[0];
+
+    // A scope among the children of a container is a fragment: when its content is a group, its views take their places
+    // among the children of the container, below the place of the scope, with the modifiers of the scope (as for a
+    // group). A scope whose content is one view keeps its modifiers around it. Updating a fragment alone needs nothing
+    // more: while one of its scopes is dirty, its parents are visited, and the container arranges its children again.
+    private IReadOnlyList<Node> ReconcileFragment(ScopeView view, ViewEnvironment environment, string slot) =>
+        ReconcileScopeContent(view, environment, slot, (scope, previous) =>
+            FragmentNodes(view, scope.Content!, environment, slot, previous));
+
+    private List<Node> FragmentNodes(
+        ScopeView view, View content, ViewEnvironment environment, string slot, IReadOnlyList<Node>? previousNodes)
+    {
+        var previous = new Dictionary<string, Node>();
+        foreach (Node node in previousNodes ?? [])
+        {
+            previous.TryAdd(node.Slot, node);
+        }
+
+        ScopeView modifiers = view with { Key = null };
+        bool modified = !modifiers.HasNoModifiers();
+        var nodes = new List<Node>();
+        if (content is GroupView group)
+        {
+            var slots = new HashSet<string>();
+            var ranks = new Dictionary<Type, int>();
+            int position = 0;
+            foreach (View child in Ui.Unfold(group))
+            {
+                View placed = modified ? child.Inherit(modifiers, position) : child;
+                position++;
+                string childSlot = SlotOf(slot + ScopeContentSuffix, placed, slots, ranks);
+                if (placed is ScopeView nested)
+                {
+                    nodes.AddRange(ReconcileFragment(nested, environment, childSlot));
+                }
+                else
+                {
+                    nodes.Add(ReconcileAt(previous, placed, environment, childSlot));
+                }
+            }
+        }
+        else
+        {
+            View single = modified
+                ? new ZStackView([content]) { Alignment = Primitives.Alignment.TopLeft }.CopyFrom(modifiers)
+                : content;
+            previous.TryGetValue(slot, out Node? existing);
+            Node node = Reconcile(existing, single, environment, slot + ScopeContentSuffix);
+            node.Slot = slot;
+            nodes.Add(node);
+        }
+
+        return nodes;
+    }
+
+    // Applies a view at its place among the children of a container, reusing the node that held that place.
+    private Node ReconcileAt(Dictionary<string, Node> previous, View view, ViewEnvironment environment, string slot)
+    {
+        previous.TryGetValue(slot, out Node? existing);
+        Node node = Reconcile(existing, view, environment, slot);
+        node.Slot = slot;
+        return node;
+    }
+
+    // The steps shared by a scope in one place and by a fragment: find or create the scope at its place, re-evaluate its
+    // Body when needed, keep its nodes when nothing changed, otherwise reconcile its content while collecting its
+    // descendant scopes and owning the lifecycles declared in it.
+    private IReadOnlyList<Node> ReconcileScopeContent(
+        ScopeView view, ViewEnvironment environment, string id, Func<Scope, IReadOnlyList<Node>?, IReadOnlyList<Node>> reconcile)
     {
         if (!_scopes.TryGetValue(id, out Scope? scope) || !ReferenceEquals(scope.Identity, view.Identity))
         {
@@ -413,7 +489,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             || scope.Content is null
             || (view.Identity is null && !ReferenceEquals(view, scope.LastView));
         scope.LastView = view;
-        _content.TryGetValue(scope, out Node? previous);
+        _content.TryGetValue(scope, out IReadOnlyList<Node>? previous);
 
         if (!reevaluate
             && previous is not null
@@ -441,10 +517,10 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         var inner = new List<Scope>();
         _collectors.Push(inner);
         _owners.Push(scope);
-        Node node;
+        IReadOnlyList<Node> nodes;
         try
         {
-            node = Reconcile(previous, scope.Content!, environment, id + ScopeContentSuffix);
+            nodes = reconcile(scope, previous);
         }
         finally
         {
@@ -455,8 +531,8 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         scope.Descendants = inner;
         parent?.AddRange(inner);
         scope.Environment = environment;
-        _content[scope] = node;
-        return node;
+        _content[scope] = nodes;
+        return nodes;
     }
 
     private void Release(Scope scope)
