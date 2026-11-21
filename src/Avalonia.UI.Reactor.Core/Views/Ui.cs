@@ -158,7 +158,8 @@ public static class Ui
     /// <param name="items">The items.</param>
     /// <param name="row">The function that builds the view of an item.</param>
     /// <param name="key">The function that identifies an item, to keep focus and hover when the list changes; by
-    /// default, the item itself.</param>
+    /// default, the <see cref="IIdentifiable{TId}.Id"/> of an item that implements <see cref="IIdentifiable{TId}"/>,
+    /// otherwise the item itself.</param>
     /// <returns>The group of item views.</returns>
     public static GroupView ForEach<T>(IEnumerable<T> items, Func<T, View> row, Func<T, object>? key = null) =>
         new([.. items.Select(item => new ScopeView(() => row(item)) { Key = KeyOf(item, key) })]);
@@ -251,6 +252,11 @@ public static class Ui
         if (item is null)
         {
             return null;
+        }
+
+        if (item is IIdentifiable identifiable)
+        {
+            return identifiable.Key.ToString();
         }
 
         if (typeof(T).IsValueType || item is string)

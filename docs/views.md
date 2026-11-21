@@ -14,7 +14,7 @@ factories once with `global using static Avalonia.UI.Reactor.Views.Ui;`.
 | `VStack(…)`, `HStack(…)` | Vertical and horizontal stacks |
 | `ZStack(…)` | Layers; the last child is on top and receives the clicks |
 | `Group(…)` | Several views where one is expected; unfolded in place inside a stack |
-| `ForEach(items, row, key)` | One view per item, mixed freely with the other children |
+| `ForEach(items, row)` | One view per item, mixed freely with the other children (see [Lists](#lists)) |
 | `Spacer()`, `Divider()`, `Box()` | Flexible space, separator line, empty decorated surface |
 | `Canvas(d => …)` | Free drawing |
 | `Native(() => new Calendar())` | Any Avalonia control |
@@ -33,6 +33,21 @@ ZStack(Icon(), Badge()).Alignment(Alignment.TopRight)
 
 The rules are SwiftUI's: children take their natural size, `Spacer` and `.Grow(n)` share the remaining space in
 proportion, and an explicit `.Width(…)` wins over flexible children.
+
+## Lists
+
+`ForEach` builds one view per item, each re-evaluated on its own. A row keeps its controls, focus and hover when the
+list changes order, thanks to its key, chosen in this order:
+
+1. the key function, when one is given: `ForEach(todos, Row, t => t.Title)`;
+2. the identifier of an item that implements `IIdentifiable<TId>`, like `Identifiable` in SwiftUI;
+3. otherwise the item itself: its value for a number or a string, its instance for an object.
+
+```csharp
+public sealed record Contact(int Id, string Name) : IIdentifiable<int>;
+
+ForEach(contacts, c => Text(c.Name))   // keyed by c.Id, even when the records are rebuilt on every update
+```
 
 ## Modifiers
 

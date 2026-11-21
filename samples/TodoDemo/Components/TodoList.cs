@@ -45,7 +45,7 @@ public sealed partial class TodoList : Component
                     Button(Thinking ? "…" : "Idea", SuggestAsync).Style(ButtonStyle.Secondary))),
                 visible.Count == 0
                     ? Text("Nothing to show").Foreground(ColorRole.TextMuted).Padding(4, 8)
-                    : VStack(ForEach(visible, Row, t => t.Id)).Spacing(0),
+                    : VStack(ForEach(visible, Row)).Spacing(0),
                 Divider(),
                 Observe(Footer));
         }

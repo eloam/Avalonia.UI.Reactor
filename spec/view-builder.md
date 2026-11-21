@@ -350,13 +350,14 @@ methods, which cost nothing now that they have their own scope (see [Scopes](#sc
 A component created in a view is a new instance on every update, so its state is lost each time: MVU016 asks to keep it
 in a field or, for a list row (`ForEach(Todos, t => Show(new TodoRow(t)))`), to move its state into the item
 (`todo.Bind.Done`) and draw the row with a view method. MVU013 and MVU016 are useful without blocks
-(`VStack(new CounterCard())` loses its state today).
+(`VStack(new CounterCard())` loses its state today); they are implemented, and MVU013 reports every view statement
+until blocks exist.
 
 ### Delivery order
 
 Each step is its own change, with its tests, and updates the sample app, `docs/` and the README:
 
-1. MVU013, MVU016 and `IIdentifiable` keys, useful today.
+1. MVU013, MVU016 and `IIdentifiable` keys, useful today. **Done.**
 2. Identity by components, bindings, then view type and rank, which fixes `cond ? view : null` today (a behavior
    change).
 3. Group modifiers applied to each child: a breaking change (`refactor!`).

@@ -70,6 +70,20 @@ public class ReconcilerTests
     }
 
     [AvaloniaFact]
+    public void Identifiable_items_keep_their_controls_without_a_key_function()
+    {
+        // Records rebuilt on every update: without their Id as the key, each row would get a new control.
+        var reconciler = new Reconciler(new StubHost(), _ => { });
+        var first = (FlexStack)reconciler.Update(Rows(new Item(1, "a"), new Item(2, "b")), Themes.Default);
+        (Control a, Control b) = (first.Children[0], first.Children[1]);
+
+        var second = (FlexStack)reconciler.Update(Rows(new Item(2, "b"), new Item(1, "a")), Themes.Default);
+
+        Assert.Same(b, second.Children[0]);
+        Assert.Same(a, second.Children[1]);
+    }
+
+    [AvaloniaFact]
     public void A_decoration_declared_later_wraps_the_same_text_control()
     {
         using var t = new ReactorTestHost(new HighlightProbe());
@@ -107,6 +121,10 @@ public class ReconcilerTests
 
         Assert.Equal(3, stack.Children.Count);
     }
+
+    private static View Rows(params Item[] items) => VStack(ForEach(items, item => Text(item.Name)));
+
+    private sealed record Item(int Id, string Name) : IIdentifiable<int>;
 
     private sealed class StubHost : IScopeHost
     {
