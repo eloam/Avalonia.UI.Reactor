@@ -1,8 +1,8 @@
 # View builder blocks
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-11-21
-- **Spike**: partial (see [Spike results](#spike-results))
+- **Spike**: done, in two parts (see [Spike results](#spike-results))
 
 ## Summary
 
@@ -227,9 +227,11 @@ VStack(() => { Header(); Progress(); TodoRows(); });    // no Observe needed
   an argument runs at once.
 - `Refresh()`, the escape hatch that MVU010 suggests for a plain field, re-evaluates the component and also marks the
   scopes of its view methods: they do not read the refresh signal, so they would otherwise be skipped.
-- The caller reads the arguments; what the method reads belongs to its scope. When the caller is re-evaluated, the
-  scope is skipped if its arguments are equal, as SwiftUI compares the inputs of a view (today an anonymous scope is
-  re-evaluated with its parent).
+- The caller evaluates the arguments, and the scope captures their values: what the method reads belongs to its
+  scope. When the caller is re-evaluated, the scope is skipped if its arguments are equal (`Equals`; several arguments
+  form a tuple; an argument that is a delegate, such as an action, is a new object each time and always differs), as
+  SwiftUI compares the inputs of a view. The spike measured the gain: 5 to 6 times faster updates of a list of 1,000
+  rows drawn by a view method.
 - The method runs when the reconciler applies its scope, not during `Body`: the call stack shows the reconciler between
   the two, an exception surfaces then, and stepping into the call does not enter the method (a breakpoint in it does).
 
@@ -250,6 +252,14 @@ container.
   replaces that range only, and the controls around it stay.
 - A container that holds a single child (`Box`, a decoration, a button label, a template) and the root of a component
   cannot hold several controls: there, the views of a fragment are stacked vertically, as a `Group` is today.
+- The modifiers of a scope whose content is several views apply to each of them, as for a `Group`; a scope whose
+  content is one view keeps its modifiers around it (`counter.Padding(8)`).
+- Inside a fragment, the identity rules apply below the place of the scope: a field keeps its focus when a view appears
+  before it in the fragment, and the controls around the fragment stay.
+
+The spike shows that this needs no splicing of its own: a scope re-evaluated alone has its parents visited by the update
+(none of them is kept while a descendant is dirty), and the container arranges its children again, the views of the
+fragment among them.
 
 ### Show
 
@@ -408,8 +418,8 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
   refreshed with the caller. SwiftUI has the same rule; MVU010 already warns about such a field in a method that
   returns a view, and `Refresh()` reaches the view methods too (see [Scopes](#scopes)).
 - **Stepping into a scoped method**: F11 on `Progress();` does not enter the method, which runs later; a breakpoint in
-  it does. Running the scope at once would fix it, at the cost of skipping (see
-  [Unresolved questions](#unresolved-questions)).
+  it does. Running the scope at once would fix it, but would give up skipping it: the scope stays deferred, which
+  made the updates of a list 5 to 6 times faster in the spike.
 - **No loops in a block**: the same rule as SwiftUI, but surprising for C# developers; MVU014 and its code fix explain
   it.
 - **Generator complexity**: generic methods, extension methods, private members, nested blocks, scopes.
@@ -419,13 +429,12 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 - **Interceptors are still opt-in** (`InterceptorsNamespaces`); the feature has been treated as experimental by the C#
   team. If its rules change, the generator must follow; if it were removed, the explicit builder of
   [Alternatives](#alternatives) is the fallback, and a code fix would rewrite the blocks.
-- **Tooling not verified yet**: the spike is still to be extended to stepping in Rider and Visual Studio, Windows and
-  Linux, a library in its own assembly, lambdas without braces, named arguments (`Button(label: () => { … })`), large
-  files and full AOT publishing.
-- **Cost not measured**: a delegate per block and per evaluation, a list per `Collect`, a scope per view method. Each
-  delivery step measures, on the sample app before and after, the allocated bytes
-  (`GC.GetAllocatedBytesForCurrentThread`) and the re-evaluated scopes (`ReactorTestHost.Stats`); small methods may need
-  to opt out of scopes.
+- **Tooling not verified yet**: stepping in Rider and Visual Studio (the spike cannot drive an IDE), Windows and Linux,
+  large files, and hot reload of the calls that get a scope (same mechanism as the other interceptors).
+- **Cost**: a delegate per block and per evaluation, a list per `Collect`, a scope per view method. Scopes pay for
+  themselves on lists (see [Spike results](#spike-results)); each delivery step still measures, on the sample app
+  before and after, the allocated bytes (`GC.GetAllocatedBytesForCurrentThread`) and the re-evaluated scopes
+  (`ReactorTestHost.Stats`); small methods may need to opt out of scopes.
 - **Diagnostics quality**: a compile error in a block may point to generated code if the generator is wrong.
 
 ## Alternatives
@@ -449,10 +458,6 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 - What gives a row a binding to its item: `Tags.Bindings`, or `ForEach(Bind.Tags, tag => TextField(tag))` when `Tags`
   is a `[State]`, like SwiftUI's `ForEach($tags)`? A `Binding<StateList<T>>` is not an `IEnumerable<T>`, so this
   overload is not ambiguous, and it reuses the `Bind` vocabulary.
-- How are the arguments of a scoped method compared: `Equals` (value equality for records and strings), with delegates
-  always treated as changed?
-- Should a scoped method run at once, during its caller (stepping into it works, but it is no longer skipped when the
-  caller is re-evaluated, as `Observe` today), or later (skipped when its arguments are equal)?
 - Which parameters get blocks, and in which order: container children (stacks, `Group`, `Menu`, `MenuBar`), then the
   labels and decorations that SwiftUI also builds with blocks (`Button(label: () => { … }, action: Save)`,
   `.Overlay(() => { … })`, templates)?
@@ -481,6 +486,39 @@ console application).
 Two lessons from the spike: interceptor names must be **deterministic** (a global counter forced a restart on every
 edit), and must not depend on the **rank** of a call (an insertion renamed the following interceptors: `ENC0020`).
 
-Not covered yet: [Identity](#identity), [Groups](#groups), [Scopes](#scopes) and [Fragments](#fragments) need the real
-reconciler (the spike's view library has none); view methods returning a `Group`, `Show` and the cases listed under
-[Risks](#risks) are still to try.
+Identity and groups shipped with their own tests (steps 2 and 3).
+
+### Second spike
+
+Done on 2026-11-21: fragments and the scopes of view methods on a copy of the real reconciler (10 headless tests; the
+190 existing tests still pass with every scope of a stack going through fragments), and the remaining cases of the
+interceptors in the first spike.
+
+| Check | Result |
+|---|---|
+| A scope whose content is a group, in an `HStack` | Its views side by side among the children of the stack |
+| That scope re-evaluated alone (a branch opens in it) | One scope evaluated; the controls around it kept; its new view in place |
+| A field in a fragment, a view appearing before it in the fragment | The field keeps its control and focus; the control after the fragment stays |
+| A fragment at the root of a component (a single-child place) | Stacked vertically |
+| `Observe(() => Group(a, b)).Padding(4)` in an `HStack` | Each view padded, side by side |
+| A view method whose state changes | Its scope re-evaluated alone |
+| Its caller re-evaluated, arguments equal / changed | Skipped / re-evaluated |
+| `if (Compact) Summary(); else Progress();` | Two scopes (identity by method): no stale content |
+| `Refresh()` after a plain field changes | Reaches the view methods (they read the refresh signal) |
+| 1,000 rows drawn by a view method, 30 updates of the caller | 116–143 ms and 1.6 MB allocated per update with scopes, 723–929 ms and 3.9 MB without |
+| Lambda without braces given to an `Action` (`Card(() => Text("a"))`) | Intercepted; with a `Func<…>` overload, still a value |
+| Named arguments in another order (`Card(content: …, title: …)`) | Parameter found through the semantic model |
+| A view method as a statement | A deferred scope, with the arguments that its caller evaluated |
+| A component library in its own assembly | Its blocks intercepted when it compiles; its view methods get scopes in the application |
+| Native AOT publishing (macOS, arm64) | No trimming or AOT warning; output identical to JIT (`UnsafeAccessor` included) |
+
+Lessons from the second spike:
+
+- The scope must capture the values of the arguments: a lambda that computes them again reads the state of the caller,
+  and the scope then follows it (the first version of a test did, and its scope ran again).
+- Inside a fragment, a `Text` shifted by a `Text` is recreated, as rule 3 intends; the controls around stay.
+- `PublishAot` must be set in the application: a global property also reaches the generator (netstandard2.0), which
+  fails with NETSDK1207.
+
+Not covered: stepping in Rider and Visual Studio, Windows and Linux, large files, hot reload of the calls that get a
+scope, and running a scope at once (only deferred scopes were built).
