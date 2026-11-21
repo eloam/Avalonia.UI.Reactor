@@ -35,6 +35,11 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     // The suffix of the path of the view of a template, below the path of its control.
     private const string TemplateSuffix = "~";
 
+    // The prefixes of the place of a child below its container: a keyed child and an unkeyed one never share a place,
+    // even when the key looks like an index (a row keyed by the id 0, next to an unkeyed header).
+    private const string KeySlotPrefix = "k";
+    private const string IndexSlotPrefix = "i";
+
     private readonly Dictionary<string, Scope> _scopes = [];
     private readonly Dictionary<Scope, Node> _content = [];
     private readonly Stack<List<Scope>> _collectors = new();
@@ -280,7 +285,9 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         for (int i = 0; i < children.Count; i++)
         {
             View view = children[i];
-            string slot = $"{parent.Id}/{view.Key ?? i.ToString(CultureInfo.InvariantCulture)}";
+            string slot = view.Key is { } key
+                ? $"{parent.Id}/{KeySlotPrefix}{key}"
+                : $"{parent.Id}/{IndexSlotPrefix}{i.ToString(CultureInfo.InvariantCulture)}";
             if (!slots.Add(slot))
             {
                 throw new InvalidOperationException(

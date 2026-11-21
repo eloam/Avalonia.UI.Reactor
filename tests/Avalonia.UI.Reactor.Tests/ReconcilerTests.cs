@@ -96,6 +96,18 @@ public class ReconcilerTests
         Assert.Equal("Two children of the same container have the key 'k'. Give each child a unique key.", e.Message);
     }
 
+    [AvaloniaFact]
+    public void A_key_that_looks_like_an_index_does_not_take_the_place_of_an_unkeyed_sibling()
+    {
+        // An unkeyed child takes the place of its index; a row keyed by an id equal to that index must not take it too.
+        var reconciler = new Reconciler(new StubHost(), _ => { });
+        int[] ids = [0, 1];
+
+        var stack = (FlexStack)reconciler.Update(VStack(Text("Header"), ForEach(ids, id => Text($"Row {id}"), id => id)), Themes.Default);
+
+        Assert.Equal(3, stack.Children.Count);
+    }
+
     private sealed class StubHost : IScopeHost
     {
         public Themes Themes { get; } = Themes.Default;
