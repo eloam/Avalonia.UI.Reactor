@@ -2,7 +2,7 @@
 
 - **Status**: Proposed
 - **Date**: 2026-11-21
-- **Spike**: not done (see [Risks](#risks))
+- **Spike**: done (see [Spike results](#spike-results))
 
 ## Summary
 
@@ -68,9 +68,13 @@ anything. `NativeHost` had this bug: it released its subscriptions when a backgr
 took them again (fixed, with a test in `NativeTests`).
 
 - The reconciler already sweeps the scopes that an update did not visit (`LastVisit`); lifecycles use the same sweep.
-  Each lifecycle belongs to the scope that declares it, so a scope skipped by an update keeps its lifecycles.
-- The actions run **after** the update: an action that changes state schedules the next update, instead of changing a
-  `Body` being computed.
+  A lifecycle is alive when its node was visited, or when the innermost scope that declares it was kept by the update
+  without being re-evaluated: the nodes of such a scope are not visited, and the spike shows that without this rule a
+  child component would disappear whenever its parent is re-evaluated.
+- The actions run **after** the update, posted on the dispatcher: the disappearances first, then the appearances and
+  the restarted tasks. An action that changes state schedules the next update, instead of changing a `Body` being
+  computed. A view that goes away before its posted appearance runs gets neither `OnAppear` nor `OnDisappear`.
+- When the window closes, the dispatcher may not run again: `OnDisappear` runs at once and the tasks are cancelled.
 - An update keeps the latest closures (`node.View`), as event handlers do: a re-evaluated `Body` never runs `OnAppear`
   again.
 
@@ -132,11 +136,11 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 
 ## Risks
 
-- **Not verified yet**, to try outside the repository on the real reconciler:
-  - the sweep sees every removal, including in a scope skipped by an update, and when the window closes;
-  - moving a control (into a decoration, within a reordered list) raises nothing;
-  - continuations resume on the UI thread, in the application and in headless tests.
-- **Cost**: one lifecycle per modified view and a sweep per update, measured with `ReactorTestHost.Stats`.
+- **Not verified by the spike**: Windows and Linux (the real window ran on macOS only), a lifecycle inside a control
+  template (`RenderTemplate`), and the order of the actions in the tree (the spike runs them in declaration order).
+- **Cost**: the sweep visits every lifecycle on every update. The spike measured about +15 % on the updates of a list
+  of 1,000 rows that all declare `OnAppear`; the implementation keeps the lifecycles in a set, since removing them from
+  a list costs a linear search each.
 
 ## Alternatives
 
@@ -155,4 +159,33 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 
 ## Spike results
 
-Not done yet: the risks above are to be verified before the design is accepted.
+Done on 2026-11-21 with the .NET SDK 10.0.100, on a copy of the repository: the modifiers, the sweep in the real
+reconciler, 11 headless tests (all of the existing ones still pass) and a real window on macOS.
+
+| Check | Result |
+|---|---|
+| `OnAppear` on an update of the `Body` | Runs once, not again |
+| A branch that closes, then opens again | `OnDisappear`, then `OnAppear` again |
+| A control moved into a `Surface` and out of it (a background toggled) | Nothing runs; the test checks that the parent is a `Surface` |
+| A keyed row removed, rows reordered (`StateList.Move`) | Only the removed row disappears |
+| A child component kept while its parent is re-evaluated | Stays alive; without the rule on kept scopes, the test fails |
+| The window closes | `OnDisappear` runs at once and the task is cancelled, headless and in a real window |
+| A task without a key | Starts once per appearance; an update does not restart it |
+| A task with a key | Cancelled and restarted when the key changes |
+| Cancellation | `OperationCanceledException` is not reported; another exception is (`ReactorHost.Report`) |
+| Continuations after `await` | On the UI thread, headless and in a real window (10 ticks in 2 s with a 200 ms timer) |
+| `Task` as the name of a modifier | Compiles with the analyzers; the `Task` type stays usable in the signature and the lambda |
+| Cost: 1,000 rows with `OnAppear`, 50 updates | 494–539 ms against 412–465 ms without; removing the rows 47 ms against 45 ms (headless, noisy) |
+
+Lessons from the spike:
+
+- A lifecycle must know the innermost scope that declares it, and the reconciler when a scope was re-evaluated
+  (`Scope.EvaluatedPass`): the rule on kept scopes depends on both.
+- An appearance is decided during the sweep but runs later: two flags (decided, ran) keep a view that goes away in
+  between from running `OnDisappear` without `OnAppear`.
+- The `CancellationTokenSource` of a task is disposed when the task ends; only a running task is cancelled.
+- `ViewPropsTests` asks for a sample value of each new property type, as intended.
+
+The spike also found an engine bug unrelated to the lifecycle: an unkeyed child at index 0 and a `ForEach` row keyed
+`0` take the same place, and the reconciler throws "Two children of the same container have the key '0'". It is fixed:
+keyed and unkeyed children have distinct places (test in `ReconcilerTests`).
