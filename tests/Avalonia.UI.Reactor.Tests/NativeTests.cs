@@ -32,6 +32,46 @@ public class NativeTests
     }
 
     [AvaloniaFact]
+    public void A_native_control_follows_its_state_after_gaining_or_losing_a_decoration()
+    {
+        // Gaining or losing a background moves the control into or out of a surface, which detaches it from the visual
+        // tree and attaches it again: its update must still follow the state afterwards.
+        var probe = new DecoratedNativeProbe();
+        using var t = new ReactorTestHost(probe);
+        Slider slider = t.Controls.OfType<Slider>().Single();
+
+        probe.Highlighted = true;
+        t.Settle();
+        probe.Level = 60;
+        t.Settle();
+
+        Assert.Same(slider, t.Controls.OfType<Slider>().Single());
+        Assert.Equal(60, slider.Value);
+
+        probe.Highlighted = false;
+        t.Settle();
+        probe.Level = 30;
+        t.Settle();
+
+        Assert.Same(slider, t.Controls.OfType<Slider>().Single());
+        Assert.Equal(30, slider.Value);
+    }
+
+    [AvaloniaFact]
+    public void An_update_requested_before_the_window_closes_does_not_run_after_it()
+    {
+        var probe = new DecoratedNativeProbe();
+        var t = new ReactorTestHost(probe);
+        int updates = probe.Updates;
+
+        // The change requests a new run of the update; the window closes before the dispatcher runs it.
+        probe.Level = 60;
+        t.Dispose();
+
+        Assert.Equal(updates, probe.Updates);
+    }
+
+    [AvaloniaFact]
     public void Another_control_type_at_the_same_place_replaces_the_control()
     {
         var probe = new NativeProbe();

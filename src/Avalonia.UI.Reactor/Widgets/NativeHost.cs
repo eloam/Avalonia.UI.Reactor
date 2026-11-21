@@ -22,6 +22,7 @@ internal sealed class NativeHost : Decorator
 
     private readonly Scope _updates;
     private Action? _update;
+    private bool _released;
     private int _rerunPending;
 
     /// <summary>
@@ -36,7 +37,20 @@ internal sealed class NativeHost : Decorator
     public void Apply(Action update)
     {
         _update = update;
-        _updates.Evaluate(update);
+        Run(update);
+    }
+
+    /// <inheritdoc/>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        // A control that gains or loses a decoration moves into or out of a surface: it is detached, then attached
+        // again, without a new update. The subscriptions released on detach are taken again, from the current state.
+        if (_released && _update is { } update)
+        {
+            Run(update);
+        }
     }
 
     /// <inheritdoc/>
@@ -44,6 +58,13 @@ internal sealed class NativeHost : Decorator
     {
         base.OnDetachedFromVisualTree(e);
         _updates.Release();
+        _released = true;
+    }
+
+    private void Run(Action update)
+    {
+        _released = false;
+        _updates.Evaluate(update);
     }
 
     // A state read by the update changed, on any thread: run the update again, once, on the user interface thread.
@@ -57,7 +78,10 @@ internal sealed class NativeHost : Decorator
         Dispatcher.UIThread.Post(() =>
         {
             Interlocked.Exchange(ref _rerunPending, 0);
-            if (_update is { } update)
+
+            // Detached in the meantime (the window closed): running the update would subscribe the host again, and
+            // the state would keep it in memory.
+            if (!_released && _update is { } update)
             {
                 _updates.Evaluate(update);
             }
