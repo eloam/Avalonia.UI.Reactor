@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Tests.Probes;
 
 using Avalonia.UI.Reactor.State;
@@ -5,7 +8,9 @@ using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.AvaloniaViews;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Un contrôle Avalonia (un curseur) accordé à un état lu dans sa mise à jour, et un choix de contrôle.</summary>
+/// <summary>
+/// An Avalonia control (a slider) updated from a state read by its update, and a choice of control.
+/// </summary>
 public sealed partial class NativeProbe : Component
 {
     [State] public partial double Level { get; set; } = 10;

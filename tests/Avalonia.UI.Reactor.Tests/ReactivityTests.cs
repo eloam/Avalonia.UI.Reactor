@@ -1,10 +1,15 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
 using Avalonia.UI.Reactor.Tests.Probes;
 
-/// <summary>Recalcul sélectif : seules les portées qui ont lu un état modifié sont réévaluées, quel que soit le thread.</summary>
+/// <summary>
+/// Selective re-evaluation: only the scopes that read a changed state are re-evaluated, on any thread.
+/// </summary>
 public class ReactivityTests
 {
     [AvaloniaFact]
@@ -29,7 +34,8 @@ public class ReactivityTests
         probe.Count = 0;
         t.Settle();
 
-        Assert.Equal(1, t.Stats.Evaluated); // toujours le bilan du premier rendu : aucune mise à jour
+        // Still the outcome of the first rendering: no update happened.
+        Assert.Equal(1, t.Stats.Evaluated);
     }
 
     [AvaloniaFact]
@@ -37,7 +43,8 @@ public class ReactivityTests
     {
         var probe = new ListProbe();
         using var t = new ReactorTestHost(probe);
-        Assert.Equal(4, t.Stats.Scopes); // la racine et une portée par ligne
+        // The root and one scope per row.
+        Assert.Equal(4, t.Stats.Scopes);
 
         probe.Items.Add("d");
         t.Settle();
@@ -47,7 +54,8 @@ public class ReactivityTests
         probe.Items.Remove("a");
         t.Settle();
         Assert.False(t.HasText("a"));
-        Assert.Equal(4, t.Stats.Scopes); // la portée de la ligne retirée est libérée
+        // The scope of the removed row is released.
+        Assert.Equal(4, t.Stats.Scopes);
     }
 
     [AvaloniaFact]

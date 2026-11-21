@@ -1,13 +1,207 @@
+# Coding style of the repository, based on Microsoft's C# coding conventions and the dotnet/runtime coding style:
+# https://learn.microsoft.com/dotnet/csharp/fundamentals/coding-style/coding-conventions
+# https://github.com/dotnet/runtime/blob/main/docs/coding-guidelines/coding-style.md
+# Rules with a "warning" severity are enforced by the build (EnforceCodeStyleInBuild, warnings as errors).
+
 root = true
 
-[*.cs]
+[*]
 charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{csproj,props,targets,xml,json}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
 indent_style = space
 indent_size = 4
+end_of_line = lf
+max_line_length = 120
 
-# Une fonction de vue renvoie « View », comme « some View » en SwiftUI : le type concret est un détail de la vue.
+# File header: every source file starts with the copyright notice of the repository.
+file_header_template = Copyright (c) Yohann Breuil.\nLicensed under the MIT License.
+dotnet_diagnostic.IDE0073.severity = warning
+
+# Usings: System first, outside the namespace (see the exception for Avalonia-dependent projects below).
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_diagnostic.IDE0065.severity = warning
+dotnet_diagnostic.IDE0005.severity = warning
+
+# File-scoped namespaces.
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_diagnostic.IDE0161.severity = warning
+
+# Accessibility modifiers are always written, in the standard order.
+dotnet_style_require_accessibility_modifiers = always:warning
+dotnet_diagnostic.IDE0040.severity = warning
+csharp_preferred_modifier_order = public,private,protected,internal,file,static,extern,new,virtual,abstract,sealed,override,readonly,unsafe,required,volatile,async:warning
+dotnet_diagnostic.IDE0036.severity = warning
+dotnet_style_readonly_field = true:warning
+dotnet_diagnostic.IDE0044.severity = warning
+
+# No "this." qualification; language keywords instead of framework type names.
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+dotnet_style_qualification_for_event = false:warning
+dotnet_diagnostic.IDE0003.severity = warning
+dotnet_style_predefined_type_for_locals_parameters_members = true:warning
+dotnet_style_predefined_type_for_member_access = true:warning
+dotnet_diagnostic.IDE0049.severity = warning
+
+# "var" only when the type is apparent from the right-hand side (new, cast).
+csharp_style_var_for_built_in_types = false:warning
+csharp_style_var_when_type_is_apparent = true:warning
+csharp_style_var_elsewhere = false:warning
+dotnet_diagnostic.IDE0007.severity = warning
+dotnet_diagnostic.IDE0008.severity = warning
+
+# Expression bodies are welcome when they fit on a single line (views are written this way).
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+csharp_style_expression_bodied_constructors = false:silent
+csharp_style_expression_bodied_operators = when_on_single_line:silent
+csharp_style_expression_bodied_properties = true:silent
+csharp_style_expression_bodied_indexers = true:silent
+csharp_style_expression_bodied_accessors = true:silent
+csharp_style_expression_bodied_lambdas = true:silent
+csharp_style_expression_bodied_local_functions = when_on_single_line:silent
+
+# Braces: Allman style. A single embedded statement may omit braces, but it goes on its own line.
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+csharp_new_line_between_query_expression_clauses = true
+csharp_prefer_braces = when_multiline:warning
+dotnet_diagnostic.IDE0011.severity = warning
+csharp_preserve_single_line_blocks = true
+csharp_preserve_single_line_statements = false
+
+# Indentation and spacing.
+csharp_indent_block_contents = true
+csharp_indent_braces = false
+csharp_indent_case_contents = true
+csharp_indent_case_contents_when_block = false
+csharp_indent_switch_labels = true
+csharp_indent_labels = one_less_than_current
+csharp_space_after_cast = false
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_after_comma = true
+csharp_space_after_dot = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_after_semicolon_in_for_statement = true
+csharp_space_around_binary_operators = before_and_after
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_before_comma = false
+csharp_space_before_dot = false
+csharp_space_before_open_square_brackets = false
+csharp_space_before_semicolon_in_for_statement = false
+csharp_space_between_method_call_empty_parameter_list_parentheses = false
+csharp_space_between_method_call_name_and_opening_parenthesis = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_between_method_declaration_empty_parameter_list_parentheses = false
+csharp_space_between_method_declaration_name_and_open_parenthesis = false
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_parentheses = false
+csharp_space_between_square_brackets = false
+dotnet_diagnostic.IDE0055.severity = warning
+
+# Modern language features.
+dotnet_style_object_initializer = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+dotnet_style_coalesce_expression = true:suggestion
+dotnet_style_null_propagation = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:warning
+# Not enforced (as in dotnet/runtime): an if statement is often clearer than a conditional expression.
+dotnet_style_prefer_conditional_expression_over_return = true:silent
+dotnet_style_prefer_conditional_expression_over_assignment = true:silent
+dotnet_diagnostic.IDE0045.severity = silent
+dotnet_diagnostic.IDE0046.severity = silent
+csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
+csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+csharp_style_inlined_variable_declaration = true:suggestion
+csharp_style_throw_expression = true:suggestion
+csharp_style_conditional_delegate_call = true:suggestion
+csharp_prefer_simple_default_expression = true:suggestion
+
+# Naming (dotnet/runtime): PascalCase for types, members and constants; _camelCase for instance fields; s_camelCase for
+# static fields; camelCase for parameters and locals; interfaces start with I.
+dotnet_naming_rule.constants_should_be_pascal_case.symbols = constants
+dotnet_naming_rule.constants_should_be_pascal_case.style = pascal_case
+dotnet_naming_rule.constants_should_be_pascal_case.severity = warning
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.required_modifiers = const
+
+dotnet_naming_rule.public_fields_should_be_pascal_case.symbols = public_fields
+dotnet_naming_rule.public_fields_should_be_pascal_case.style = pascal_case
+dotnet_naming_rule.public_fields_should_be_pascal_case.severity = warning
+dotnet_naming_symbols.public_fields.applicable_kinds = field
+dotnet_naming_symbols.public_fields.applicable_accessibilities = public, protected, protected_internal
+
+dotnet_naming_rule.static_fields_should_be_s_camel_case.symbols = static_fields
+dotnet_naming_rule.static_fields_should_be_s_camel_case.style = s_camel_case
+dotnet_naming_rule.static_fields_should_be_s_camel_case.severity = warning
+dotnet_naming_symbols.static_fields.applicable_kinds = field
+dotnet_naming_symbols.static_fields.applicable_accessibilities = internal, private, private_protected
+dotnet_naming_symbols.static_fields.required_modifiers = static
+
+dotnet_naming_rule.instance_fields_should_be_camel_case.symbols = instance_fields
+dotnet_naming_rule.instance_fields_should_be_camel_case.style = underscore_camel_case
+dotnet_naming_rule.instance_fields_should_be_camel_case.severity = warning
+dotnet_naming_symbols.instance_fields.applicable_kinds = field
+dotnet_naming_symbols.instance_fields.applicable_accessibilities = internal, private, private_protected
+
+dotnet_naming_rule.interfaces_should_start_with_i.symbols = interfaces
+dotnet_naming_rule.interfaces_should_start_with_i.style = i_pascal_case
+dotnet_naming_rule.interfaces_should_start_with_i.severity = warning
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+
+dotnet_naming_rule.types_and_members_should_be_pascal_case.symbols = types_and_members
+dotnet_naming_rule.types_and_members_should_be_pascal_case.style = pascal_case
+dotnet_naming_rule.types_and_members_should_be_pascal_case.severity = warning
+dotnet_naming_symbols.types_and_members.applicable_kinds = namespace, class, struct, enum, delegate, event, method, property, local_function
+
+dotnet_naming_rule.parameters_and_locals_should_be_camel_case.symbols = parameters_and_locals
+dotnet_naming_rule.parameters_and_locals_should_be_camel_case.style = camel_case
+dotnet_naming_rule.parameters_and_locals_should_be_camel_case.severity = warning
+dotnet_naming_symbols.parameters_and_locals.applicable_kinds = parameter, local
+
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+dotnet_naming_style.camel_case.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.s_camel_case.capitalization = camel_case
+dotnet_naming_style.s_camel_case.required_prefix = s_
+dotnet_naming_style.i_pascal_case.capitalization = pascal_case
+dotnet_naming_style.i_pascal_case.required_prefix = I
+dotnet_diagnostic.IDE1006.severity = warning
+
+# A view function returns "View", like "some View" in SwiftUI: the concrete type is a detail of the view.
 dotnet_diagnostic.CA1859.severity = none
 
+# Projects that reference Avalonia: our usings go inside the namespace. In a file declaring "namespace
+# Avalonia.UI.Reactor.…", the members of the "Avalonia" namespace (Size, Thickness, Themes, Controls…) are found before
+# the usings at the top of the file; usings placed inside the namespace are found first.
+[{src/Avalonia.UI.Reactor/**.cs,tests/**.cs}]
+dotnet_diagnostic.IDE0065.severity = none
+
 [tests/**.cs]
-# Noms de tests lisibles, à la manière de xUnit : Menu_opens_below_its_title.
+# Readable test names, in the xUnit style: Menu_opens_below_its_title.
 dotnet_diagnostic.CA1707.severity = none
+dotnet_naming_rule.types_and_members_should_be_pascal_case.severity = none
+
+[**/obj/**.cs]
+generated_code = true
+
+# IsExternalInit must live in the namespace where the compiler looks for it.
+[src/Avalonia.UI.Reactor.Generators/IsExternalInit.cs]
+dotnet_diagnostic.IDE0130.severity = none

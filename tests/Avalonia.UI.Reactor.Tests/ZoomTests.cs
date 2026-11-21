@@ -1,15 +1,21 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 
 namespace Avalonia.UI.Reactor.Tests;
 
+using Avalonia.Media;
 using Avalonia.UI.Reactor.Hosting;
 using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Zoom de l'interface : borné, appliqué à la mise en page, piloté par Ctrl + / Ctrl − / Ctrl 0 (Cmd sur macOS).</summary>
+/// <summary>
+/// Interface zoom: bounded, applied to the layout, driven by Ctrl + / Ctrl − / Ctrl 0 (Cmd on macOS).
+/// </summary>
 public class ZoomTests
 {
     [AvaloniaFact]
@@ -27,13 +33,14 @@ public class ZoomTests
     public void Zoom_scales_the_whole_interface()
     {
         using var t = new ReactorTestHost(new ViewProbe(() => VStack(Box().Size(100, 40).Background(ColorRole.Accent))));
-        var accent = Theme.Light.Palette.Accent.ToAvaloniaColor();
+        Color accent = Theme.Light.Palette.Accent.ToAvaloniaColor();
         Assert.NotEqual(accent, t.PixelAt(150, 60));
 
         t.Host.Zoom = 2;
         t.Settle();
 
-        Assert.Equal(accent, t.PixelAt(150, 60)); // la boîte de 100 × 40 en occupe maintenant 200 × 80
+        // The 100 × 40 box now covers 200 × 80.
+        Assert.Equal(accent, t.PixelAt(150, 60));
     }
 
     [AvaloniaFact]
@@ -45,7 +52,8 @@ public class ZoomTests
         t.Press(Key.OemPlus, PhysicalKey.Equal, ReactorTestHost.Command);
         Assert.Equal(1.2, t.Host.Zoom);
 
-        for (int i = 0; i < 40; i++) t.Press(Key.OemMinus, PhysicalKey.Minus, ReactorTestHost.Command);
+        for (int i = 0; i < 40; i++)
+            t.Press(Key.OemMinus, PhysicalKey.Minus, ReactorTestHost.Command);
         Assert.Equal(ReactorHost.MinZoom, t.Host.Zoom);
 
         t.Press(Key.D0, PhysicalKey.Digit0, ReactorTestHost.Command);

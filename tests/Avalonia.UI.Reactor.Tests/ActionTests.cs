@@ -1,10 +1,15 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
 using Avalonia.UI.Reactor.Tests.Probes;
 
-/// <summary>Actions async et erreurs : l'interface suit l'état autour de l'await, une erreur ne ferme pas l'application.</summary>
+/// <summary>
+/// Async actions and errors: the interface follows the state around the await, and an error does not close the application.
+/// </summary>
 public class ActionTests
 {
     [AvaloniaFact]

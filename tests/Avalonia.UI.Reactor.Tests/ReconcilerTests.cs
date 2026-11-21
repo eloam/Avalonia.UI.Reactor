@@ -1,24 +1,30 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-using Avalonia.UI.Reactor.Tests.Probes;
+using Avalonia.Controls;
 using Avalonia.UI.Reactor.Panels;
 using Avalonia.UI.Reactor.Reconciliation;
 using Avalonia.UI.Reactor.State;
+using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Le réconciliateur reprend les contrôles d'une mise à jour à l'autre et ne recalcule que les portées concernées.</summary>
+/// <summary>
+/// The reconciler reuses controls from one update to the next and re-evaluates only the affected scopes.
+/// </summary>
 public class ReconcilerTests
 {
     [AvaloniaFact]
     public void Clicking_a_button_runs_its_action_and_updates_the_same_text_control()
     {
         using var t = new ReactorTestHost(new CounterProbe());
-        var text = t.TextShowing("0");
+        TextBlock text = t.TextShowing("0");
 
         t.ClickButton("+");
 
@@ -56,18 +62,18 @@ public class ReconcilerTests
     public void Reordering_a_keyed_list_moves_its_controls_instead_of_recreating_them()
     {
         using var t = new ReactorTestHost(new ListProbe());
-        var (a, b, c) = (t.TextShowing("a"), t.TextShowing("b"), t.TextShowing("c"));
+        (TextBlock? a, TextBlock? b, TextBlock? c) = (t.TextShowing("a"), t.TextShowing("b"), t.TextShowing("c"));
 
         t.ClickButton("Inverser");
 
-        Assert.Equal(new[] { c, b, a }, t.Texts);
+        Assert.Equal([c, b, a], t.Texts);
     }
 
     [AvaloniaFact]
     public void A_decoration_declared_later_wraps_the_same_text_control()
     {
         using var t = new ReactorTestHost(new HighlightProbe());
-        var text = t.TextShowing("mot");
+        TextBlock text = t.TextShowing("mot");
         Assert.IsType<FlexStack>(text.Parent);
 
         t.ClickButton("Surligner");
@@ -84,13 +90,13 @@ public class ReconcilerTests
     {
         var reconciler = new Reconciler(new StubHost(), _ => { });
 
-        var e = Assert.Throws<InvalidOperationException>(() =>
+        InvalidOperationException e = Assert.Throws<InvalidOperationException>(() =>
             reconciler.Update(VStack(Text("a").Key("k"), Text("b").Key("k")), Themes.Default));
 
         Assert.Equal("Two children of the same container have the key 'k'. Give each child a unique key.", e.Message);
     }
 
-    sealed class StubHost : IScopeHost
+    private sealed class StubHost : IScopeHost
     {
         public Themes Themes { get; } = Themes.Default;
 

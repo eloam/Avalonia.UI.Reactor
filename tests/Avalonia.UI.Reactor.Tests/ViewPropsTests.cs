@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using System.Reflection;
 
 namespace Avalonia.UI.Reactor.Tests;
@@ -6,7 +9,9 @@ using Avalonia.UI.Reactor.Primitives;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 
-/// <summary>Propriétés communes des vues : un modificateur posé sur une vue enveloppée n'est jamais perdu.</summary>
+/// <summary>
+/// Shared view properties: a modifier set on a wrapped view is never lost.
+/// </summary>
 public class ViewPropsTests
 {
     [Fact]
@@ -17,16 +22,21 @@ public class ViewPropsTests
             .ToList();
 
         View source = new BoxView();
-        foreach (var p in properties) p.SetValue(source, SampleFor(p));
-        var copy = new BoxView().CopyFrom(source);
+        foreach (PropertyInfo? p in properties)
+            p.SetValue(source, SampleFor(p));
+        BoxView copy = new BoxView().CopyFrom(source);
 
-        foreach (var p in properties)
+        foreach (PropertyInfo? p in properties)
+        {
             Assert.True(Equals(p.GetValue(copy), p.GetValue(source)),
                 $"'View.{p.Name}' is not copied by 'ViewProps.CopyFrom'. Add it to that method.");
+        }
     }
 
-    /// <summary>Une valeur non par défaut pour chaque type de propriété de <see cref="View"/>.</summary>
-    static object SampleFor(PropertyInfo p) => (Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType) switch
+    /// <summary>
+    /// Returns a non-default value for each property type of <see cref="View"/>.
+    /// </summary>
+    private static object SampleFor(PropertyInfo p) => (Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType) switch
     {
         var t when t == typeof(string) => "exemple",
         var t when t == typeof(float) => 3f,

@@ -1,48 +1,77 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor;
 
 using Avalonia.UI.Reactor.Theming;
 
 /// <summary>
-/// Réglages de la fenêtre. On ne précise que ce qui change :
-/// <code>
-/// ReactorApp.Run&lt;App&gt;(new WindowOptions { Title = "Mon app", Width = 1024, Themes = new(Theme.Light, sable) });
-/// </code>
+/// Represents the settings of the application window; set only what differs from the defaults.
 /// </summary>
+/// <example>
+/// <code>
+/// ReactorApp.Run&lt;App&gt;(new WindowOptions { Title = "My app", Width = 1024, Themes = new(Theme.Light, sable) });
+/// </code>
+/// </example>
 public sealed record WindowOptions
 {
-    /// <summary>Titre de la fenêtre.</summary>
+    /// <summary>
+    /// Gets the title of the window.
+    /// </summary>
     public string Title { get; init; } = "App";
 
-    /// <summary>Largeur de départ, en unités logiques (indépendantes du DPI).</summary>
+    /// <summary>
+    /// Gets the initial width, in device-independent units.
+    /// </summary>
     public int Width { get; init; } = 800;
 
-    /// <summary>Hauteur de départ, en unités logiques.</summary>
+    /// <summary>
+    /// Gets the initial height, in device-independent units.
+    /// </summary>
     public int Height { get; init; } = 600;
 
-    /// <summary>Largeur minimale.</summary>
+    /// <summary>
+    /// Gets the minimum width, in device-independent units.
+    /// </summary>
     public int MinWidth { get; init; } = 320;
 
-    /// <summary>Hauteur minimale.</summary>
+    /// <summary>
+    /// Gets the minimum height, in device-independent units.
+    /// </summary>
     public int MinHeight { get; init; } = 240;
 
-    /// <summary>L'utilisateur peut redimensionner la fenêtre.</summary>
+    /// <summary>
+    /// Gets a value indicating whether the user can resize the window.
+    /// </summary>
     public bool Resizable { get; init; } = true;
 
-    /// <summary>Fenêtre sans barre de titre ni bordure du système.</summary>
+    /// <summary>
+    /// Gets a value indicating whether the window has no title bar and no border from the system.
+    /// </summary>
     public bool Borderless { get; init; }
 
-    /// <summary>Fenêtre agrandie au démarrage.</summary>
+    /// <summary>
+    /// Gets a value indicating whether the window starts maximized.
+    /// </summary>
     public bool Maximized { get; init; }
 
-    /// <summary>Plein écran au démarrage.</summary>
+    /// <summary>
+    /// Gets a value indicating whether the window starts in full screen.
+    /// </summary>
     public bool Fullscreen { get; init; }
 
-    /// <summary>Thèmes proposés ; par défaut Clair et Sombre.</summary>
+    /// <summary>
+    /// Gets the theme catalog of the application, or <see langword="null"/> for the built-in Light and Dark themes.
+    /// </summary>
     public Themes? Themes { get; init; }
 
-    /// <summary>Zoom de l'interface au démarrage (1 = 100 %, de 0,5 à 3), en plus du facteur d'échelle de l'écran.</summary>
+    /// <summary>
+    /// Gets the initial zoom of the interface, from 0.5 to 3 (1 is 100 %), on top of the scale factor of the display.
+    /// </summary>
     public double Zoom { get; init; } = 1;
 
-    /// <summary>Ctrl + / Ctrl − / Ctrl 0 (Cmd sur macOS) zooment, dézooment, reviennent à 100 % ; vrai par défaut.</summary>
+    /// <summary>
+    /// Gets a value indicating whether Ctrl + / Ctrl − / Ctrl 0 (Cmd on macOS) zoom in, zoom out and reset the zoom.
+    /// </summary>
     public bool ZoomShortcuts { get; init; } = true;
 }

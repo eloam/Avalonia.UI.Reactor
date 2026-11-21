@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 
@@ -8,19 +11,30 @@ using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
-/// <c>Checkbox</c> : une <see cref="ReactorCheckBox"/>, case dessinée par le thème, libellé à côté ; avec un modèle, la vue
-/// du modèle (case et libellé), recalculée quand l'état change. La case est contrôlée : un clic propose la nouvelle
-/// valeur à l'état (<c>OnChange</c>), puis la case affiche celle de la vue.
+/// Displays a <c>Checkbox</c> view with a <see cref="ReactorCheckBox"/>: a box drawn by the theme with the label next to
+/// it, or the view of the template (box and label), recomputed when the state changes.
 /// </summary>
+/// <remarks>
+/// The checkbox is controlled: a click proposes the new value to the state (<c>OnChange</c>), then the box shows the
+/// value of the view.
+/// </remarks>
 internal sealed class CheckboxAdapter : ViewAdapter<CheckboxView, ReactorCheckBox>
 {
+    /// <summary>
+    /// The single instance of the adapter.
+    /// </summary>
     public static readonly CheckboxAdapter Instance = new();
 
+    /// <inheritdoc/>
     protected override void Attach(Reconciler reconciler, Node node, ReactorCheckBox box)
     {
         box.IsCheckedChanged += (_, _) =>
         {
-            if (node.Applying) return;
+            if (node.Applying)
+            {
+                return;
+            }
+
             bool value = box.IsChecked == true;
             reconciler.Run(() => ((CheckboxView)node.View).OnChange?.Invoke(value));
             Reconciler.Apply(node, () => box.IsChecked = ((CheckboxView)node.View).IsChecked);
@@ -28,22 +42,25 @@ internal sealed class CheckboxAdapter : ViewAdapter<CheckboxView, ReactorCheckBo
         box.PropertyChanged += (_, e) =>
         {
             if (e.Property == InputElement.IsPointerOverProperty || e.Property == ToggleButton.IsPressedProperty)
+            {
                 Paint(reconciler, node, box);
+            }
         };
     }
 
-    protected override void Update(Reconciler reconciler, Node node, ReactorCheckBox box, CheckboxView view, ViewEnvironment env)
+    /// <inheritdoc/>
+    protected override void Update(Reconciler reconciler, Node node, ReactorCheckBox box, CheckboxView view, ViewEnvironment environment)
     {
         box.IsChecked = view.IsChecked;
-        box.SetFont(env.FontFor(view));
-        box.SetBrush(TemplatedControl.ForegroundProperty, env.ForegroundFor(view));
+        box.SetFont(environment.FontFor(view));
+        box.SetBrush(TemplatedControl.ForegroundProperty, environment.ForegroundFor(view));
         Paint(reconciler, node, box);
     }
 
-    static void Paint(Reconciler reconciler, Node node, ReactorCheckBox box)
+    private static void Paint(Reconciler reconciler, Node node, ReactorCheckBox box)
     {
         var view = (CheckboxView)node.View;
-        var theme = node.Environment.Theme;
+        Theme theme = node.Environment.Theme;
         bool hovered = box.IsPointerOver;
         if (ControlTemplates.Build(view, theme, hovered, pressed: hovered && box.IsPressed, focused: false) is { } template)
         {
@@ -56,6 +73,7 @@ internal sealed class CheckboxAdapter : ViewAdapter<CheckboxView, ReactorCheckBo
             box.Content = view.Label;
             box.ShowsGlyph = true;
         }
+
         box.Look = theme;
     }
 }

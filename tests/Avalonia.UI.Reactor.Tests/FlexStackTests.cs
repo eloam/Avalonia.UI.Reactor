@@ -1,15 +1,21 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-using Avalonia.UI.Reactor.Tests.Probes;
+using Avalonia.Controls;
 using Avalonia.UI.Reactor.Panels;
+using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Les piles suivent les règles de SwiftUI (fenêtre de 400 × 300).</summary>
+/// <summary>
+/// Stacks follow the rules of SwiftUI (window of 400 × 300).
+/// </summary>
 public class FlexStackTests
 {
     [AvaloniaFact]
@@ -26,7 +32,7 @@ public class FlexStackTests
     {
         using var t = new ReactorTestHost(new ViewProbe(() => HStack(Spacer().Grow(1), Spacer().Grow(3)).Spacing(0)));
 
-        var spacers = t.Controls.OfType<FlexStack>().Single().Children;
+        Controls spacers = t.Controls.OfType<FlexStack>().Single().Children;
         Assert.Equal(100, spacers[0].Bounds.Width);
         Assert.Equal(300, spacers[1].Bounds.Width);
     }
@@ -36,8 +42,8 @@ public class FlexStackTests
     {
         using var t = new ReactorTestHost(new ViewProbe(() => VStack(Text("court"), Text("un texte plus long"))));
 
-        var first = t.BoundsOf(t.TextShowing("court"));
-        var second = t.BoundsOf(t.TextShowing("un texte plus long"));
+        Rect first = t.BoundsOf(t.TextShowing("court"));
+        Rect second = t.BoundsOf(t.TextShowing("un texte plus long"));
         Assert.Equal(0, first.X);
         Assert.Equal(0, second.X);
         Assert.True(first.Width < second.Width);
@@ -75,12 +81,12 @@ public class FlexStackTests
         using var t = new ReactorTestHost(new ViewProbe(() =>
             VStack(Text("a")).Padding(16).Background(ColorRole.Surface).Border(ColorRole.Border, 2).Radius(10)));
 
-        var surface = Assert.IsType<Surface>(t.Host.Content);
+        Surface surface = Assert.IsType<Surface>(t.Host.Content);
         Assert.Equal(new Thickness(16), surface.Padding);
         Assert.Equal(new Thickness(2), surface.BorderThickness);
         Assert.Equal(new CornerRadius(10), surface.CornerRadius);
         Assert.Equal(Theme.Light.Palette.Surface.ToAvaloniaColor(), surface.Background.ColorOf());
-        // La bordure prend sa place, comme en CSS et dans les contrôles Avalonia : le contenu commence après elle.
+        // The border takes its own space, as in CSS and in Avalonia controls: the content starts after it.
         Assert.Equal(new Point(18, 18), t.BoundsOf(t.TextShowing("a")).TopLeft);
     }
 
@@ -116,16 +122,16 @@ public class FlexStackTests
         Assert.Equal(t.BoundsOf(t.TextShowing("a")).Bottom + 5, t.BoundsOf(t.TextShowing("b")).Y);
     }
 
-    static readonly string[] Letters = ["x", "y"];
-    static readonly string[] InOrder = ["début", "x", "y", "fin"];
+    private static readonly string[] s_letters = ["x", "y"];
+    private static readonly string[] s_inOrder = ["début", "x", "y", "fin"];
 
     [AvaloniaFact]
     public void ForEach_mixes_with_other_children_and_takes_the_spacing_of_the_stack()
     {
         using var t = new ReactorTestHost(new ViewProbe(() =>
-            VStack(Text("début"), ForEach(Letters, s => Text(s)), Text("fin")).Spacing(10)));
+            VStack(Text("début"), ForEach(s_letters, s => Text(s)), Text("fin")).Spacing(10)));
 
-        double[] tops = [.. InOrder.Select(s => t.BoundsOf(t.TextShowing(s)).Y)];
+        double[] tops = [.. s_inOrder.Select(s => t.BoundsOf(t.TextShowing(s)).Y)];
         Assert.Equal(tops.Order(), tops);
         Assert.Equal(t.BoundsOf(t.TextShowing("début")).Bottom + 10, t.BoundsOf(t.TextShowing("x")).Y);
     }
@@ -136,7 +142,8 @@ public class FlexStackTests
         using var t = new ReactorTestHost(new ViewProbe(() => HStack(Text("a"), Group(Text("b"), Group(Text("c"))))));
 
         Rect a = t.BoundsOf(t.TextShowing("a")), b = t.BoundsOf(t.TextShowing("b")), c = t.BoundsOf(t.TextShowing("c"));
-        Assert.Equal(a.Y, c.Y); // dépliés dans la ligne : côte à côte, à la même hauteur
+        // Unfolded in the row: side by side, at the same height.
+        Assert.Equal(a.Y, c.Y);
         Assert.True(b.X > a.X);
         Assert.True(c.X > b.X);
     }

@@ -1,4 +1,8 @@
-// Importés dans tous les fichiers de la démo : les vues s'écrivent sans préfixe.
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 global using Avalonia.UI.Reactor;
 global using static Avalonia.UI.Reactor.Views.Ui;
 global using static TodoDemo.Widgets;
+global using TodoDemo.Components;
+global using TodoDemo.Models;

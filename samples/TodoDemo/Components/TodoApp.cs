@@ -1,83 +1,88 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.UI.Reactor.Primitives;
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
-using static Avalonia.UI.Reactor.AvaloniaViews;
 
-namespace TodoDemo;
+namespace TodoDemo.Components;
 
 /// <summary>
-/// Racine : la barre de menus, l'en-tête avec le choix du thème, et deux composants qui ont chacun leur état.
-/// Le thème choisi est un état comme un autre : la vue en découle, rien n'est appelé pour l'appliquer.
+/// The root: the menu bar, the header with the theme picker, and two components that each have their own state.
+/// The chosen theme is state like any other: the view derives from it, nothing is called to apply it.
 /// </summary>
 public sealed partial class TodoApp : Component
 {
-    [State] partial string ThemeName { get; set; } = "Standard";
+    [State] private partial string ThemeName { get; set; } = "Standard";
 
-    /// <summary>Mode imposé ; null = celui du système.</summary>
+    /// <summary>
+    /// Gets or sets the forced color scheme; <see langword="null"/> for the system one.
+    /// </summary>
     [State]
-    partial ColorScheme? Scheme { get; set; }
+    private partial ColorScheme? Scheme { get; set; }
 
-    [State] partial bool ShowCounter { get; set; } = true;
-    [State] partial bool ShowAbout { get; set; }
+    [State] private partial bool ShowCounter { get; set; } = true;
+    [State] private partial bool ShowAbout { get; set; }
 
-    readonly CounterCard counter = new();
-    readonly TodoList todos = new();
+    private readonly CounterCard _counter = new();
+    private readonly TodoList _todos = new();
 
     public override View Body =>
         VStack(
-                Observe(Menus), // bloc à part : cocher une tâche ne recalcule que la barre, pas tout l'écran
-                VStack(Header(), ShowAbout ? About() : null, ShowCounter ? counter : null, todos)
+                // A separate block: checking a task re-evaluates the bar only, not the whole screen.
+                Observe(Menus),
+                VStack(Header(), ShowAbout ? About() : null, ShowCounter ? _counter : null, _todos)
                     .Spacing(16)
                     .Padding(24))
             .Spacing(0)
             .Background(ColorRole.Page)
-            .Theme(ThemeName) // tout l'écran dans la famille choisie…
-            .ColorScheme(Scheme); // …en clair, en sombre, ou selon le système
+            // The whole screen in the chosen family…
+            .Theme(ThemeName)
+            // …in light, in dark, or following the system.
+            .ColorScheme(Scheme);
 
     /// <summary>
-    /// Dessinée en haut de la fenêtre, ou celle du système quand la plateforme en a une (macOS).
-    /// Les coches, les éléments grisés et les listes suivent l'état, comme le reste de la vue.
+    /// Drawn at the top of the window, or the system menu bar when the platform has one (macOS).
+    /// Check marks, disabled items and lists follow the state, like the rest of the view.
     /// </summary>
-    View Menus() =>
+    private View Menus() =>
         MenuBar(
-            Menu("&Fichier",
-                MenuItem("&Nouvelle idée", todos.Suggest).Shortcut("Ctrl+N"),
-                MenuItem("&Purger les tâches faites", todos.Purge).Shortcut("Ctrl+Shift+P").Enabled(todos.HasDone),
+            Menu("&File",
+                MenuItem("&New idea", _todos.SuggestAsync).Shortcut("Ctrl+N"),
+                MenuItem("&Purge completed tasks", _todos.Purge).Shortcut("Ctrl+Shift+P").Enabled(_todos.HasDone),
                 Divider(),
-                MenuItem("&Quitter", ReactorApp.Quit).Shortcut("Ctrl+Q")),
-            Menu("&Affichage",
-                Menu("&Thème", [.. Themes.Families.Select(f =>
+                MenuItem("&Quit", ReactorApp.Quit).Shortcut("Ctrl+Q")),
+            Menu("&View",
+                Menu("&Theme", [.. Themes.Families.Select(f =>
                     MenuItem(f.Name, () => ThemeName = f.Name).Checked(ThemeName == f.Name))]),
-                Menu("&Mode",
-                    MenuItem("&Système", () => Scheme = null).Checked(Scheme is null),
-                    MenuItem("&Clair", () => Scheme = ColorScheme.Light).Checked(Scheme == ColorScheme.Light),
-                    MenuItem("&Sombre", () => Scheme = ColorScheme.Dark).Checked(Scheme == ColorScheme.Dark)),
+                Menu("&Appearance",
+                    MenuItem("&System", () => Scheme = null).Checked(Scheme is null),
+                    MenuItem("&Light", () => Scheme = ColorScheme.Light).Checked(Scheme == ColorScheme.Light),
+                    MenuItem("&Dark", () => Scheme = ColorScheme.Dark).Checked(Scheme == ColorScheme.Dark)),
                 Divider(),
-                MenuItem("&Compteur", Bind.ShowCounter).Shortcut("Ctrl+K")),
-            Menu("&Aide",
-                MenuItem("À &propos", () => ShowAbout = true).Shortcut("F1")));
+                MenuItem("&Counter", Bind.ShowCounter).Shortcut("Ctrl+K")),
+            Menu("&Help",
+                MenuItem("&About", () => ShowAbout = true).Shortcut("F1")));
 
-    View Header() =>
+    private View Header() =>
         VStack(
                 HStack(
-                        Text("POC").Font(TextStyle.Title),
-                        Spacer(), // la ligne prend toute la largeur : le sélecteur part à droite
-                        // Familles lues dans le catalogue : en ajouter une l'ajoute ici.
+                        Text("Reactor").Font(TextStyle.Title),
+                        // The row takes the whole width: the picker goes to the right.
+                        Spacer(),
+                        // The families are read from the catalog: adding one adds it here.
                         Segmented(Bind.ThemeName, [.. Themes.Families.Select(f => (f.Name, f.Name))]),
                         Segmented(Bind.Scheme,
-                            ("Système", null), ("Clair", ColorScheme.Light), ("Sombre", ColorScheme.Dark)))
+                            ("System", null), ("Light", ColorScheme.Light), ("Dark", ColorScheme.Dark)))
                     .Spacing(12),
-                Text("UI déclarative en C#, sans XAML, rendue par Avalonia").Foreground(ColorRole.TextMuted))
+                Text("Declarative C# UI, no XAML, rendered by Avalonia").Foreground(ColorRole.TextMuted))
             .Spacing(2);
 
-    View About() =>
+    private View About() =>
         Card(
-            Text("À propos").Font(TextStyle.Headline),
-            Text("Vues et état écrits en C#, rendus par les contrôles d'Avalonia : le même rendu partout.")
+            Text("About").Font(TextStyle.Headline),
+            Text("Views and state in C#, rendered by Avalonia's controls.")
                 .Foreground(ColorRole.TextMuted),
-            // Un contrôle Avalonia sans équivalent dans le framework s'intègre tel quel.
-            Text("Un contrôle Avalonia quelconque, avec Native(…) :").Foreground(ColorRole.TextMuted),
-            Native(() => new Avalonia.Controls.Calendar()),
-            HStack(Spacer(), Button("Fermer", () => ShowAbout = false).Style(ButtonStyle.Secondary)));
+            HStack(Spacer(), Button("Close", () => ShowAbout = false).Style(ButtonStyle.Secondary)));
 }

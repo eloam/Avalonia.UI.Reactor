@@ -1,22 +1,39 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.State;
 
 /// <summary>
-/// Hôte qui exécute l'action en cours sur ce thread (un clic, une saisie). Une action async le retient avant son premier
-/// <c>await</c> pour lui signaler ses erreurs, quel que soit le contexte où sa suite s'exécute.
+/// Tracks the host that runs the current action on this thread (a click, a keystroke).
 /// </summary>
+/// <remarks>
+/// An async action captures the host before its first <see langword="await"/>, so that it can report its errors to that
+/// host whatever context its continuation runs on.
+/// </remarks>
 internal static class RunningAction
 {
-    [ThreadStatic] static IScopeHost? _host;
+    /// <summary>
+    /// Gets the host of the action running on this thread, or <see langword="null"/> outside an action.
+    /// </summary>
+    [field: ThreadStatic]
+    public static IScopeHost? Host { get; private set; }
 
-    /// <summary>L'hôte de l'action en cours ; null hors d'une action.</summary>
-    public static IScopeHost? Host => _host;
-
-    /// <summary>Exécute une action de l'interface pour le compte de <paramref name="host"/>.</summary>
+    /// <summary>
+    /// Runs an action of the user interface on behalf of a host.
+    /// </summary>
+    /// <param name="host">The host that runs the action.</param>
+    /// <param name="action">The action to run.</param>
     public static void Run(IScopeHost host, Action action)
     {
-        var previous = _host;
-        _host = host;
-        try { action(); }
-        finally { _host = previous; }
+        IScopeHost? previous = Host;
+        Host = host;
+        try
+        {
+            action();
+        }
+        finally
+        {
+            Host = previous;
+        }
     }
 }

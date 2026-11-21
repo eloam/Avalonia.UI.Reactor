@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
@@ -10,14 +13,24 @@ using Avalonia.Styling;
 namespace Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
-/// Apparence (<see cref="ControlTheme"/>) de nos contrôles : uniquement leur structure. Aucune couleur ni dimension ici :
-/// l'adaptateur de chaque contrôle les pose à partir du thème résolu de sa branche, état par état (repos, survol, appui,
-/// focus). Le thème Fluent d'Avalonia ne sert plus qu'à l'infrastructure
-/// (fenêtre, défilement dans un champ).
+/// Provides the look (<see cref="ControlTheme"/>) of our controls: their structure only.
 /// </summary>
+/// <remarks>
+/// There is no color and no dimension here: the adapter of each control sets them from the resolved theme of its branch,
+/// state by state (rest, hover, pressed, focus). The Fluent theme of Avalonia only serves the infrastructure (the window,
+/// scrolling inside a field).
+/// </remarks>
 internal static class ReactorThemes
 {
-    /// <summary>Le fond, la bordure et le libellé d'un bouton, sur un seul présentateur.</summary>
+    // The names of the template parts that the Avalonia base classes look up (Button, TextBox), and of the frame.
+    private const string ContentPresenterPart = "PART_ContentPresenter";
+    private const string ScrollViewerPart = "PART_ScrollViewer";
+    private const string TextPresenterPart = "PART_TextPresenter";
+    private const string FramePart = "PART_Frame";
+
+    /// <summary>
+    /// Gets the look of a button: background, border and label on a single presenter.
+    /// </summary>
     public static ControlTheme Button { get; } = new(typeof(ReactorButton))
     {
         Setters =
@@ -25,7 +38,7 @@ internal static class ReactorThemes
             new Setter(InputElement.CursorProperty, new Cursor(StandardCursorType.Hand)),
             new Setter(Control.FocusAdornerProperty, null),
             new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ReactorButton>((_, scope) =>
-                Named(scope, "PART_ContentPresenter", new ContentPresenter()
+                Named(scope, ContentPresenterPart, new ContentPresenter()
                     .Bound(ContentPresenter.BackgroundProperty, TemplatedControl.BackgroundProperty)
                     .Bound(ContentPresenter.BorderBrushProperty, TemplatedControl.BorderBrushProperty)
                     .Bound(ContentPresenter.BorderThicknessProperty, TemplatedControl.BorderThicknessProperty)
@@ -39,7 +52,9 @@ internal static class ReactorThemes
         },
     };
 
-    /// <summary>La case dessinée par le thème, puis le libellé.</summary>
+    /// <summary>
+    /// Gets the look of a checkbox: the box drawn by the theme, then the label.
+    /// </summary>
     public static ControlTheme CheckBox { get; } = new(typeof(ReactorCheckBox))
     {
         Setters =
@@ -47,13 +62,13 @@ internal static class ReactorThemes
             new Setter(InputElement.CursorProperty, new Cursor(StandardCursorType.Hand)),
             new Setter(Control.FocusAdornerProperty, null),
             new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ReactorCheckBox>((_, scope) =>
-                Named(scope, "PART_Layout", new StackPanel
+                Named(scope, ReactorCheckBox.LayoutPart, new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
                     Children =
                     {
-                        Named(scope, "PART_Glyph", new CheckGlyph { VerticalAlignment = VerticalAlignment.Center }),
-                        Named(scope, "PART_ContentPresenter", new ContentPresenter { VerticalAlignment = VerticalAlignment.Center }
+                        Named(scope, ReactorCheckBox.GlyphPart, new CheckGlyph { VerticalAlignment = VerticalAlignment.Center }),
+                        Named(scope, ContentPresenterPart, new ContentPresenter { VerticalAlignment = VerticalAlignment.Center }
                             .Bound(ContentPresenter.ContentProperty, ContentControl.ContentProperty)
                             .Bound(ContentPresenter.ForegroundProperty, TemplatedControl.ForegroundProperty)),
                     },
@@ -62,10 +77,13 @@ internal static class ReactorThemes
     };
 
     /// <summary>
-    /// Cadre du champ, puis le texte défilant dans la marge intérieure, avec le texte indicatif quand il est vide.
-    /// Structure reprise du modèle de <see cref="TextBox"/> d'Avalonia 12 (thème Simple) : un
-    /// <c>PART_TextPresenter</c> lié au champ et un <c>PART_ScrollViewer</c> sans barres.
+    /// Gets the look of a text field: the frame, then the text scrolling inside the padding, with the placeholder while
+    /// the field is empty.
     /// </summary>
+    /// <remarks>
+    /// The structure follows the template of the <see cref="TextBox"/> of Avalonia 12 (Simple theme): a text presenter
+    /// bound to the field and a scroll viewer without scroll bars, found by the base class through their names.
+    /// </remarks>
     public static ControlTheme TextBox { get; } = new(typeof(ReactorTextBox))
     {
         Setters =
@@ -73,7 +91,7 @@ internal static class ReactorThemes
             new Setter(InputElement.CursorProperty, new Cursor(StandardCursorType.Ibeam)),
             new Setter(Control.FocusAdornerProperty, null),
             new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ReactorTextBox>((_, scope) =>
-                Named(scope, "PART_Frame", new Border { Child = EditingArea(scope).Bound(Layoutable.MarginProperty, TemplatedControl.PaddingProperty) }
+                Named(scope, FramePart, new Border { Child = EditingArea(scope).Bound(Layoutable.MarginProperty, TemplatedControl.PaddingProperty) }
                     .Bound(Border.BackgroundProperty, TemplatedControl.BackgroundProperty)
                     .Bound(Border.BorderBrushProperty, TemplatedControl.BorderBrushProperty)
                     .Bound(Border.BorderThicknessProperty, TemplatedControl.BorderThicknessProperty)
@@ -82,8 +100,8 @@ internal static class ReactorThemes
     };
 
     /// <summary>
-    /// Champ dont un modèle dessine l'apparence : la vue du modèle (posée dans <c>PART_Custom</c>), puis la zone d'édition,
-    /// placée par <see cref="EditorLayout"/> sur l'emplacement <c>field.Editor</c> du modèle.
+    /// Gets the look of a text field whose template draws its appearance: the view of the template, then the editing
+    /// area, placed by <see cref="EditorLayout"/> on the <c>field.Editor</c> slot of the template.
     /// </summary>
     public static ControlTheme TemplatedTextBox { get; } = new(typeof(ReactorTextBox))
     {
@@ -92,12 +110,12 @@ internal static class ReactorThemes
             new Setter(InputElement.CursorProperty, new Cursor(StandardCursorType.Ibeam)),
             new Setter(Control.FocusAdornerProperty, null),
             new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ReactorTextBox>((_, scope) =>
-                new EditorLayout { Children = { Named(scope, "PART_Custom", new Decorator()), EditingArea(scope) } })),
+                new EditorLayout { Children = { Named(scope, ReactorTextBox.CustomPart, new Decorator()), EditingArea(scope) } })),
         },
     };
 
-    /// <summary>La zone d'édition d'un champ : le texte (lié au champ) et le texte indicatif, défilant sans barres.</summary>
-    static ScrollViewer EditingArea(INameScope scope) => Named(scope, "PART_ScrollViewer", new ScrollViewer
+    // The editing area of a field: the text (bound to the field) and the placeholder, scrolling without scroll bars.
+    private static ScrollViewer EditingArea(INameScope scope) => Named(scope, ScrollViewerPart, new ScrollViewer
     {
         HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
         VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
@@ -105,10 +123,10 @@ internal static class ReactorThemes
         {
             Children =
             {
-                Named(scope, "PART_Placeholder", new TextBlock { VerticalAlignment = VerticalAlignment.Center }
+                Named(scope, ReactorTextBox.PlaceholderPart, new TextBlock { VerticalAlignment = VerticalAlignment.Center }
                     .Bound(TextBlock.TextProperty, Avalonia.Controls.TextBox.PlaceholderTextProperty)
                     .Bound(TextBlock.ForegroundProperty, Avalonia.Controls.TextBox.PlaceholderForegroundProperty)),
-                Named(scope, "PART_TextPresenter", new TextPresenter { VerticalAlignment = VerticalAlignment.Center }
+                Named(scope, TextPresenterPart, new TextPresenter { VerticalAlignment = VerticalAlignment.Center }
                     .Bound(TextPresenter.TextProperty, Avalonia.Controls.TextBox.TextProperty, BindingMode.TwoWay)
                     .Bound(TextPresenter.CaretIndexProperty, Avalonia.Controls.TextBox.CaretIndexProperty)
                     .Bound(TextPresenter.SelectionStartProperty, Avalonia.Controls.TextBox.SelectionStartProperty)
@@ -127,16 +145,17 @@ internal static class ReactorThemes
         },
     });
 
-    /// <summary>Lie une propriété d'une partie du modèle à celle du contrôle qui porte le modèle.</summary>
-    static T Bound<T>(this T part, AvaloniaProperty property, AvaloniaProperty source, BindingMode mode = BindingMode.OneWay)
+    // Binds a property of a template part to a property of the control that owns the template.
+    private static T Bound<T>(this T part, AvaloniaProperty property, AvaloniaProperty source, BindingMode mode = BindingMode.OneWay)
         where T : Control
     {
         part.Bind(property, new TemplateBinding(source) { Mode = mode });
         return part;
     }
 
-    /// <summary>Partie nommée du modèle, que le contrôle retrouve par son nom.</summary>
-    static T Named<T>(INameScope scope, string name, T part) where T : Control
+    // Registers a named template part, which the control finds by its name.
+    private static T Named<T>(INameScope scope, string name, T part)
+        where T : Control
     {
         part.Name = name;
         scope.Register(name, part);

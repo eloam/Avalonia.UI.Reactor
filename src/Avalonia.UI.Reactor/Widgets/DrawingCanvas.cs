@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -9,30 +12,41 @@ using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 
 /// <summary>
-/// <c>Canvas</c> : dessin libre. La fonction de dessin de la vue reçoit un <see cref="DrawScope"/> (thème, couleur et
-/// police héritées) qui dessine sur le contexte d'Avalonia ; le dessin ne déborde pas des bornes du contrôle.
-/// Le dessin a sa propre portée : un état lu pendant le dessin (<c>Canvas(d => … Progress …)</c>) le fait refaire quand
-/// il change, sans réévaluer la vue qui contient le <c>Canvas</c>.
+/// Represents the control of a <c>Canvas</c> view: free drawing, clipped to the bounds of the control.
 /// </summary>
+/// <remarks>
+/// The drawing function of the view receives a <see cref="DrawScope"/> (theme, inherited color and font) that draws on
+/// the Avalonia drawing context. The drawing has its own scope: a state read while drawing makes it run again when that
+/// state changes, without re-evaluating the view that contains the canvas.
+/// </remarks>
 internal sealed class DrawingCanvas : Control
 {
-    /// <summary>Nom de la portée du dessin (elle n'a pas de place dans l'arbre des portées).</summary>
-    const string DrawingScopeId = "canvas";
+    // The name of the scope of the drawing, which has no place in the tree of scopes.
+    private const string DrawingScopeId = "canvas";
 
-    readonly Scope _drawing;
-    Action<DrawScope>? _draw;
-    Theme? _theme;
-    Primitives.Color _foreground;
-    Primitives.Font _font;
-    int _redrawPending;
+    private readonly Scope _drawing;
+    private Action<DrawScope>? _draw;
+    private Theme? _theme;
+    private Primitives.Color _foreground;
+    private Primitives.Font _font;
+    private int _redrawPending;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DrawingCanvas"/> class.
+    /// </summary>
     public DrawingCanvas()
     {
         ClipToBounds = true;
         _drawing = new Scope(RequestRedraw, DrawingScopeId, identity: null);
     }
 
-    /// <summary>Nouvelle version de la vue : son dessin est refait.</summary>
+    /// <summary>
+    /// Applies a new version of the view: its drawing runs again.
+    /// </summary>
+    /// <param name="draw">The drawing function of the view.</param>
+    /// <param name="theme">The theme of the canvas.</param>
+    /// <param name="foreground">The inherited text color.</param>
+    /// <param name="font">The inherited font.</param>
     public void Update(Action<DrawScope> draw, Theme theme, Primitives.Color foreground, Primitives.Font font)
     {
         _draw = draw;
@@ -42,24 +56,36 @@ internal sealed class DrawingCanvas : Control
         InvalidateVisual();
     }
 
+    /// <inheritdoc/>
     public override void Render(DrawingContext context)
     {
         Interlocked.Exchange(ref _redrawPending, 0);
-        if (_draw is not { } draw || _theme is null) return;
+        if (_draw is not { } draw || _theme is null)
+        {
+            return;
+        }
+
         using var drawing = new AvaloniaDrawingContext(context);
-        var scope = new DrawScope(drawing, new Primitives.Rect(0, 0, (float)Bounds.Width, (float)Bounds.Height), _theme, _foreground, _font);
+        var bounds = new Primitives.Rect(0, 0, (float)Bounds.Width, (float)Bounds.Height);
+        var scope = new DrawScope(drawing, bounds, _theme, _foreground, _font);
         _drawing.Evaluate(() => draw(scope));
     }
 
+    /// <inheritdoc/>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _drawing.Dispose(); // plus d'abonnement aux états tant que le contrôle n'est pas affiché
+
+        // No subscription to state while the control is not displayed.
+        _drawing.Release();
     }
 
-    /// <summary>Un état lu par le dessin a changé (n'importe quel thread) : un seul redessin, sur le thread d'interface.</summary>
-    void RequestRedraw()
+    // A state read by the drawing changed, on any thread: redraw once, on the user interface thread.
+    private void RequestRedraw()
     {
-        if (Interlocked.Exchange(ref _redrawPending, 1) == 0) Dispatcher.UIThread.Post(InvalidateVisual);
+        if (Interlocked.Exchange(ref _redrawPending, 1) == 0)
+        {
+            Dispatcher.UIThread.Post(InvalidateVisual);
+        }
     }
 }

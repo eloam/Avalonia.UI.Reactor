@@ -1,14 +1,24 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Reconciliation;
 
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 
-/// <summary><c>field.Editor</c> dans le modèle d'un champ : un <see cref="EditorSlot"/>, à la largeur naturelle des champs du thème.</summary>
+/// <summary>
+/// Displays the <c>field.Editor</c> of a text field template with an <see cref="EditorSlot"/>, at the natural width of
+/// the text fields of the theme.
+/// </summary>
 internal sealed class EditorAdapter : ViewAdapter<EditorView, EditorSlot>
 {
+    /// <summary>
+    /// The single instance of the adapter.
+    /// </summary>
     public static readonly EditorAdapter Instance = new();
 
-    protected override void Update(Reconciler reconciler, Node node, EditorSlot slot, EditorView view, ViewEnvironment env) =>
-        slot.Natural = slot.Natural.WithWidth(env.Theme.TextField.MinWidth);
+    /// <inheritdoc/>
+    protected override void Update(Reconciler reconciler, Node node, EditorSlot slot, EditorView view, ViewEnvironment environment) =>
+        slot.Natural = slot.Natural.WithWidth(environment.Theme.TextField.MinWidth);
 }

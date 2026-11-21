@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Themes.Fluent;
@@ -5,18 +8,27 @@ using Avalonia.Themes.Fluent;
 namespace Avalonia.UI.Reactor.Hosting;
 
 /// <summary>
-/// Application Avalonia d'un programme Reactor : styles des contrôles et fenêtre principale (aucune sans fabrique,
-/// pour les tests). Nos contrôles portent leur propre apparence (<see cref="Widgets.ReactorThemes"/>) ; le thème Fluent
-/// ne sert qu'à l'infrastructure : fenêtre, défilement dans un champ.
+/// Represents the Avalonia application of a Reactor program: control styles and main window.
 /// </summary>
+/// <remarks>
+/// Our controls carry their own look (<see cref="Widgets.ReactorThemes"/>); the Fluent theme only serves the
+/// infrastructure: the window, scroll bars and open menus.
+/// </remarks>
+/// <param name="createMainWindow">The function that creates the main window, or <see langword="null"/> for none, as
+/// in tests.</param>
 internal sealed class ReactorApplication(Func<Window>? createMainWindow = null) : Application
 {
+    /// <inheritdoc/>
     public override void Initialize() => Styles.Add(new FluentTheme());
 
+    /// <inheritdoc/>
     public override void OnFrameworkInitializationCompleted()
     {
         if (createMainWindow is not null && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
             desktop.MainWindow = createMainWindow();
+        }
+
         base.OnFrameworkInitializationCompleted();
     }
 }

@@ -1,10 +1,15 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Tests.Probes;
 
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Une pastille dessinée dont la couleur dépend d'un état.</summary>
+/// <summary>
+/// A drawn swatch whose color depends on a state.
+/// </summary>
 public sealed partial class SwatchProbe : Component
 {
     [State] public partial bool Red { get; set; }

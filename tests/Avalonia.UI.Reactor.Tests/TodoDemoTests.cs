@@ -1,6 +1,10 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using TodoDemo;
+using TodoDemo.Components;
 
 namespace Avalonia.UI.Reactor.Tests;
 
@@ -9,45 +13,47 @@ using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Scénarios utilisateur sur l'application de démonstration, rendue par le moteur Avalonia.</summary>
+/// <summary>
+/// User scenarios on the sample application, rendered by the Avalonia engine.
+/// </summary>
 public class TodoDemoTests
 {
-    static ReactorTestHost Demo() => new(new TodoApp(), 560, 720, DemoThemes.Create());
+    private static ReactorTestHost Demo() => new(new TodoApp(), 560, 720, DemoThemes.Create());
 
     [AvaloniaFact]
     public void Counter_increments_decrements_and_resets()
     {
-        using var t = Demo();
+        using ReactorTestHost t = Demo();
 
         t.ClickButton("+");
         t.ClickButton("+");
         t.ClickButton("−");
         Assert.True(t.HasText("1"));
-        Assert.True(t.HasButton("Remettre à zéro"));
+        Assert.True(t.HasButton("Reset"));
 
-        t.ClickButton("Remettre à zéro");
+        t.ClickButton("Reset");
         Assert.True(t.HasText("0"));
-        Assert.False(t.HasButton("Remettre à zéro"));
+        Assert.False(t.HasButton("Reset"));
     }
 
     [AvaloniaFact]
     public void Typing_then_Enter_adds_a_task_and_clears_the_field()
     {
-        using var t = Demo();
+        using ReactorTestHost t = Demo();
         t.Click(t.Field);
 
-        t.Type("Publier le POC");
+        t.Type("Publish the release");
         t.Press(Key.Enter, PhysicalKey.Enter);
 
-        Assert.True(t.HasText("Publier le POC"));
+        Assert.True(t.HasText("Publish the release"));
         Assert.Equal("", t.Field.Text);
-        Assert.True(t.HasText("2 restante(s)"));
+        Assert.True(t.HasText("2 left"));
     }
 
     [AvaloniaFact]
     public void Backspace_and_arrows_edit_at_the_caret()
     {
-        using var t = Demo();
+        using ReactorTestHost t = Demo();
         t.Click(t.Field);
 
         t.Type("abd");
@@ -62,55 +68,55 @@ public class TodoDemoTests
     [AvaloniaFact]
     public void Tapping_a_row_toggles_the_task()
     {
-        using var t = Demo();
+        using ReactorTestHost t = Demo();
 
-        t.Click(t.TextShowing("Ajouter un backend mobile"));
-        Assert.True(t.HasText("0 restante(s)"));
+        t.Click(t.TextShowing("Add a mobile backend"));
+        Assert.True(t.HasText("0 left"));
         Assert.All(t.Controls.OfType<ReactorCheckBox>(), box => Assert.True(box.IsChecked));
 
-        t.Click(t.TextShowing("Ajouter un backend mobile"));
-        Assert.True(t.HasText("1 restante(s)"));
+        t.Click(t.TextShowing("Add a mobile backend"));
+        Assert.True(t.HasText("1 left"));
     }
 
     [AvaloniaFact]
     public void Async_action_shows_progress_then_result()
     {
-        using var t = Demo();
+        using ReactorTestHost t = Demo();
 
-        t.ClickButton("Idée");
+        t.ClickButton("Idea");
         Assert.True(t.HasButton("…"));
 
-        t.WaitUntil(() => t.HasButton("Idée"));
-        Assert.True(t.HasText("2 restante(s)"));
+        t.WaitUntil(() => t.HasButton("Idea"));
+        Assert.True(t.HasText("2 left"));
     }
 
     [AvaloniaFact]
     public void Filters_and_purge()
     {
-        using var t = Demo();
+        using ReactorTestHost t = Demo();
 
-        t.ClickButton("Faites");
-        Assert.True(t.HasText("Écrire le moteur de layout"));
-        Assert.False(t.HasText("Ajouter un backend mobile"));
+        t.ClickButton("Done");
+        Assert.True(t.HasText("Write the layout engine"));
+        Assert.False(t.HasText("Add a mobile backend"));
 
-        t.ClickButton("Actives");
-        Assert.False(t.HasText("Écrire le moteur de layout"));
-        Assert.True(t.HasText("Ajouter un backend mobile"));
+        t.ClickButton("Active");
+        Assert.False(t.HasText("Write the layout engine"));
+        Assert.True(t.HasText("Add a mobile backend"));
 
-        t.ClickButton("Toutes");
-        t.ClickButton("Purger");
-        Assert.False(t.HasText("Écrire le moteur de layout"));
-        Assert.True(t.HasText("Ajouter un backend mobile"));
-        Assert.False(t.HasButton("Purger"));
+        t.ClickButton("All");
+        t.ClickButton("Purge");
+        Assert.False(t.HasText("Write the layout engine"));
+        Assert.True(t.HasText("Add a mobile backend"));
+        Assert.False(t.HasButton("Purge"));
     }
 
     [AvaloniaFact]
     public void Changing_theme_keeps_child_component_state()
     {
-        using var t = Demo();
+        using ReactorTestHost t = Demo();
         t.ClickButton("+");
 
-        t.ClickButton("Sombre");
+        t.ClickButton("Dark");
         Assert.Equal(Theme.Dark.Palette.Page.ToAvaloniaColor(), t.Host.Background.ColorOf());
         Assert.True(t.HasText("1"));
 
@@ -121,33 +127,38 @@ public class TodoDemoTests
     [AvaloniaFact]
     public void The_theme_choice_is_plain_state()
     {
-        var catalog = DemoThemes.Create();
+        Themes catalog = DemoThemes.Create();
         using var t = new ReactorTestHost(new TodoApp(), 560, 720, catalog);
-        foreach (var label in new[] { "Standard", "Sable", "Système", "Clair", "Sombre" }) Assert.True(t.HasButton(label), label);
-        var sable = catalog.FamilyNamed("Sable")!;
+        foreach (string? label in new[] { "Standard", "Sable", "System", "Light", "Dark" })
+            Assert.True(t.HasButton(label), label);
+        ThemeFamily sable = catalog.FamilyNamed("Sable")!;
 
         t.ClickButton("Sable");
         Assert.Equal(sable.For(ColorScheme.Light).Palette.Page.ToAvaloniaColor(), t.Host.Background.ColorOf());
 
-        t.ClickButton("Sombre");
+        t.ClickButton("Dark");
         Assert.Equal(sable.For(ColorScheme.Dark).Palette.Page.ToAvaloniaColor(), t.Host.Background.ColorOf());
     }
 
     [AvaloniaFact]
     public void Only_what_depends_on_the_changed_state_is_recomputed()
     {
-        using var t = Demo();
+        using ReactorTestHost t = Demo();
 
         t.ClickButton("+");
-        Assert.Equal(1, t.Stats.Evaluated); // la carte compteur seule
-        Assert.True(t.Stats.Reused >= 1);   // la liste de tâches est reprise telle quelle
+        // The counter card only.
+        Assert.Equal(1, t.Stats.Evaluated);
+        // The task list is kept as it is.
+        Assert.True(t.Stats.Reused >= 1);
 
         t.Click(t.Field);
         t.Type("x");
-        Assert.Equal(1, t.Stats.Evaluated); // la ligne de saisie seule
+        // The input row only.
+        Assert.Equal(1, t.Stats.Evaluated);
 
-        t.Click(t.TextShowing("Ajouter un backend mobile"));
-        Assert.Equal(3, t.Stats.Evaluated); // la ligne cochée, le pied « N restante(s) » et l'anneau de progression
+        t.Click(t.TextShowing("Add a mobile backend"));
+        // The checked row, the "N remaining" footer and the progress ring.
+        Assert.Equal(3, t.Stats.Evaluated);
     }
 
     [AvaloniaFact]

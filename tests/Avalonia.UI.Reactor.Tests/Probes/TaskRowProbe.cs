@@ -1,10 +1,15 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Tests.Probes;
 
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Ligne de tâche cliquable qui contient une case liée au même état, et une case figée (sans action).</summary>
+/// <summary>
+/// A clickable task row that contains a checkbox bound to the same state, and a frozen checkbox (without action).
+/// </summary>
 public sealed partial class TaskRowProbe : Component
 {
     [State] public partial bool Done { get; set; }

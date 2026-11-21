@@ -1,10 +1,15 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
 using Avalonia.UI.Reactor.Tests.Probes;
 
-/// <summary>Une case est une vraie CheckBox d'Avalonia, liée à l'état ; elle consomme son clic.</summary>
+/// <summary>
+/// A checkbox is a real Avalonia CheckBox bound to state; it handles its own click.
+/// </summary>
 public class CheckboxTests
 {
     [AvaloniaFact]
@@ -15,7 +20,8 @@ public class CheckboxTests
 
         t.Click(t.CheckBoxLabeled(null));
 
-        Assert.True(probe.Done); // la ligne cliquable n'a pas inversé une seconde fois
+        // The clickable row did not toggle it a second time.
+        Assert.True(probe.Done);
         Assert.True(t.CheckBoxLabeled(null).IsChecked);
     }
 

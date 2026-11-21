@@ -1,7 +1,12 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Views;
 
 /// <summary>
-/// Un menu : un titre (<c>"&amp;Fichier"</c> : la lettre après <c>&amp;</c> l'ouvre avec Alt) et ses éléments —
-/// <see cref="MenuItemView"/>, sous-menus (<see cref="MenuView"/>) et séparateurs (<c>Divider()</c>).
+/// Represents a menu: a title and its items.
 /// </summary>
+/// <param name="Title">The title; in <c>"&amp;File"</c>, the letter after <c>&amp;</c> opens the menu with Alt.</param>
+/// <param name="Items">The items: <see cref="MenuItemView"/>, submenus (<see cref="MenuView"/>) and separators
+/// (<c>Divider()</c>).</param>
 public sealed record MenuView(string Title, IReadOnlyList<View> Items) : View;

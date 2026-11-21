@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Media;
 
@@ -6,17 +9,23 @@ namespace Avalonia.UI.Reactor.Reconciliation;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 
-/// <summary><c>Text</c> : un <see cref="TextBlock"/> d'une ligne, police et couleur du thème sauf modificateurs, terminé par « … » s'il manque de place.</summary>
+/// <summary>
+/// Displays a <c>Text</c> view with a single-line <see cref="TextBlock"/>, in the font and color of the theme unless
+/// modified, ending with an ellipsis when space runs out.
+/// </summary>
 internal sealed class TextAdapter : ViewAdapter<TextView, TextBlock>
 {
+    /// <summary>
+    /// The single instance of the adapter.
+    /// </summary>
     public static readonly TextAdapter Instance = new();
 
-    protected override void Update(Reconciler reconciler, Node node, TextBlock text, TextView view, ViewEnvironment env)
+    /// <inheritdoc/>
+    protected override void Update(Reconciler reconciler, Node node, TextBlock text, TextView view, ViewEnvironment environment)
     {
         text.Text = view.Content;
-        text.SetFont(env.FontFor(view));
-        text.SetBrush(TextBlock.ForegroundProperty, env.ForegroundFor(view));
-        // Une ligne trop longue pour sa place se termine par « … ».
+        text.SetFont(environment.FontFor(view));
+        text.SetBrush(TextBlock.ForegroundProperty, environment.ForegroundFor(view));
         text.TextTrimming = TextTrimming.CharacterEllipsis;
         text.TextAlignment = view.TextAlign switch
         {

@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -10,17 +13,18 @@ using Avalonia.VisualTree;
 
 namespace Avalonia.UI.Reactor.Tests;
 
+using Avalonia.Media.Imaging;
 using Avalonia.UI.Reactor.Hosting;
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 
 /// <summary>
-/// Une vraie fenêtre Avalonia, sans écran : le composant y est affiché par le moteur réel et dessiné par Skia. Clics,
-/// survol et saisie passent par les entrées de la plateforme, comme pour un utilisateur.
+/// A real Avalonia window without a screen: the component is displayed by the real engine and drawn by Skia. Clicks,
+/// hover and typing go through the input of the platform, as for a user.
 /// </summary>
 internal sealed class ReactorTestHost : IDisposable
 {
-    readonly List<Exception> _errors = [];
+    private readonly List<Exception> _errors = [];
 
     public ReactorTestHost(Component root, double width = 400, double height = 300, Themes? themes = null)
     {
@@ -35,10 +39,14 @@ internal sealed class ReactorTestHost : IDisposable
 
     public ReactorHost Host { get; }
 
-    /// <summary>Portées réévaluées, reprises telles quelles et total à la dernière mise à jour.</summary>
+    /// <summary>
+    /// Gets the scopes re-evaluated, the scopes kept and the total at the last update.
+    /// </summary>
     public UpdateStats Stats => Host.LastUpdate;
 
-    /// <summary>Erreurs signalées par les actions, sans que l'application s'arrête.</summary>
+    /// <summary>
+    /// Gets the errors reported by actions, without the application stopping.
+    /// </summary>
     public IReadOnlyList<Exception> Errors => _errors;
 
     public IEnumerable<Control> Controls => Window.GetVisualDescendants().OfType<Control>();
@@ -47,13 +55,19 @@ internal sealed class ReactorTestHost : IDisposable
 
     public bool HasButton(string label) => Controls.OfType<Button>().Any(b => Equals(b.Content, label));
 
-    /// <summary>Le seul champ de saisie de la fenêtre.</summary>
+    /// <summary>
+    /// Gets the only text field of the window.
+    /// </summary>
     public TextBox Field => Controls.OfType<TextBox>().Single();
 
-    /// <summary>Une case par son libellé (null : la case sans libellé).</summary>
+    /// <summary>
+    /// Returns a checkbox by its label (<see langword="null"/>: the checkbox without a label).
+    /// </summary>
     public CheckBox CheckBoxLabeled(string? label) => Controls.OfType<CheckBox>().Single(b => Equals(b.Content, label));
 
-    /// <summary>Textes affichés par des vues <c>Text</c> (pas les libellés des boutons, cases et champs).</summary>
+    /// <summary>
+    /// Gets the texts displayed by <c>Text</c> views (not the labels of buttons, checkboxes and fields).
+    /// </summary>
     public IReadOnlyList<TextBlock> Texts =>
         [.. Controls.OfType<TextBlock>().Where(t => !t.GetVisualAncestors().TakeWhile(a => a != Host).Any(a => a is TemplatedControl))];
 
@@ -61,7 +75,9 @@ internal sealed class ReactorTestHost : IDisposable
 
     public bool HasText(string text) => Texts.Any(t => t.Text == text);
 
-    /// <summary>Bornes d'un contrôle dans la fenêtre.</summary>
+    /// <summary>
+    /// Returns the bounds of a control in the window.
+    /// </summary>
     public Rect BoundsOf(Control control) =>
         new(control.TranslatePoint(default, Window) ?? throw new InvalidOperationException("The control is not in the window."),
             control.Bounds.Size);
@@ -77,14 +93,18 @@ internal sealed class ReactorTestHost : IDisposable
         Settle();
     }
 
-    /// <summary>Pointeur au-dessus du contrôle, sans cliquer.</summary>
+    /// <summary>
+    /// Moves the pointer over a control, without clicking.
+    /// </summary>
     public void Hover(Control control)
     {
         Window.MouseMove(BoundsOf(control).Center);
         Settle();
     }
 
-    /// <summary>Texte tapé dans le contrôle qui a le focus.</summary>
+    /// <summary>
+    /// Types text into the focused control.
+    /// </summary>
     public void Type(string text)
     {
         Window.KeyTextInput(text);
@@ -92,8 +112,8 @@ internal sealed class ReactorTestHost : IDisposable
     }
 
     /// <summary>
-    /// Touche des commandes de la plateforme (Cmd sur macOS, Ctrl ailleurs) : celle que l'utilisateur enfonce pour un
-    /// raccourci déclaré <c>"Ctrl+…"</c>.
+    /// Gets the command key of the platform (Cmd on macOS, Ctrl elsewhere): the one the user holds for a shortcut
+    /// declared as <c>"Ctrl+…"</c>.
     /// </summary>
     public static RawInputModifiers Command =>
         Primitives.KeyGesture.CommandModifier == Primitives.KeyModifiers.Meta ? RawInputModifiers.Meta : RawInputModifiers.Control;
@@ -105,24 +125,28 @@ internal sealed class ReactorTestHost : IDisposable
         Settle();
     }
 
-    /// <summary>Couleur d'un pixel de la fenêtre, après un rendu complet par Skia.</summary>
+    /// <summary>
+    /// Returns the color of a pixel of the window, after a complete rendering by Skia.
+    /// </summary>
     public Color PixelAt(double x, double y)
     {
-        using var frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("The window has not been rendered.");
-        using var buffer = frame.Lock();
+        using WriteableBitmap frame = Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("The window has not been rendered.");
+        using ILockedFramebuffer buffer = frame.Lock();
         int value = Marshal.ReadInt32(buffer.Address, (int)y * buffer.RowBytes + (int)x * 4);
         byte c0 = (byte)value, c1 = (byte)(value >> 8), c2 = (byte)(value >> 16), a = (byte)(value >> 24);
         return buffer.Format == PixelFormat.Rgba8888 ? Color.FromArgb(a, c0, c1, c2) : Color.FromArgb(a, c2, c1, c0);
     }
 
-    /// <summary>Exécute le travail en attente sur le thread d'interface (mises à jour planifiées, suites d'await), puis la mise en page.</summary>
-    /// <summary>Laisse tourner le thread d'interface (suites d'await, minuteries) jusqu'à ce que la condition soit vraie.</summary>
+    /// <summary>
+    /// Runs the user interface thread (await continuations, timers) until a condition is true.
+    /// </summary>
     public void WaitUntil(Func<bool> condition, int timeoutMs = 5000)
     {
-        var deadline = Environment.TickCount64 + timeoutMs;
+        long deadline = Environment.TickCount64 + timeoutMs;
         while (!condition())
         {
-            if (Environment.TickCount64 > deadline) throw new TimeoutException("The condition was not met in time.");
+            if (Environment.TickCount64 > deadline)
+                throw new TimeoutException("The condition was not met in time.");
             Thread.Sleep(10);
             Settle();
         }

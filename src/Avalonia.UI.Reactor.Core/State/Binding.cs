@@ -1,29 +1,40 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.State;
 
 /// <summary>
-/// Liaison à double sens vers un état : le contrôle lit la valeur et la modifie lui-même.
-/// Générée pour chaque propriété <c>[State]</c> modifiable, sous <c>Bind</c> :
+/// Represents a two-way reference to a value: a control reads the value and writes it back itself.
+/// </summary>
+/// <typeparam name="T">The type of the value.</typeparam>
+/// <remarks>
+/// <para>
+/// A binding is generated for every settable <see cref="StateAttribute">[State]</see> property, under <c>Bind</c>:
+/// </para>
 /// <code>
-/// TextField(Bind.Draft, "Que faut-il faire ?")
+/// TextField(Bind.Draft, "What needs to be done?")
 /// Checkbox(todo.Bind.Done)
 /// </code>
-/// </summary>
-public readonly struct Binding<T>
+/// <para>
+/// A binding can also refer to any other value, for example a computed one:
+/// <c>new Binding&lt;int&gt;(() =&gt; Page + 1, v =&gt; Page = v - 1)</c>.
+/// </para>
+/// </remarks>
+/// <param name="get">The function that reads the value.</param>
+/// <param name="set">The function that writes the value.</param>
+public readonly struct Binding<T>(Func<T> get, Action<T> set)
 {
-    readonly Func<T> _get;
-    readonly Action<T> _set;
+    /// <summary>
+    /// Gets the current value.
+    /// </summary>
+    public T Value => get();
 
-    public Binding(Func<T> get, Action<T> set)
-    {
-        _get = get;
-        _set = set;
-    }
-
-    public T Value
-    {
-        get => _get();
-        set => _set(value);
-    }
-
-    public void Set(T value) => _set(value);
+    /// <summary>
+    /// Writes a new value.
+    /// </summary>
+    /// <param name="value">The new value.</param>
+    /// <remarks>
+    /// This method can be passed where an <see cref="Action{T}"/> is expected: <c>TextField(text.Value, text.Set)</c>.
+    /// </remarks>
+    public void Set(T value) => set(value);
 }

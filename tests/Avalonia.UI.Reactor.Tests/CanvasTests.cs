@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 
@@ -8,7 +11,9 @@ using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary><c>Canvas</c> dessine pour de vrai (pixels lus après un rendu Skia), aux couleurs du thème, dans ses bornes.</summary>
+/// <summary>
+/// <c>Canvas</c> really draws (pixels read after a Skia rendering), in the colors of the theme, within its bounds.
+/// </summary>
 public class CanvasTests
 {
     [AvaloniaFact]

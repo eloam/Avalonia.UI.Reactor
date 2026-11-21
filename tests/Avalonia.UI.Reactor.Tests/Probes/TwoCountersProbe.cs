@@ -1,10 +1,15 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Tests.Probes;
 
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Deux compteurs indépendants sous un parent sans état.</summary>
+/// <summary>
+/// Two independent counters under a parent without state.
+/// </summary>
 public sealed class TwoCountersProbe : Component
 {
     public CounterProbe First { get; } = new("a");

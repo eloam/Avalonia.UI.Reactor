@@ -1,21 +1,39 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.UI.Reactor.Primitives;
 
 namespace Avalonia.UI.Reactor.Rendering;
 
 /// <summary>
-/// Formes des indicateurs du dessin standard, dans un carré unité (de 0 à 1), mises à l'échelle de leur boîte.
-/// Une autre forme passe par un modèle de contrôle (<c>Template</c>).
+/// Provides the shapes of the standard indicators, in a unit square (from 0 to 1), scaled to their box.
 /// </summary>
+/// <remarks>
+/// Another shape goes through a control template.
+/// </remarks>
 internal static class Shapes
 {
-    /// <summary>Taille pour laquelle <c>CheckboxTheme.CheckThickness</c> est donnée ; le trait suit la taille de la case.</summary>
+    /// <summary>
+    /// The box size for which <see cref="Theming.CheckboxTheme.CheckThickness"/> is given; the line scales with the box.
+    /// </summary>
     public const float CheckboxReferenceSize = 18;
 
-    /// <summary>Coche de la case à cocher.</summary>
+    /// <summary>
+    /// The check mark of a checkbox, designed on an 18-unit box.
+    /// </summary>
     public static readonly Point[] CheckboxMark =
-        [new(4.5f / 18, 9.5f / 18), new(7.8f / 18, 12.8f / 18), new(13.5f / 18, 5.8f / 18)];
+    [
+        new(4.5f / CheckboxReferenceSize, 9.5f / CheckboxReferenceSize),
+        new(7.8f / CheckboxReferenceSize, 12.8f / CheckboxReferenceSize),
+        new(13.5f / CheckboxReferenceSize, 5.8f / CheckboxReferenceSize),
+    ];
 
-    /// <summary>La forme placée dans <paramref name="box"/>.</summary>
+    /// <summary>
+    /// Scales a shape to a box.
+    /// </summary>
+    /// <param name="shape">The points of the shape, in a unit square.</param>
+    /// <param name="box">The box to fit the shape in.</param>
+    /// <returns>The points of the shape in the box.</returns>
     public static Point[] Fit(Point[] shape, Rect box) =>
         [.. shape.Select(p => new Point(box.X + p.X * box.Width, box.Y + p.Y * box.Height))];
 }

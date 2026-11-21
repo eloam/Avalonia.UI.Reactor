@@ -1,12 +1,17 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Runtime;
 using Avalonia.UI.Reactor.State;
+using Avalonia.UI.Reactor.Tests.Probes;
 
-/// <summary>Le hot reload de .NET réévalue toutes les portées d'une fenêtre Avalonia, sans perdre l'état.</summary>
+/// <summary>
+/// .NET hot reload re-evaluates every scope of an Avalonia window without losing the state.
+/// </summary>
 public class HotReloadTests
 {
     [AvaloniaFact]

@@ -1,26 +1,38 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 
 namespace Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
-/// Emplacement de la zone d'édition dans le modèle d'un champ (<c>field.Editor</c>) : vide, à la hauteur d'une ligne de
-/// texte du champ et à la largeur naturelle du thème. <see cref="EditorLayout"/> y pose la vraie zone d'édition.
+/// Represents the place of the editing area in a text field template (<c>field.Editor</c>).
 /// </summary>
+/// <remarks>
+/// The slot is empty, as high as a line of text of the field and as wide as the natural width of the theme;
+/// <see cref="EditorLayout"/> places the real editing area on it.
+/// </remarks>
 internal sealed class EditorSlot : Control
 {
-    Size _natural;
-
-    /// <summary>Taille naturelle : largeur du thème, hauteur de la zone d'édition (fournie par <see cref="EditorLayout"/>).</summary>
+    /// <summary>
+    /// Gets or sets the natural size of the slot: the width of the theme and the height of the editing area, provided by
+    /// <see cref="EditorLayout"/>.
+    /// </summary>
     public Size Natural
     {
-        get => _natural;
+        get;
         set
         {
-            if (value == _natural) return;
-            _natural = value;
+            if (value == field)
+            {
+                return;
+            }
+
+            field = value;
             InvalidateMeasure();
         }
     }
 
-    protected override Size MeasureOverride(Size availableSize) => _natural;
+    /// <inheritdoc/>
+    protected override Size MeasureOverride(Size availableSize) => Natural;
 }

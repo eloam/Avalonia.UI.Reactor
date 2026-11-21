@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -11,21 +14,28 @@ using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
-/// <c>TextField</c> : un <see cref="ReactorTextBox"/> (sélection, copier-coller, annuler, IME), aux couleurs du thème ;
-/// bordure du survol au survol, bordure du focus pendant la saisie. Le champ est contrôlé : chaque saisie part vers l'état
-/// (<c>OnChange</c>), puis le champ affiche la valeur de la vue — un état qui refuse ou transforme la saisie l'emporte.
-/// Entrée exécute <c>OnSubmit</c>.
+/// Displays a <c>TextField</c> view with a <see cref="ReactorTextBox"/> (selection, clipboard, undo, input methods) in
+/// the colors of the theme: the hover border under the pointer, the focus border while typing.
 /// </summary>
+/// <remarks>
+/// The field is controlled: each input goes to the state (<c>OnChange</c>), then the field shows the value of the view,
+/// so that state that rejects or transforms the input has the last word. Enter runs <c>OnSubmit</c>.
+/// </remarks>
 internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextBox>
 {
+    /// <summary>
+    /// The single instance of the adapter.
+    /// </summary>
     public static readonly TextFieldAdapter Instance = new();
 
+    /// <inheritdoc/>
     public override bool DrawsDecoration => true;
 
+    /// <inheritdoc/>
     protected override void Attach(Reconciler reconciler, Node node, ReactorTextBox field)
     {
-        // La propriété Text, pas l'événement TextChanged : Avalonia publie celui-ci plus tard sur le répartiteur, et une
-        // action qui suit aussitôt la saisie (Entrée, clic, raccourci) lirait encore l'état d'avant.
+        // The Text property, not the TextChanged event: Avalonia raises the event later on the dispatcher, and an action
+        // that immediately follows the input (Enter, a click, a shortcut) would still read the previous state.
         field.PropertyChanged += (_, e) =>
         {
             if (e.Property == InputElement.IsPointerOverProperty || e.Property == InputElement.IsFocusedProperty)
@@ -33,33 +43,54 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextB
                 Paint(reconciler, node, field);
                 return;
             }
-            if (e.Property != TextBox.TextProperty || node.Applying) return;
-            string text = field.Text ?? "";
+
+            if (e.Property != TextBox.TextProperty || node.Applying)
+            {
+                return;
+            }
+
+            string text = field.Text ?? string.Empty;
             reconciler.Run(() => ((TextFieldView)node.View).OnChange?.Invoke(text));
             Reconciler.Apply(node, () =>
             {
                 string shown = ((TextFieldView)node.View).Value;
-                if (field.Text != shown) field.Text = shown;
+                if (field.Text != shown)
+                {
+                    field.Text = shown;
+                }
             });
         };
-        // Avant le champ (tunnel) : un champ d'une ligne n'a rien à faire d'Entrée, la vue si.
-        field.AddHandler(InputElement.KeyDownEvent, (_, e) =>
-        {
-            if (e.Key != Key.Enter || ((TextFieldView)node.View).OnSubmit is not { } submit) return;
-            e.Handled = true;
-            reconciler.Run(submit);
-        }, RoutingStrategies.Tunnel);
+
+        // Before the field (tunnel): a single-line field has no use for Enter, the view does.
+        field.AddHandler(
+            InputElement.KeyDownEvent,
+            (_, e) =>
+            {
+                if (e.Key != Key.Enter || ((TextFieldView)node.View).OnSubmit is not { } submit)
+                {
+                    return;
+                }
+
+                e.Handled = true;
+                reconciler.Run(submit);
+            },
+            RoutingStrategies.Tunnel);
     }
 
-    protected override void Update(Reconciler reconciler, Node node, ReactorTextBox field, TextFieldView view, ViewEnvironment env)
+    /// <inheritdoc/>
+    protected override void Update(Reconciler reconciler, Node node, ReactorTextBox field, TextFieldView view, ViewEnvironment environment)
     {
-        var theme = env.Theme;
-        var style = theme.TextField;
+        Theme theme = environment.Theme;
+        TextFieldTheme style = theme.TextField;
 
-        if (field.Text != view.Value) field.Text = view.Value;
+        if (field.Text != view.Value)
+        {
+            field.Text = view.Value;
+        }
+
         field.PlaceholderText = view.Placeholder;
         field.SetEditMenu(style.EditMenu);
-        field.SetFont(env.FontFor(view));
+        field.SetFont(environment.FontFor(view));
         field.SetBrush(TemplatedControl.ForegroundProperty, theme[view.Foreground ?? style.Foreground]);
         field.SetBrush(TextBox.PlaceholderForegroundProperty, theme[style.Placeholder]);
         field.SetBrush(TextBox.CaretBrushProperty, theme[style.Caret]);
@@ -70,17 +101,17 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextB
         Paint(reconciler, node, field);
     }
 
-    /// <summary>
-    /// Apparence selon l'état (survol, focus). Avec un modèle, la vue du modèle dessine le champ et la zone d'édition se
-    /// pose sur son <c>field.Editor</c>. Sans modèle : le cadre du thème, bordure du focus pendant la saisie, du survol,
-    /// sinon celle de la vue ; une bordure plus épaisse prend sur la marge, le texte ne bouge pas quand le champ prend le focus.
-    /// </summary>
-    static void Paint(Reconciler reconciler, Node node, ReactorTextBox field)
+    // The look for the current state (hover, focus). With a template, the view of the template draws the field and the
+    // editing area is placed on its field.Editor. Without one: the frame of the theme, with the focus border while
+    // typing, the hover border under the pointer, otherwise the border of the view; a thicker border takes its space from
+    // the padding, so the text does not move when the field gets the focus.
+    private static void Paint(Reconciler reconciler, Node node, ReactorTextBox field)
     {
         var view = (TextFieldView)node.View;
-        var theme = node.Environment.Theme;
-        var style = theme.TextField;
-        bool focused = field.IsFocused, hovered = field.IsPointerOver;
+        Theme theme = node.Environment.Theme;
+        TextFieldTheme style = theme.TextField;
+        bool focused = field.IsFocused;
+        bool hovered = field.IsPointerOver;
 
         if (ControlTemplates.Build(view, theme, hovered, pressed: false, focused) is { } template)
         {
@@ -90,7 +121,9 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextB
             field.ClearValue(TemplatedControl.BorderBrushProperty);
             field.BorderThickness = default;
             field.CornerRadius = default;
-            field.Padding = default; // le modèle gère ses marges
+
+            // The template handles its own spacing.
+            field.Padding = default;
             field.MinWidth = 0;
             return;
         }
@@ -98,19 +131,24 @@ internal sealed class TextFieldAdapter : ViewAdapter<TextFieldView, ReactorTextB
         node.Template = null;
         field.Theme = ReactorThemes.TextBox;
         field.CustomContent = null;
-        float rest = view.BorderWidth ?? style.BorderWidth;
-        var color = focused ? style.FocusBorderColor : hovered ? style.HoverBorderColor : view.BorderColor ?? style.BorderColor;
-        float width = focused ? style.FocusBorderWidth : rest;
-        var padding = view.Padding ?? style.Padding;
-        float shift = rest - width;
+        float restWidth = view.BorderWidth ?? style.BorderWidth;
+        ColorValue color = focused ? style.FocusBorderColor
+            : hovered ? style.HoverBorderColor
+            : view.BorderColor ?? style.BorderColor;
+        float width = focused ? style.FocusBorderWidth : restWidth;
+        Primitives.Thickness padding = view.Padding ?? style.Padding;
+        float shift = restWidth - width;
         field.SetBrush(TemplatedControl.BackgroundProperty, theme[view.Background ?? style.Background]);
         field.SetBrush(TemplatedControl.BorderBrushProperty, theme[color]);
         field.BorderThickness = new Thickness(width);
         field.CornerRadius = new CornerRadius(view.CornerRadius ?? style.Radius);
         field.Padding = new Thickness(
-            Math.Max(0, padding.Left + shift), Math.Max(0, padding.Top + shift),
-            Math.Max(0, padding.Right + shift), Math.Max(0, padding.Bottom + shift));
-        // Largeur naturelle du thème (le texte saisi ne la change pas).
+            Math.Max(0, padding.Left + shift),
+            Math.Max(0, padding.Top + shift),
+            Math.Max(0, padding.Right + shift),
+            Math.Max(0, padding.Bottom + shift));
+
+        // The natural width comes from the theme; the typed text does not change it.
         field.MinWidth = style.MinWidth + padding.Horizontal;
     }
 }

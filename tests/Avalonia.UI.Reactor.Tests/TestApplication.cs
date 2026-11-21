@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless;
 
 [assembly: AvaloniaTestApplication(typeof(Avalonia.UI.Reactor.Tests.TestApplication))]
@@ -7,9 +10,9 @@ namespace Avalonia.UI.Reactor.Tests;
 using Avalonia.UI.Reactor.Hosting;
 
 /// <summary>
-/// Application des tests : la même que celle d'un programme, sur la plateforme sans fenêtre d'Avalonia, avec le vrai
-/// rendu Skia (les tests lisent les pixels d'une fenêtre), fait sur le thread d'interface : une capture voit tout ce
-/// qui a été invalidé avant elle.
+/// The test application: the same as that of a program, on the headless platform of Avalonia, with the real Skia
+/// rendering (tests read the pixels of a window), done on the user interface thread: a capture sees everything
+/// invalidated before it.
 /// </summary>
 public static class TestApplication
 {

@@ -1,43 +1,119 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.UI.Reactor.Primitives;
 using Avalonia.UI.Reactor.Theming;
 
 namespace Avalonia.UI.Reactor.Views;
 
 /// <summary>
-/// Description immuable d'un élément d'interface, produite par le <c>Body</c> d'un composant.
-/// Le runtime en déduit layout, rendu et gestion des entrées. Aucun objet "contrôle" n'est retenu.
-/// Les propriétés null prennent la valeur du thème actif.
+/// Represents an immutable description of a part of the user interface, produced by the <c>Body</c> of a component.
 /// </summary>
+/// <remarks>
+/// The engine turns views into controls. Properties left <see langword="null"/> take the value of the current theme.
+/// Views are created by the factories of <see cref="Ui"/> and refined with the modifiers of <see cref="Modifiers"/>.
+/// </remarks>
 public abstract record View
 {
-    /// <summary>Identité stable (listes) : conserve focus/survol quand l'ordre change.</summary>
+    /// <summary>
+    /// Gets the stable identity of the view in a list; it keeps the control, focus and hover when the order changes.
+    /// </summary>
     public string? Key { get; init; }
+
+    /// <summary>
+    /// Gets the inner spacing, or <see langword="null"/> for none.
+    /// </summary>
     public Thickness? Padding { get; init; }
-    /// <summary>null = taille naturelle, +∞ = remplit l'espace disponible.</summary>
+
+    /// <summary>
+    /// Gets the width: <see langword="null"/> for the natural width, positive infinity to fill the available width.
+    /// </summary>
     public float? Width { get; init; }
+
+    /// <summary>
+    /// Gets the height: <see langword="null"/> for the natural height, positive infinity to fill the available height.
+    /// </summary>
     public float? Height { get; init; }
-    /// <summary>Part de l'espace restant sur l'axe principal du stack parent.</summary>
+
+    /// <summary>
+    /// Gets the share of the remaining space taken on the main axis of the parent stack; 0 for none.
+    /// </summary>
     public float Grow { get; init; }
+
+    /// <summary>
+    /// Gets the alignment of the view on the cross axis of its parent stack, or <see langword="null"/> for the stack's.
+    /// </summary>
     public Align? SelfAlign { get; init; }
+
+    /// <summary>
+    /// Gets the background color, or <see langword="null"/> for none.
+    /// </summary>
     public ColorValue? Background { get; init; }
+
+    /// <summary>
+    /// Gets the border color, or <see langword="null"/> for no border.
+    /// </summary>
     public ColorValue? BorderColor { get; init; }
+
+    /// <summary>
+    /// Gets the border thickness, or <see langword="null"/> for the default.
+    /// </summary>
     public float? BorderWidth { get; init; }
+
+    /// <summary>
+    /// Gets the corner radius, or <see langword="null"/> for the default.
+    /// </summary>
     public float? CornerRadius { get; init; }
-    // Styles de texte, hérités par les enfants.
+
+    /// <summary>
+    /// Gets the text color, inherited by the descendants, or <see langword="null"/> to inherit it.
+    /// </summary>
     public ColorValue? Foreground { get; init; }
+
+    /// <summary>
+    /// Gets the text style, inherited by the descendants, or <see langword="null"/> to inherit it.
+    /// </summary>
     public TextStyle? TextStyle { get; init; }
-    /// <summary>Style de texte nommé du thème (<c>.Font("caption")</c>), prioritaire sur <see cref="TextStyle"/>.</summary>
+
+    /// <summary>
+    /// Gets the name of a text style of the theme (<c>.Font("caption")</c>); it takes precedence over
+    /// <see cref="TextStyle"/>.
+    /// </summary>
     public string? TextStyleName { get; init; }
+
+    /// <summary>
+    /// Gets the font size, inherited by the descendants, or <see langword="null"/> to inherit it.
+    /// </summary>
     public float? FontSize { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the text is bold, or <see langword="null"/> to inherit it.
+    /// </summary>
     public bool? Bold { get; init; }
-    /// <summary>Thème précis appliqué à cette vue et ses descendants (comme l'environnement SwiftUI).</summary>
+
+    /// <summary>
+    /// Gets the exact theme applied to the view and its descendants, like the environment of SwiftUI.
+    /// </summary>
     public Theme? Theme { get; init; }
-    /// <summary>Famille (ou thème) du catalogue par son nom : <c>.Theme("Sable")</c>, clair ou sombre selon le mode.</summary>
+
+    /// <summary>
+    /// Gets the name of a family (or theme) of the catalog applied to the branch: <c>.Theme("Sable")</c>, light or dark
+    /// depending on the mode.
+    /// </summary>
     public string? ThemeName { get; init; }
-    /// <summary>Famille de thèmes appliquée à cette branche, clair ou sombre selon le mode.</summary>
+
+    /// <summary>
+    /// Gets the theme family applied to the branch, light or dark depending on the mode.
+    /// </summary>
     public ThemeFamily? ThemeFamily { get; init; }
-    /// <summary>Force clair/sombre pour cette branche : variante correspondante de la famille en cours.</summary>
+
+    /// <summary>
+    /// Gets the color scheme forced on the branch: the matching variant of the current family.
+    /// </summary>
     public ColorScheme? Scheme { get; init; }
-    /// <summary>Action exécutée quand on clique sur la vue.</summary>
+
+    /// <summary>
+    /// Gets the action run when the view is clicked, or <see langword="null"/> if the view is not clickable.
+    /// </summary>
     public Action? TapAction { get; init; }
 }

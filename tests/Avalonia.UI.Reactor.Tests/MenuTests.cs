@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -5,21 +8,22 @@ using Avalonia.Interactivity;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Menus;
+using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Theming;
 using static Avalonia.UI.Reactor.Views.Ui;
 
 /// <summary>
-/// Barre de menus déclarée dans le <c>Body</c>, rendue par le <c>Menu</c> d'Avalonia (la plateforme sans fenêtre n'a pas
-/// de barre du système) : éléments, lettres d'accès, coches liées, éléments grisés, raccourcis menus fermés.
+/// Menu bar declared in the <c>Body</c>, rendered by the Avalonia <c>Menu</c> (the headless platform has no system menu
+/// bar): items, access keys, bound check marks, disabled items, shortcuts with the menus closed.
 /// </summary>
 public class MenuTests
 {
-    static ReactorMenuItem ItemAt(ReactorMenuBar bar, params int[] path)
+    private static ReactorMenuItem ItemAt(ReactorMenuBar bar, params int[] path)
     {
         var item = (ReactorMenuItem)bar.Items[path[0]]!;
-        foreach (int i in path[1..]) item = (ReactorMenuItem)item.Items[i]!;
+        foreach (int i in path[1..])
+            item = (ReactorMenuItem)item.Items[i]!;
         return item;
     }
 
@@ -27,7 +31,7 @@ public class MenuTests
     public void The_bar_is_drawn_across_the_top_of_the_window_with_access_keys()
     {
         using var t = new ReactorTestHost(new MenuProbe());
-        var bar = t.Controls.OfType<ReactorMenuBar>().Single();
+        ReactorMenuBar bar = t.Controls.OfType<ReactorMenuBar>().Single();
 
         Assert.False(bar.UsesSystemBar);
         Assert.Equal(new Rect(0, 0, 400, bar.Bounds.Height), t.BoundsOf(bar));
@@ -69,8 +73,8 @@ public class MenuTests
     {
         var probe = new MenuProbe();
         using var t = new ReactorTestHost(probe);
-        var bar = t.Controls.OfType<ReactorMenuBar>().Single();
-        var counter = ItemAt(bar, 1, 0);
+        ReactorMenuBar bar = t.Controls.OfType<ReactorMenuBar>().Single();
+        ReactorMenuItem counter = ItemAt(bar, 1, 0);
         Assert.Equal(MenuItemToggleType.CheckBox, counter.ToggleType);
         Assert.False(counter.IsChecked);
 
@@ -100,10 +104,10 @@ public class MenuTests
     [AvaloniaFact]
     public void A_field_has_a_context_menu_labelled_by_its_theme()
     {
-        var french = Theme.Light.WithTextField(f => f with { EditMenu = new("Couper", "Copier", "Coller") });
+        Theme french = Theme.Light.WithTextField(f => f with { EditMenu = new("Couper", "Copier", "Coller") });
         using var t = new ReactorTestHost(new ViewProbe(() => VStack(TextField("texte", onChange: null))), themes: french);
 
-        var menu = Assert.IsType<MenuFlyout>(t.Field.ContextFlyout);
+        MenuFlyout menu = Assert.IsType<MenuFlyout>(t.Field.ContextFlyout);
 
         Assert.Equal(["Couper", "Copier", "Coller"], menu.Items.Cast<MenuItem>().Select(m => m.Header));
     }
@@ -119,9 +123,9 @@ public class MenuTests
     [AvaloniaFact]
     public void The_bar_takes_its_colors_and_margins_from_the_theme()
     {
-        var theme = Theme.Light.WithMenu(m => m with { BarBackground = "#3366CC", BarBorderWidth = 2, BarPadding = new(6) });
+        Theme theme = Theme.Light.WithMenu(m => m with { BarBackground = "#3366CC", BarBorderWidth = 2, BarPadding = new(6) });
         using var t = new ReactorTestHost(new MenuProbe(), themes: theme);
-        var bar = t.Controls.OfType<ReactorMenuBar>().Single();
+        ReactorMenuBar bar = t.Controls.OfType<ReactorMenuBar>().Single();
 
         Assert.Equal(Primitives.Color.Hex("#3366CC").ToAvaloniaColor(), bar.Background.ColorOf());
         Assert.Equal(new Thickness(0, 0, 0, 2), bar.BorderThickness);

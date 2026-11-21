@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
@@ -8,7 +11,9 @@ using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Une vue cliquable (<c>.OnTap</c>) reçoit le clic sur toute sa surface et montre le voile du thème au survol.</summary>
+/// <summary>
+/// A clickable view (<c>.OnTap</c>) receives the click on its whole surface and shows the overlay of the theme on hover.
+/// </summary>
 public class TapTests
 {
     [AvaloniaFact]
@@ -16,9 +21,10 @@ public class TapTests
     {
         int taps = 0;
         using var t = new ReactorTestHost(new ViewProbe(() => VStack(Text("ligne").Padding(20).OnTap(() => taps++))));
-        var surface = Assert.IsType<Surface>(t.TextShowing("ligne").Parent);
+        Surface surface = Assert.IsType<Surface>(t.TextShowing("ligne").Parent);
 
-        t.ClickAt(t.BoundsOf(surface).TopLeft + new Vector(2, 2)); // dans la marge, hors du texte
+        // In the padding, outside the text.
+        t.ClickAt(t.BoundsOf(surface).TopLeft + new Vector(2, 2));
 
         Assert.Equal(1, taps);
     }
@@ -27,12 +33,12 @@ public class TapTests
     public void A_tappable_view_shows_the_hover_overlay_of_the_theme()
     {
         using var t = new ReactorTestHost(new ViewProbe(() => VStack(Text("ligne").Padding(6).OnTap(() => { }))));
-        var surface = Assert.IsType<Surface>(t.TextShowing("ligne").Parent);
+        Surface surface = Assert.IsType<Surface>(t.TextShowing("ligne").Parent);
         Assert.Equal((byte)0, surface.Background.ColorOf()?.A);
 
         t.Hover(surface);
 
-        var light = Theme.Light;
+        Theme light = Theme.Light;
         Assert.Equal(light.Overlay(Primitives.Color.Transparent, light.HoverOverlay).ToAvaloniaColor(), surface.Background.ColorOf());
     }
 }

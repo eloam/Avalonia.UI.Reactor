@@ -1,7 +1,10 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Views;
 
 /// <summary>
-/// Emplacement du texte éditable dans un modèle de champ (<see cref="TextFieldState.Editor"/>) :
-/// le framework y dessine la valeur, le texte indicatif et le curseur.
+/// Represents the place of the editable text in a text field template (<see cref="TextFieldState.Editor"/>): the
+/// framework shows the value, the placeholder and the caret there.
 /// </summary>
 public sealed record EditorView : View;

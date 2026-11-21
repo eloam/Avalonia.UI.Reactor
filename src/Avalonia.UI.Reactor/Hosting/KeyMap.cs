@@ -1,11 +1,20 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Input;
 
 namespace Avalonia.UI.Reactor.Hosting;
 
-/// <summary>Correspondance entre les touches et modificateurs d'Avalonia et les nôtres (raccourcis des menus).</summary>
+/// <summary>
+/// Maps the keys and modifier keys of Avalonia to ours, for menu shortcuts.
+/// </summary>
 internal static class KeyMap
 {
-    /// <summary>Notre code de touche, ou null pour une touche qu'aucun raccourci ne peut désigner.</summary>
+    /// <summary>
+    /// Returns our key code for an Avalonia key.
+    /// </summary>
+    /// <param name="key">The Avalonia key.</param>
+    /// <returns>Our key code, or <see langword="null"/> for a key that no shortcut can use.</returns>
     public static Primitives.KeyCode? ToKeyCode(Key key) => key switch
     {
         >= Key.A and <= Key.Z => Primitives.KeyCode.A + (key - Key.A),
@@ -28,16 +37,21 @@ internal static class KeyMap
         Key.Escape => Primitives.KeyCode.Escape,
         Key.Space => Primitives.KeyCode.Space,
         Key.Add => Primitives.KeyCode.Plus,
-        Key.OemPlus => Primitives.KeyCode.Equal, // touche « = + » du clavier principal
+
+        // The "= +" key of the main keyboard.
+        Key.OemPlus => Primitives.KeyCode.Equal,
         Key.OemMinus or Key.Subtract => Primitives.KeyCode.Minus,
         Key.OemComma => Primitives.KeyCode.Comma,
         Key.OemPeriod or Key.Decimal => Primitives.KeyCode.Period,
         Key.OemQuestion or Key.Divide => Primitives.KeyCode.Slash,
-        Key.LeftAlt or Key.RightAlt => Primitives.KeyCode.Alt,
         _ => null,
     };
 
-    /// <summary>La touche d'Avalonia qui correspond à notre code (affichage d'un raccourci dans un menu).</summary>
+    /// <summary>
+    /// Returns the Avalonia key for our key code, to display a shortcut in a menu.
+    /// </summary>
+    /// <param name="code">Our key code.</param>
+    /// <returns>The Avalonia key, or <see cref="Key.None"/> if there is none.</returns>
     public static Key ToKey(Primitives.KeyCode code) => code switch
     {
         >= Primitives.KeyCode.A and <= Primitives.KeyCode.Z => Key.A + (code - Primitives.KeyCode.A),
@@ -64,24 +78,32 @@ internal static class KeyMap
         Primitives.KeyCode.Comma => Key.OemComma,
         Primitives.KeyCode.Period => Key.OemPeriod,
         Primitives.KeyCode.Slash => Key.OemQuestion,
-        Primitives.KeyCode.Alt => Key.LeftAlt,
         _ => Key.None,
     };
 
+    /// <summary>
+    /// Returns our modifier keys for Avalonia modifier keys.
+    /// </summary>
+    /// <param name="modifiers">The Avalonia modifier keys.</param>
+    /// <returns>Our modifier keys.</returns>
     public static Primitives.KeyModifiers ToModifiers(KeyModifiers modifiers) =>
         (modifiers.HasFlag(KeyModifiers.Shift) ? Primitives.KeyModifiers.Shift : 0)
         | (modifiers.HasFlag(KeyModifiers.Control) ? Primitives.KeyModifiers.Ctrl : 0)
         | (modifiers.HasFlag(KeyModifiers.Alt) ? Primitives.KeyModifiers.Alt : 0)
         | (modifiers.HasFlag(KeyModifiers.Meta) ? Primitives.KeyModifiers.Meta : 0);
 
-    /// <summary>Raccourci tel que l'utilisateur le tape sur cette plateforme (Ctrl devient Cmd sur macOS).</summary>
+    /// <summary>
+    /// Returns a shortcut as the user types it on this platform (Ctrl becomes Cmd on macOS).
+    /// </summary>
+    /// <param name="gesture">Our shortcut.</param>
+    /// <returns>The Avalonia shortcut.</returns>
     public static KeyGesture ToGesture(Primitives.KeyGesture gesture)
     {
-        var m = gesture.Effective;
-        var modifiers = (m.HasFlag(Primitives.KeyModifiers.Shift) ? KeyModifiers.Shift : 0)
-                        | (m.HasFlag(Primitives.KeyModifiers.Ctrl) ? KeyModifiers.Control : 0)
-                        | (m.HasFlag(Primitives.KeyModifiers.Alt) ? KeyModifiers.Alt : 0)
-                        | (m.HasFlag(Primitives.KeyModifiers.Meta) ? KeyModifiers.Meta : 0);
+        Primitives.KeyModifiers effective = gesture.Effective;
+        KeyModifiers modifiers = (effective.HasFlag(Primitives.KeyModifiers.Shift) ? KeyModifiers.Shift : 0)
+                        | (effective.HasFlag(Primitives.KeyModifiers.Ctrl) ? KeyModifiers.Control : 0)
+                        | (effective.HasFlag(Primitives.KeyModifiers.Alt) ? KeyModifiers.Alt : 0)
+                        | (effective.HasFlag(Primitives.KeyModifiers.Meta) ? KeyModifiers.Meta : 0);
         return new KeyGesture(ToKey(gesture.Key), modifiers);
     }
 }

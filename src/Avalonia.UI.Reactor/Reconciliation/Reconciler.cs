@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -11,198 +14,354 @@ using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
-/// Applique un arbre de vues (records immuables) à un arbre de contrôles Avalonia qu'il garde d'une mise à jour à
-/// l'autre. Un contrôle est repris tant que sa vue garde le même chemin (son <c>Key</c>, sinon son rang) et la même
-/// sorte de contrôle : seules ses propriétés changent, il garde focus, survol et sélection. Chaque portée (composant,
-/// <c>ForEach</c>, <c>Observe</c>) n'est réévaluée que si un état qu'elle a lu a changé ; sinon ses contrôles restent tels quels.
+/// Applies a tree of views (immutable records) to a tree of Avalonia controls that it keeps from one update to the next.
 /// </summary>
+/// <remarks>
+/// A control is reused as long as its view keeps the same path (its <c>Key</c>, otherwise its index) and the same kind
+/// of control: only its properties change, so it keeps its focus, hover and selection. Each scope (component,
+/// <c>ForEach</c> item, <c>Observe</c> block) is re-evaluated only when some state it read changed; otherwise its controls
+/// stay as they are.
+/// </remarks>
+/// <param name="host">The host that displays the tree.</param>
+/// <param name="run">The function that runs the action of a control, then updates the interface.</param>
 internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 {
-    /// <summary>Suffixe du chemin de la vue d'un modèle, sous celui de son contrôle.</summary>
-    const string TemplateSuffix = "~";
+    // The path of the root view.
+    private const string RootId = "r";
 
-    readonly Dictionary<string, Scope> _scopes = [];
-    readonly Dictionary<Scope, Node> _content = [];
-    readonly Stack<List<Scope>> _collectors = new();
-    Node? _root;
-    int _pass, _evaluated, _reused;
+    // The suffix of the path of the content of a scope, below the path of the scope.
+    private const string ScopeContentSuffix = ".";
 
-    /// <summary>Bilan de la dernière mise à jour : portées réévaluées, reprises telles quelles, total.</summary>
+    // The suffix of the path of the view of a template, below the path of its control.
+    private const string TemplateSuffix = "~";
+
+    private readonly Dictionary<string, Scope> _scopes = [];
+    private readonly Dictionary<Scope, Node> _content = [];
+    private readonly Stack<List<Scope>> _collectors = new();
+    private Node? _root;
+    private int _pass;
+    private int _evaluated;
+    private int _reused;
+
+    /// <summary>
+    /// Gets the outcome of the last update: scopes re-evaluated, scopes kept, total.
+    /// </summary>
     public UpdateStats LastStats { get; private set; }
 
-    /// <summary>Nœud de la barre de menus affichée dans la fenêtre (ses raccourcis), null s'il n'y en a pas.</summary>
+    /// <summary>
+    /// Gets or sets the node of the menu bar displayed in the window, whose shortcuts the host handles, or
+    /// <see langword="null"/> if there is none.
+    /// </summary>
     public Node? MenuBar { get; set; }
 
-    /// <summary>Thème de la vue racine à la dernière mise à jour (fond de la fenêtre).</summary>
+    /// <summary>
+    /// Gets the theme of the root view at the last update, which gives the window its background.
+    /// </summary>
     public Theme? RootTheme => _root?.Environment.Theme;
 
-    /// <summary>Exécute l'action d'un contrôle (un clic), puis met l'interface à jour.</summary>
-    public void Run(Action? action) => run(action);
-
-    /// <summary>Applique la vue racine ; renvoie le contrôle à placer dans la fenêtre.</summary>
-    public Control Update(View root, Themes themes)
+    /// <summary>
+    /// Removes a control from its current parent, before placing it elsewhere.
+    /// </summary>
+    /// <param name="control">The control to remove.</param>
+    public static void Detach(Control control)
     {
-        _pass++;
-        _evaluated = _reused = 0;
-        _root = Reconcile(_root, root, ViewEnvironment.Root(themes), "r");
-
-        // Les portées qui ont disparu de l'arbre se désabonnent de leurs états.
-        foreach (var gone in _scopes.Values.Where(s => s.LastVisit != _pass).ToList())
+        switch (control.Parent)
         {
-            Release(gone);
-            _scopes.Remove(gone.Id);
+            case Panel panel:
+                panel.Children.Remove(control);
+                break;
+            case Decorator decorator:
+                decorator.Child = null;
+                break;
         }
-        LastStats = new UpdateStats(_evaluated, _reused, _scopes.Count);
-        return _root.Root;
-    }
-
-    /// <summary>Libère toutes les portées (fenêtre fermée) ; la mise à jour suivante repartira de zéro.</summary>
-    public void Dispose()
-    {
-        foreach (var scope in _scopes.Values) Release(scope);
-        _scopes.Clear();
-        _root = null;
-    }
-
-    /// <summary>Hot reload : toutes les portées seront réévaluées à la prochaine mise à jour.</summary>
-    public void MarkAllDirty()
-    {
-        foreach (var scope in _scopes.Values) scope.MarkDirty();
-    }
-
-    /// <summary>Applique une vue à la place <paramref name="id"/>, en reprenant le nœud qui l'occupait s'il convient.</summary>
-    internal Node Reconcile(Node? existing, View view, ViewEnvironment env, string id)
-    {
-        if (view is ScopeView scope)
-            return scope.ModifierWrapper() is { } wrapper ? Reconcile(existing, wrapper, env, id) : ReconcileScope(scope, env, id);
-
-        // Groupe non déplié dans une pile (seul, ou avec des modificateurs) : il s'empile verticalement.
-        if (view is GroupView group) view = Ui.VStack([.. group.Children]).CopyFrom(group);
-
-        env = env.Enter(view);
-        var adapter = ViewAdapter.For(view);
-        var node = existing is not null && existing.Adapter == adapter && existing.Id == id && adapter.CanReuse(existing, view)
-            ? existing
-            : new Node(id, adapter, view, n => adapter.Create(this, n));
-        node.View = view;
-        node.Environment = env;
-        Apply(node, () => adapter.Update(this, node, view, env));
-        Decorate(node, view, env.Theme);
-        Place(node, view);
-        return node;
     }
 
     /// <summary>
-    /// Pose des propriétés sur le contrôle d'un nœud : les événements qu'elles déclenchent (texte, case) viennent de la
-    /// vue et ne repartent pas vers l'état. Sert aussi après l'action d'un contrôle « contrôlé » (champ, case) : si
-    /// l'état n'a pas suivi (pas d'action, saisie refusée), aucune portée n'est réévaluée et c'est ainsi que le
-    /// contrôle reprend la valeur de sa vue.
+    /// Sets properties on the control of a node, so that the events they raise (text, check state) are known to come from
+    /// the view and do not go back to the state.
     /// </summary>
-    internal static void Apply(Node node, Action set)
+    /// <remarks>
+    /// This is also how a controlled control (field, checkbox) takes back the value of its view after its action, when the
+    /// state did not follow (no action, rejected input): no scope is re-evaluated then.
+    /// </remarks>
+    /// <param name="node">The node whose control is updated.</param>
+    /// <param name="set">The function that sets the properties.</param>
+    public static void Apply(Node node, Action set)
     {
         node.Applying = true;
-        try { set(); }
-        finally { node.Applying = false; }
-    }
-
-    /// <summary>
-    /// Vue produite par le modèle d'un contrôle (son apparence, recalculée quand son état change) : appliquée comme un
-    /// sous-arbre du contrôle, dans l'environnement du contrôle (son thème, sa police et sa couleur), en reprenant les
-    /// contrôles de la version précédente. Renvoie le contrôle à afficher.
-    /// </summary>
-    internal Control RenderTemplate(Node owner, View template)
-    {
-        var env = owner.Environment with
+        try
         {
-            Font = owner.Environment.FontFor(owner.View),
-            Foreground = owner.Environment.ForegroundFor(owner.View),
-        };
-        owner.Template = Reconcile(owner.Template, template, env, owner.Id + TemplateSuffix);
-        return owner.Template.Root;
-    }
-
-    /// <summary>
-    /// Enfants d'un conteneur : chacun reprend le nœud qui occupait sa place (<c>Key</c> de la vue, sinon son rang),
-    /// ce qui garde les contrôles d'une liste quand ses éléments changent d'ordre.
-    /// </summary>
-    internal IReadOnlyList<Node> ReconcileChildren(Node parent, IReadOnlyList<View> children, ViewEnvironment env)
-    {
-        var previous = new Dictionary<string, Node>(parent.Children.Count);
-        foreach (var child in parent.Children) previous.TryAdd(child.Slot, child);
-
-        var slots = new HashSet<string>();
-        var result = new Node[children.Count];
-        for (int i = 0; i < children.Count; i++)
-        {
-            var view = children[i];
-            string slot = $"{parent.Id}/{view.Key ?? i.ToString(CultureInfo.InvariantCulture)}";
-            if (!slots.Add(slot))
-                throw new InvalidOperationException(
-                    $"Two children of the same container have the key '{view.Key}'. Give each child a unique key.");
-            previous.TryGetValue(slot, out var existing);
-            var node = Reconcile(existing, view, env, slot);
-            node.Slot = slot;
-            result[i] = node;
+            set();
         }
-        parent.Children = result;
-        return result;
+        finally
+        {
+            node.Applying = false;
+        }
     }
 
     /// <summary>
-    /// Range les contrôles des enfants dans le conteneur avec le moins de changements possible : un contrôle déjà
-    /// présent est déplacé, pas retiré puis remis, pour qu'il garde son focus et son survol.
+    /// Arranges the controls of the children in a container with as few changes as possible: a control already present
+    /// is moved, not removed and inserted again, so that it keeps its focus and hover.
     /// </summary>
-    internal static void Arrange(IAvaloniaList<Control> children, IReadOnlyList<Node> nodes)
+    /// <param name="children">The children of the container.</param>
+    /// <param name="nodes">The nodes of the children, in order.</param>
+    public static void Arrange(IAvaloniaList<Control> children, IReadOnlyList<Node> nodes)
     {
         for (int i = 0; i < nodes.Count; i++)
         {
-            var wanted = nodes[i].Root;
-            if (i < children.Count && ReferenceEquals(children[i], wanted)) continue;
-            int at = children.IndexOf(wanted);
-            if (at > i) children.Move(at, i);
+            Control wanted = nodes[i].Root;
+            if (i < children.Count && ReferenceEquals(children[i], wanted))
+            {
+                continue;
+            }
+
+            int index = children.IndexOf(wanted);
+            if (index > i)
+            {
+                children.Move(index, i);
+            }
             else
             {
                 Detach(wanted);
                 children.Insert(i, wanted);
             }
         }
-        while (children.Count > nodes.Count) children.RemoveAt(children.Count - 1);
-    }
 
-    /// <summary>Retire un contrôle de son parent actuel, avant de le placer ailleurs.</summary>
-    internal static void Detach(Control control)
-    {
-        switch (control.Parent)
+        while (children.Count > nodes.Count)
         {
-            case Panel panel: panel.Children.Remove(control); break;
-            case Decorator decorator: decorator.Child = null; break;
+            children.RemoveAt(children.Count - 1);
         }
     }
 
-    Node ReconcileScope(ScopeView view, ViewEnvironment env, string id)
+    /// <summary>
+    /// Sets the background, border, corners, padding and click of a view on the surface that carries them.
+    /// </summary>
+    /// <param name="surface">The surface.</param>
+    /// <param name="view">The view.</param>
+    /// <param name="theme">The theme of the view.</param>
+    public static void ApplyDecoration(Surface surface, View view, Theme theme)
     {
-        if (!_scopes.TryGetValue(id, out var scope) || !ReferenceEquals(scope.Identity, view.Identity))
+        surface.Paint(view.Background?.Resolve(theme.Palette), theme, tappable: view.TapAction is not null);
+        surface.SetBrush(Border.BorderBrushProperty, view.BorderColor?.Resolve(theme.Palette));
+        surface.BorderThickness = new Thickness(view.BorderColor is null ? 0 : view.BorderWidth ?? 1);
+        surface.CornerRadius = new CornerRadius(view.CornerRadius ?? 0);
+        surface.Padding = (view.Padding ?? default).ToAvalonia();
+    }
+
+    /// <summary>
+    /// Runs the action of a control (a click), then updates the interface.
+    /// </summary>
+    /// <param name="action">The action, or <see langword="null"/>.</param>
+    public void Run(Action? action) => run(action);
+
+    /// <summary>
+    /// Applies the root view.
+    /// </summary>
+    /// <param name="root">The root view.</param>
+    /// <param name="themes">The theme catalog.</param>
+    /// <returns>The control to place in the window.</returns>
+    public Control Update(View root, Themes themes)
+    {
+        _pass++;
+        _evaluated = 0;
+        _reused = 0;
+        _root = Reconcile(_root, root, ViewEnvironment.Root(themes), RootId);
+
+        // The scopes that left the tree unsubscribe from their state.
+        foreach (Scope gone in _scopes.Values.Where(s => s.LastVisit != _pass).ToList())
         {
-            if (scope is not null) Release(scope);
+            Release(gone);
+            _scopes.Remove(gone.Id);
+        }
+
+        LastStats = new UpdateStats(_evaluated, _reused, _scopes.Count);
+        return _root.Root;
+    }
+
+    /// <summary>
+    /// Releases every scope when the window closes; the next update starts from scratch.
+    /// </summary>
+    public void Release()
+    {
+        foreach (Scope scope in _scopes.Values)
+        {
+            Release(scope);
+        }
+
+        _scopes.Clear();
+        _root = null;
+    }
+
+    /// <summary>
+    /// Marks every scope for re-evaluation at the next update, after a hot reload.
+    /// </summary>
+    public void MarkAllDirty()
+    {
+        foreach (Scope scope in _scopes.Values)
+        {
+            scope.MarkDirty();
+        }
+    }
+
+    /// <summary>
+    /// Applies a view at a path, reusing the node that held it when it fits.
+    /// </summary>
+    /// <param name="existing">The node that held the path, or <see langword="null"/>.</param>
+    /// <param name="view">The view to apply.</param>
+    /// <param name="environment">The environment inherited from the parent.</param>
+    /// <param name="id">The path of the view.</param>
+    /// <returns>The node of the view.</returns>
+    public Node Reconcile(Node? existing, View view, ViewEnvironment environment, string id)
+    {
+        if (view is ScopeView scope)
+        {
+            return scope.ModifierWrapper() is { } wrapper
+                ? Reconcile(existing, wrapper, environment, id)
+                : ReconcileScope(scope, environment, id);
+        }
+
+        // A group that a stack did not unfold (alone, or with modifiers) stacks its children vertically.
+        if (view is GroupView group)
+        {
+            view = Ui.VStack([.. group.Children]).CopyFrom(group);
+        }
+
+        environment = environment.Enter(view);
+        var adapter = ViewAdapter.For(view);
+        Node node = existing is not null && existing.Adapter == adapter && existing.Id == id && adapter.CanReuse(existing, view)
+            ? existing
+            : new Node(id, adapter, view, n => adapter.Create(this, n));
+        node.View = view;
+        node.Environment = environment;
+        Apply(node, () => adapter.Update(this, node, view, environment));
+        Decorate(node, view, environment.Theme);
+        Place(node, view);
+        return node;
+    }
+
+    /// <summary>
+    /// Applies the view produced by the template of a control (its look, recomputed when its state changes), as a
+    /// subtree of the control, in the environment of the control (its theme, font and color), reusing the controls of
+    /// the previous version.
+    /// </summary>
+    /// <param name="owner">The node of the templated control.</param>
+    /// <param name="template">The view produced by the template.</param>
+    /// <returns>The control to display in the templated control.</returns>
+    public Control RenderTemplate(Node owner, View template)
+    {
+        ViewEnvironment environment = owner.Environment with
+        {
+            Font = owner.Environment.FontFor(owner.View),
+            Foreground = owner.Environment.ForegroundFor(owner.View),
+        };
+        owner.Template = Reconcile(owner.Template, template, environment, owner.Id + TemplateSuffix);
+        return owner.Template.Root;
+    }
+
+    /// <summary>
+    /// Applies the children of a container: each one reuses the node that held its place (the <c>Key</c> of the view,
+    /// otherwise its index), which keeps the controls of a list when its items change order.
+    /// </summary>
+    /// <param name="parent">The node of the container.</param>
+    /// <param name="children">The child views.</param>
+    /// <param name="environment">The environment of the container.</param>
+    /// <returns>The nodes of the children, in order.</returns>
+    /// <exception cref="InvalidOperationException">Two children have the same key.</exception>
+    public IReadOnlyList<Node> ReconcileChildren(Node parent, IReadOnlyList<View> children, ViewEnvironment environment)
+    {
+        var previous = new Dictionary<string, Node>(parent.Children.Count);
+        foreach (Node child in parent.Children)
+        {
+            previous.TryAdd(child.Slot, child);
+        }
+
+        var slots = new HashSet<string>();
+        var result = new Node[children.Count];
+        for (int i = 0; i < children.Count; i++)
+        {
+            View view = children[i];
+            string slot = $"{parent.Id}/{view.Key ?? i.ToString(CultureInfo.InvariantCulture)}";
+            if (!slots.Add(slot))
+            {
+                throw new InvalidOperationException(
+                    $"Two children of the same container have the key '{view.Key}'. Give each child a unique key.");
+            }
+
+            previous.TryGetValue(slot, out Node? existing);
+            Node node = Reconcile(existing, view, environment, slot);
+            node.Slot = slot;
+            result[i] = node;
+        }
+
+        parent.Children = result;
+        return result;
+    }
+
+    // Size and flexibility: an explicit size wins (.Width(72), or infinity to fill); otherwise a container is as flexible
+    // as its children. The parent container reads these values to share its space.
+    private static void Place(Node node, View view)
+    {
+        (bool fillWidth, bool fillHeight) = node.Adapter.FlexOf(node, view);
+        node.FillWidth = view.Width is { } width ? float.IsPositiveInfinity(width) : fillWidth;
+        node.FillHeight = view.Height is { } height ? float.IsPositiveInfinity(height) : fillHeight;
+        node.Grow = view.Grow > 0 ? view.Grow : node.Adapter.GrowOf(node);
+
+        Control root = node.Root;
+        root.Width = view.Width is { } fixedWidth && !float.IsInfinity(fixedWidth) ? fixedWidth : double.NaN;
+        root.Height = view.Height is { } fixedHeight && !float.IsInfinity(fixedHeight) ? fixedHeight : double.NaN;
+        if (node.Decoration is not null)
+        {
+            node.Content.Width = double.NaN;
+            node.Content.Height = double.NaN;
+        }
+
+        Flex.SetGrow(root, node.Grow);
+        Flex.SetFillWidth(root, node.FillWidth);
+        Flex.SetFillHeight(root, node.FillHeight);
+        Flex.SetSelfAlign(root, view.SelfAlign);
+    }
+
+    private Node ReconcileScope(ScopeView view, ViewEnvironment environment, string id)
+    {
+        if (!_scopes.TryGetValue(id, out Scope? scope) || !ReferenceEquals(scope.Identity, view.Identity))
+        {
+            if (scope is not null)
+            {
+                Release(scope);
+            }
+
             scope = new Scope(host.RequestUpdate, id, view.Identity);
             _scopes[id] = scope;
-            if (view.Identity is Component component) component.Host = host; // accès à Themes depuis le composant
+            if (view.Identity is Component component)
+            {
+                // Gives the component access to the theme catalog (Component.Themes).
+                component.Host = host;
+            }
         }
+
         scope.LastVisit = _pass;
-        _collectors.TryPeek(out var parent);
+        _collectors.TryPeek(out List<Scope>? parent);
         parent?.Add(scope);
 
-        // Un composant garde son contenu tant que son état ne change pas ; un bloc anonyme (ForEach, Observe)
-        // est réévalué quand son parent l'a été, car ses paramètres ont pu changer.
-        bool reevaluate = scope.IsDirty || scope.Content is null
-                          || (view.Identity is null && !ReferenceEquals(view, scope.LastView));
+        // A component keeps its content as long as its state does not change; an anonymous block (ForEach, Observe) is
+        // re-evaluated when its parent was, because its parameters may have changed.
+        bool reevaluate = scope.IsDirty
+            || scope.Content is null
+            || (view.Identity is null && !ReferenceEquals(view, scope.LastView));
         scope.LastView = view;
-        _content.TryGetValue(scope, out var previous);
+        _content.TryGetValue(scope, out Node? previous);
 
-        if (!reevaluate && previous is not null && scope.Environment is { } cached && cached == env
+        if (!reevaluate
+            && previous is not null
+            && scope.Environment is { } cached
+            && cached == environment
             && !scope.Descendants.Any(d => d.IsDirty))
         {
-            foreach (var d in scope.Descendants) d.LastVisit = _pass;
+            foreach (Scope descendant in scope.Descendants)
+            {
+                descendant.LastVisit = _pass;
+            }
+
             parent?.AddRange(scope.Descendants);
             _reused++;
             return previous;
@@ -217,33 +376,47 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         var inner = new List<Scope>();
         _collectors.Push(inner);
         Node node;
-        try { node = Reconcile(previous, scope.Content!, env, id + "."); }
-        finally { _collectors.Pop(); }
+        try
+        {
+            node = Reconcile(previous, scope.Content!, environment, id + ScopeContentSuffix);
+        }
+        finally
+        {
+            _collectors.Pop();
+        }
 
         scope.Descendants = inner;
         parent?.AddRange(inner);
-        scope.Environment = env;
+        scope.Environment = environment;
         _content[scope] = node;
         return node;
     }
 
-    void Release(Scope scope)
+    private void Release(Scope scope)
     {
-        scope.Dispose();
+        scope.Release();
         _content.Remove(scope);
-        if (scope.Identity is Component component && ReferenceEquals(component.Host, host)) component.Host = null;
+        if (scope.Identity is Component component && ReferenceEquals(component.Host, host))
+        {
+            component.Host = null;
+        }
     }
 
-    /// <summary>
-    /// Enveloppe d'une vue dont le contrôle ne dessine pas lui-même fond, bordure, angles et marge intérieure (texte,
-    /// pile, case…), ou d'une vue cliquable (<c>.OnTap</c>) : une <see cref="Surface"/>, posée seulement quand la vue en
-    /// a besoin. Le contrôle passe dedans, puis en ressort, sans être recréé.
-    /// </summary>
-    void Decorate(Node node, View view, Theme theme)
+    // Wraps a view whose control does not draw its own background, border, corners and padding (text, stack,
+    // checkbox…), or a clickable view (.OnTap), in a Surface, only when the view needs one. The control moves into the
+    // surface, and out of it, without being recreated.
+    private void Decorate(Node node, View view, Theme theme)
     {
-        if (node.Content is Surface) return; // une boîte est déjà une surface : son adaptateur l'habille
-        bool decorated = view.Background is not null || view.BorderColor is not null
-                         || view.CornerRadius is not null || view.Padding is not null;
+        if (node.Content is Surface)
+        {
+            // A box is already a surface: its adapter dresses it.
+            return;
+        }
+
+        bool decorated = view.Background is not null
+            || view.BorderColor is not null
+            || view.CornerRadius is not null
+            || view.Padding is not null;
         bool needed = view.TapAction is not null || (decorated && !node.Adapter.DrawsDecoration);
         if (needed && node.Decoration is null)
         {
@@ -256,43 +429,19 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             node.Decoration = null;
         }
 
-        if (node.Decoration is not { } surface) return;
-        if (node.Adapter.DrawsDecoration) surface.Paint(null, theme, tappable: true); // le contrôle garde son fond
-        else ApplyDecoration(surface, view, theme);
-    }
-
-    /// <summary>Fond, bordure, angles, marge intérieure et clic d'une vue, sur la surface qui les porte.</summary>
-    internal static void ApplyDecoration(Surface surface, View view, Theme theme)
-    {
-        surface.Paint(view.Background?.Resolve(theme.Palette), theme, tappable: view.TapAction is not null);
-        surface.SetBrush(Border.BorderBrushProperty, view.BorderColor?.Resolve(theme.Palette));
-        surface.BorderThickness = new Thickness(view.BorderColor is null ? 0 : view.BorderWidth ?? 1);
-        surface.CornerRadius = new CornerRadius(view.CornerRadius ?? 0);
-        surface.Padding = (view.Padding ?? default).ToAvalonia();
-    }
-
-    /// <summary>
-    /// Taille et souplesse : une taille explicite l'emporte (<c>.Width(72)</c>, ou +∞ pour remplir) ; sinon un conteneur
-    /// est aussi souple que ses enfants. Le conteneur parent lit ces valeurs pour répartir sa place.
-    /// </summary>
-    static void Place(Node node, View view)
-    {
-        var (fillWidth, fillHeight) = node.Adapter.FlexOf(node, view);
-        node.FillWidth = view.Width is { } width ? float.IsPositiveInfinity(width) : fillWidth;
-        node.FillHeight = view.Height is { } height ? float.IsPositiveInfinity(height) : fillHeight;
-        node.Grow = view.Grow > 0 ? view.Grow : node.Adapter.GrowOf(node);
-
-        var root = node.Root;
-        root.Width = view.Width is { } w && !float.IsInfinity(w) ? w : double.NaN;
-        root.Height = view.Height is { } h && !float.IsInfinity(h) ? h : double.NaN;
-        if (node.Decoration is not null)
+        if (node.Decoration is not { } surface)
         {
-            node.Content.Width = double.NaN;
-            node.Content.Height = double.NaN;
+            return;
         }
-        Flex.SetGrow(root, node.Grow);
-        Flex.SetFillWidth(root, node.FillWidth);
-        Flex.SetFillHeight(root, node.FillHeight);
-        Flex.SetSelfAlign(root, view.SelfAlign);
+
+        if (node.Adapter.DrawsDecoration)
+        {
+            // The control keeps its own background; the surface only adds the click.
+            surface.Paint(null, theme, tappable: true);
+        }
+        else
+        {
+            ApplyDecoration(surface, view, theme);
+        }
     }
 }

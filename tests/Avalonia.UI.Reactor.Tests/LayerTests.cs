@@ -1,16 +1,22 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-using Avalonia.UI.Reactor.Tests.Probes;
+using Avalonia.Controls;
 using Avalonia.UI.Reactor.Panels;
 using Avalonia.UI.Reactor.State;
+using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary><c>ZStack</c>, <c>Overlay</c> et modificateurs d'un composant : des couches superposées.</summary>
+/// <summary>
+/// <c>ZStack</c>, <c>Overlay</c> and the modifiers of a component: layered views.
+/// </summary>
 public class LayerTests
 {
     [AvaloniaFact]
@@ -19,8 +25,8 @@ public class LayerTests
         using var t = new ReactorTestHost(new ViewProbe(() =>
             VStack(Box().Size(100, 40).Background(ColorRole.Surface).Overlay(Text("x"), Primitives.Alignment.TopRight))));
 
-        var box = t.BoundsOf(t.Controls.OfType<Surface>().Single());
-        var badge = t.BoundsOf(t.TextShowing("x"));
+        Rect box = t.BoundsOf(t.Controls.OfType<Surface>().Single());
+        Rect badge = t.BoundsOf(t.TextShowing("x"));
         Assert.Equal(box.Right, badge.Right);
         Assert.Equal(box.Top, badge.Top);
     }
@@ -38,7 +44,7 @@ public class LayerTests
     {
         var probe = new PaddedCounterProbe();
         using var t = new ReactorTestHost(probe);
-        var text = t.TextShowing("0");
+        TextBlock text = t.TextShowing("0");
 
         t.ClickButton("+");
 
@@ -50,12 +56,13 @@ public class LayerTests
     [AvaloniaFact]
     public void The_topmost_layer_receives_the_click()
     {
-        var clicked = "";
+        string clicked = "";
         using var t = new ReactorTestHost(new ViewProbe(() => VStack(ZStack(
             Button("dessous", () => clicked = "dessous").Size(100, 40),
             Button("dessus", () => clicked = "dessus").Size(100, 40)))));
 
-        t.Click(t.ButtonLabeled("dessous")); // même zone : c'est le bouton du dessus qui reçoit le clic
+        // Same area: the button on top receives the click.
+        t.Click(t.ButtonLabeled("dessous"));
 
         Assert.Equal("dessus", clicked);
     }

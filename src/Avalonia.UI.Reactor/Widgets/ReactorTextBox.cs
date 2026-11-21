@@ -1,4 +1,8 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
+using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
 
@@ -7,18 +11,37 @@ namespace Avalonia.UI.Reactor.Widgets;
 using Avalonia.UI.Reactor.Theming;
 
 /// <summary>
-/// Champ de saisie habillé par <see cref="ReactorThemes.TextBox"/>. Sa largeur naturelle ne dépend pas du texte saisi :
-/// elle vient du thème (<c>MinWidth</c>) ; un long texte défile dans le champ au lieu de l'élargir et de décaler toute la
-/// ligne. Le champ s'élargit seulement par la mise en page (<c>.Grow()</c>, <c>.FillWidth()</c>).
-/// Le texte indicatif n'est affiché que si le champ est vide. Un clic droit ouvre le menu couper / copier / coller.
+/// Represents a text field dressed by <see cref="ReactorThemes.TextBox"/>.
 /// </summary>
+/// <remarks>
+/// The natural width of the field does not depend on the typed text: it comes from the theme (<c>MinWidth</c>), and a
+/// long text scrolls inside the field instead of widening it and shifting the whole row. The field only widens through
+/// layout (<c>.Grow()</c>, <c>.FillWidth()</c>). The placeholder is shown only while the field is empty. A right click
+/// opens the cut / copy / paste menu.
+/// </remarks>
+[TemplatePart(PlaceholderPart, typeof(TextBlock))]
+[TemplatePart(CustomPart, typeof(Decorator))]
 internal sealed class ReactorTextBox : TextBox
 {
-    readonly MenuItem _cut = new(), _copy = new(), _paste = new();
-    TextBlock? _placeholder;
-    Decorator? _custom;
-    Control? _customContent;
+    /// <summary>
+    /// The name of the template part that shows the placeholder.
+    /// </summary>
+    public const string PlaceholderPart = "PART_Placeholder";
 
+    /// <summary>
+    /// The name of the template part that holds the view of a template.
+    /// </summary>
+    public const string CustomPart = "PART_Custom";
+
+    private readonly MenuItem _cut = new();
+    private readonly MenuItem _copy = new();
+    private readonly MenuItem _paste = new();
+    private TextBlock? _placeholder;
+    private Decorator? _custom;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ReactorTextBox"/> class, with its context menu.
+    /// </summary>
     public ReactorTextBox()
     {
         Theme = ReactorThemes.TextBox;
@@ -36,21 +59,29 @@ internal sealed class ReactorTextBox : TextBox
     }
 
     /// <summary>
-    /// Vue du modèle du champ (avec <see cref="ReactorThemes.TemplatedTextBox"/>) : elle dessine le cadre, la zone d'édition
-    /// est posée sur son emplacement <see cref="EditorSlot"/>. null sans modèle.
+    /// Gets or sets the view of the template of the field (with <see cref="ReactorThemes.TemplatedTextBox"/>): it draws
+    /// the frame, and the editing area is placed on its <see cref="EditorSlot"/>; <see langword="null"/> without a
+    /// template.
     /// </summary>
     public Control? CustomContent
     {
-        get => _customContent;
+        get;
         set
         {
-            if (ReferenceEquals(value, _customContent)) return;
-            _customContent = value;
+            if (ReferenceEquals(value, field))
+            {
+                return;
+            }
+
+            field = value;
             ShowCustomContent();
         }
     }
 
-    /// <summary>Libellés du menu contextuel, pris dans le thème de la branche.</summary>
+    /// <summary>
+    /// Sets the labels of the context menu, taken from the theme of the branch.
+    /// </summary>
+    /// <param name="labels">The labels of the cut, copy and paste commands.</param>
     public void SetEditMenu(EditMenuLabels labels)
     {
         _cut.Header = labels.Cut;
@@ -58,48 +89,80 @@ internal sealed class ReactorTextBox : TextBox
         _paste.Header = labels.Paste;
     }
 
+    /// <inheritdoc/>
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
-        _placeholder = e.NameScope.Find<TextBlock>("PART_Placeholder");
-        if (_custom is not null) _custom.Child = null;
-        _custom = e.NameScope.Find<Decorator>("PART_Custom");
+        _placeholder = e.NameScope.Find<TextBlock>(PlaceholderPart);
+        if (_custom is not null)
+        {
+            _custom.Child = null;
+        }
+
+        _custom = e.NameScope.Find<Decorator>(CustomPart);
         ShowCustomContent();
         ShowPlaceholder();
     }
 
-    /// <summary>Raccourcis affichés dans le menu : ceux de la plateforme (Cmd sur macOS, Ctrl ailleurs).</summary>
+    /// <summary>
+    /// Shows the shortcuts of the platform in the context menu (Cmd on macOS, Ctrl elsewhere).
+    /// </summary>
+    /// <param name="e">The event data.</param>
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (this.GetPlatformSettings()?.HotkeyConfiguration is not { } keys) return;
+        if (this.GetPlatformSettings()?.HotkeyConfiguration is not { } keys)
+        {
+            return;
+        }
+
         _cut.InputGesture = keys.Cut.FirstOrDefault();
         _copy.InputGesture = keys.Copy.FirstOrDefault();
         _paste.InputGesture = keys.Paste.FirstOrDefault();
     }
 
+    /// <inheritdoc/>
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == TextProperty) ShowPlaceholder();
+        if (change.Property == TextProperty)
+        {
+            ShowPlaceholder();
+        }
     }
 
-    /// <summary>Sans modèle, la largeur naturelle est celle du thème (<c>MinWidth</c>) ; avec, celle de la vue du modèle.</summary>
+    /// <summary>
+    /// Measures the field: without a template, the natural width is that of the theme (<c>MinWidth</c>); with one, that of
+    /// the view of the template.
+    /// </summary>
+    /// <param name="availableSize">The space available to the field.</param>
+    /// <returns>The natural size of the field.</returns>
     protected override Size MeasureOverride(Size availableSize)
     {
-        var size = base.MeasureOverride(availableSize);
-        return _customContent is null ? size.WithWidth(0) : size;
+        Size size = base.MeasureOverride(availableSize);
+        return CustomContent is null ? size.WithWidth(0) : size;
     }
 
-    void ShowCustomContent()
+    private void ShowCustomContent()
     {
-        if (_custom is null || ReferenceEquals(_custom.Child, _customContent)) return;
-        if (_customContent?.Parent is Decorator previous) previous.Child = null;
-        _custom.Child = _customContent;
+        if (_custom is null || ReferenceEquals(_custom.Child, CustomContent))
+        {
+            return;
+        }
+
+        if (CustomContent?.Parent is Decorator previous)
+        {
+            previous.Child = null;
+        }
+
+        _custom.Child = CustomContent;
     }
 
-    void ShowPlaceholder()
+    private void ShowPlaceholder()
     {
-        if (_placeholder is not null) _placeholder.IsVisible = string.IsNullOrEmpty(Text);
+        if (_placeholder is not null)
+        {
+            _placeholder.IsVisible = string.IsNullOrEmpty(Text);
+        }
     }
 }

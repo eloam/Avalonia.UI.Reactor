@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using System.Text;
 using Avalonia.Controls;
 
@@ -7,12 +10,19 @@ using Avalonia.UI.Reactor.Hosting;
 using Avalonia.UI.Reactor.Views;
 
 /// <summary>
-/// Applique la description des menus (titres, éléments, sous-menus, séparateurs) aux éléments d'Avalonia, en reprenant
-/// ceux qui occupent déjà la même place : un menu ouvert suit l'état (coches, éléments grisés) sans se refermer.
+/// Applies the description of the menus (titles, items, submenus, separators) to Avalonia menu items, reusing those
+/// that already hold the same place, so that an open menu follows the state (check marks, disabled items) without
+/// closing.
 /// </summary>
 internal static class MenuSync
 {
-    /// <summary>Éléments de la barre dessinée dans la fenêtre (ou d'un de ses menus).</summary>
+    /// <summary>
+    /// Applies menu entries to the items of the bar drawn in the window, or of one of its menus.
+    /// </summary>
+    /// <param name="items">The Avalonia items.</param>
+    /// <param name="entries">The menu views.</param>
+    /// <param name="run">The function that runs the action of an item, then updates the interface.</param>
+    /// <exception cref="NotSupportedException">An entry is neither a menu item, a menu nor a divider.</exception>
     public static void Apply(ItemCollection items, IReadOnlyList<View> entries, Action<Action?> run)
     {
         for (int i = 0; i < entries.Count; i++)
@@ -41,13 +51,29 @@ internal static class MenuSync
                 }),
                 var other => throw Unsupported(other),
             };
-            if (i < items.Count) { if (!ReferenceEquals(items[i], wanted)) items[i] = wanted; }
-            else items.Add(wanted);
+            if (i >= items.Count)
+            {
+                items.Add(wanted);
+            }
+            else if (!ReferenceEquals(items[i], wanted))
+            {
+                items[i] = wanted;
+            }
         }
-        while (items.Count > entries.Count) items.RemoveAt(items.Count - 1);
+
+        while (items.Count > entries.Count)
+        {
+            items.RemoveAt(items.Count - 1);
+        }
     }
 
-    /// <summary>Éléments de la barre du système (ou d'un de ses menus).</summary>
+    /// <summary>
+    /// Applies menu entries to the items of the system menu bar, or of one of its menus.
+    /// </summary>
+    /// <param name="items">The native menu items.</param>
+    /// <param name="entries">The menu views.</param>
+    /// <param name="run">The function that runs the action of an item, then updates the interface.</param>
+    /// <exception cref="NotSupportedException">An entry is neither a menu item, a menu nor a divider.</exception>
     public static void Apply(IList<NativeMenuItemBase> items, IReadOnlyList<View> entries, Action<Action?> run)
     {
         for (int i = 0; i < entries.Count; i++)
@@ -62,7 +88,7 @@ internal static class MenuSync
                     item.Gesture = null;
                     item.ToggleType = MenuItemToggleType.None;
                     item.IsEnabled = true;
-                    item.Menu ??= new NativeMenu();
+                    item.Menu ??= [];
                     Apply(item.Menu.Items, menu.Items, run);
                 }),
                 MenuItemView entry => NativeItem(items.ElementAtOrDefault(i), run, item =>
@@ -77,53 +103,75 @@ internal static class MenuSync
                 }),
                 var other => throw Unsupported(other),
             };
-            if (i < items.Count) { if (!ReferenceEquals(items[i], wanted)) items[i] = wanted; }
-            else items.Add(wanted);
+            if (i >= items.Count)
+            {
+                items.Add(wanted);
+            }
+            else if (!ReferenceEquals(items[i], wanted))
+            {
+                items[i] = wanted;
+            }
         }
-        while (items.Count > entries.Count) items.RemoveAt(items.Count - 1);
+
+        while (items.Count > entries.Count)
+        {
+            items.RemoveAt(items.Count - 1);
+        }
     }
 
     /// <summary>
-    /// Libellé avec sa lettre d'accès à la manière d'Avalonia : <c>"&amp;Fichier"</c> devient <c>"_Fichier"</c>,
-    /// <c>"&amp;&amp;"</c> un « &amp; », et un « _ » du libellé est doublé pour rester un caractère.
+    /// Writes a label with its access key the Avalonia way: <c>"&amp;File"</c> becomes <c>"_File"</c>,
+    /// <c>"&amp;&amp;"</c> an ampersand, and an underscore of the label is doubled to stay a character.
     /// </summary>
-    internal static string AccessText(string label)
+    /// <param name="label">The label, with <c>&amp;</c> before the access key.</param>
+    /// <returns>The label in the access text syntax of Avalonia.</returns>
+    public static string AccessText(string label)
     {
-        var (text, index) = Mnemonics.Parse(label);
+        (string text, int index) = Mnemonics.Parse(label);
         var result = new StringBuilder(text.Length + 1);
         for (int i = 0; i < text.Length; i++)
         {
-            if (i == index) result.Append('_');
+            if (i == index)
+            {
+                result.Append('_');
+            }
+
             result.Append(text[i]);
-            if (text[i] == '_') result.Append('_');
+            if (text[i] == '_')
+            {
+                result.Append('_');
+            }
         }
+
         return result.ToString();
     }
 
-    static ReactorMenuItem Item(object? existing, Action<Action?> run, Action<ReactorMenuItem> apply)
+    private static ReactorMenuItem Item(object? existing, Action<Action?> run, Action<ReactorMenuItem> apply)
     {
         if (existing is not ReactorMenuItem item)
         {
             item = new ReactorMenuItem();
-            var created = item;
+            ReactorMenuItem created = item;
             created.Click += (_, _) => run(created.Entry is { IsEnabled: true } entry ? entry.Action : null);
         }
+
         apply(item);
         return item;
     }
 
-    static ReactorNativeMenuItem NativeItem(NativeMenuItemBase? existing, Action<Action?> run, Action<ReactorNativeMenuItem> apply)
+    private static ReactorNativeMenuItem NativeItem(NativeMenuItemBase? existing, Action<Action?> run, Action<ReactorNativeMenuItem> apply)
     {
         if (existing is not ReactorNativeMenuItem item)
         {
             item = new ReactorNativeMenuItem();
-            var created = item;
+            ReactorNativeMenuItem created = item;
             created.Click += (_, _) => run(created.Entry is { IsEnabled: true } entry ? entry.Action : null);
         }
+
         apply(item);
         return item;
     }
 
-    static NotSupportedException Unsupported(View entry) =>
+    private static NotSupportedException Unsupported(View entry) =>
         new($"A menu cannot contain a '{entry.GetType().Name}'. Use 'MenuItem', 'Menu' or 'Divider'.");
 }

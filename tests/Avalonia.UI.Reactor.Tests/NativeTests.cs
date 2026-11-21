@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 
@@ -5,7 +8,9 @@ namespace Avalonia.UI.Reactor.Tests;
 
 using Avalonia.UI.Reactor.Tests.Probes;
 
-/// <summary><c>Native(…)</c> : un contrôle Avalonia quelconque, créé une fois, accordé à l'état par sa mise à jour.</summary>
+/// <summary>
+/// <c>Native(…)</c>: any Avalonia control, created once and updated from the state.
+/// </summary>
 public class NativeTests
 {
     [AvaloniaFact]
@@ -13,7 +18,7 @@ public class NativeTests
     {
         var probe = new NativeProbe();
         using var t = new ReactorTestHost(probe);
-        var slider = t.Controls.OfType<Slider>().Single();
+        Slider slider = t.Controls.OfType<Slider>().Single();
         Assert.Equal(10, slider.Value);
         Assert.Equal(200, ((Control)slider.Parent!).Bounds.Width);
 
@@ -22,7 +27,8 @@ public class NativeTests
 
         Assert.Same(slider, t.Controls.OfType<Slider>().Single());
         Assert.Equal(60, slider.Value);
-        Assert.Equal(1, probe.Evaluations); // seule la mise à jour du curseur a été refaite, pas la vue
+        // Only the update of the slider ran again, not the view.
+        Assert.Equal(1, probe.Evaluations);
     }
 
     [AvaloniaFact]

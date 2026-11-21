@@ -1,69 +1,144 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 
 namespace Avalonia.UI.Reactor.State;
 
 /// <summary>
-/// Portée de recalcul : un composant, un élément de <c>ForEach</c>, un bloc <c>Observe</c>, ou le dessin d'un
-/// <c>Canvas</c>. Elle retient les états lus lors de son dernier calcul ; seul un changement de l'un d'eux la marque,
-/// et elle appelle alors <paramref name="requestUpdate"/> (depuis le thread qui a changé l'état).
+/// Represents a unit of re-evaluation: a component, a <c>ForEach</c> item, an <c>Observe</c> block, the drawing of a
+/// <c>Canvas</c> or the update of a <c>Native</c> view.
 /// </summary>
+/// <remarks>
+/// A scope records the signals read during its last evaluation. Only a change to one of them marks it dirty, which then
+/// calls <c>requestUpdate</c> from the thread that changed the state.
+/// </remarks>
+/// <param name="requestUpdate">The action that schedules an update of the host.</param>
+/// <param name="id">The path of the scope in the tree of views.</param>
+/// <param name="identity">The object that identifies the scope (a component), or <see langword="null"/>.</param>
 internal sealed class Scope(Action requestUpdate, string id, object? identity)
 {
-    [ThreadStatic] internal static Scope? Current;
+    private readonly HashSet<Signal> _dependencies = [];
+    private volatile bool _dirty = true;
 
-    readonly HashSet<Signal> _deps = [];
-    volatile bool _dirty = true;
+    /// <summary>
+    /// Gets the scope being evaluated on this thread, or <see langword="null"/>.
+    /// </summary>
+    [field: ThreadStatic]
+    internal static Scope? Current { get; private set; }
 
+    /// <summary>
+    /// Gets the path of the scope in the tree of views.
+    /// </summary>
     public string Id { get; } = id;
+
+    /// <summary>
+    /// Gets the object that identifies the scope (a component), or <see langword="null"/>.
+    /// </summary>
     public object? Identity { get; } = identity;
 
-    // Résultat du dernier calcul.
-    public View? Content;
-    public ScopeView? LastView;
-    // Reprise par le réconciliateur : environnement du dernier calcul, portées imbriquées, dernière passe qui l'a visitée.
-    public ViewEnvironment? Environment;
-    public List<Scope> Descendants = [];
-    public int LastVisit;
+    /// <summary>
+    /// Gets or sets the view produced by the last evaluation.
+    /// </summary>
+    public View? Content { get; set; }
 
+    /// <summary>
+    /// Gets or sets the scope view displayed by the last update.
+    /// </summary>
+    public ScopeView? LastView { get; set; }
+
+    /// <summary>
+    /// Gets or sets the environment of the last evaluation, used by the reconciler to reuse the scope as it is.
+    /// </summary>
+    public ViewEnvironment? Environment { get; set; }
+
+    /// <summary>
+    /// Gets or sets the scopes nested in this one at the last evaluation.
+    /// </summary>
+    public List<Scope> Descendants { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the number of the last update that visited this scope.
+    /// </summary>
+    public int LastVisit { get; set; }
+
+    /// <summary>
+    /// Gets a value indicating whether some state read by this scope changed since its last evaluation.
+    /// </summary>
     public bool IsDirty => _dirty;
 
-    internal void Track(Signal s)
-    {
-        lock (_deps) _deps.Add(s);
-    }
-
-    /// <summary>Appelable depuis n'importe quel thread.</summary>
+    /// <summary>
+    /// Marks this scope for re-evaluation and requests an update. This method can be called from any thread.
+    /// </summary>
     public void MarkDirty()
     {
         _dirty = true;
         requestUpdate();
     }
 
-    /// <summary>Recalcule le contenu en enregistrant les états lus.</summary>
+    /// <summary>
+    /// Evaluates a function while recording the signals it reads.
+    /// </summary>
+    /// <typeparam name="T">The type of the result.</typeparam>
+    /// <param name="build">The function to evaluate, typically a body.</param>
+    /// <returns>The result of <paramref name="build"/>.</returns>
     public T Evaluate<T>(Func<T> build)
     {
-        _dirty = false; // avant le calcul : un changement concurrent la remettra à recalculer
-        ClearDeps();
-        var previous = Current;
+        // Cleared before the evaluation: a concurrent change marks the scope dirty again.
+        _dirty = false;
+        ClearDependencies();
+        Scope? previous = Current;
         Current = this;
-        try { return build(); }
-        finally { Current = previous; }
+        try
+        {
+            return build();
+        }
+        finally
+        {
+            Current = previous;
+        }
     }
 
-    /// <summary>Exécute un travail (un dessin) en enregistrant les états qu'il lit.</summary>
+    /// <summary>
+    /// Runs some work, such as drawing, while recording the signals it reads.
+    /// </summary>
+    /// <param name="work">The work to run.</param>
     public void Evaluate(Action work) => Evaluate(() =>
     {
         work();
         return true;
     });
 
-    public void Dispose() => ClearDeps();
+    /// <summary>
+    /// Unsubscribes this scope from every signal it read, so that a removed scope is no longer kept alive by its state.
+    /// </summary>
+    public void Release() => ClearDependencies();
 
-    void ClearDeps()
+    /// <summary>
+    /// Records that this scope depends on a signal.
+    /// </summary>
+    /// <param name="signal">The signal read during the evaluation.</param>
+    internal void Track(Signal signal)
     {
-        Signal[] deps;
-        lock (_deps) { deps = [.. _deps]; _deps.Clear(); }
-        foreach (var d in deps) d.Unsubscribe(this);
+        lock (_dependencies)
+        {
+            _dependencies.Add(signal);
+        }
+    }
+
+    private void ClearDependencies()
+    {
+        Signal[] dependencies;
+        lock (_dependencies)
+        {
+            dependencies = [.. _dependencies];
+            _dependencies.Clear();
+        }
+
+        foreach (Signal signal in dependencies)
+        {
+            signal.Unsubscribe(this);
+        }
     }
 }

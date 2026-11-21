@@ -1,29 +1,44 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using System.Runtime.CompilerServices;
 using Avalonia.UI.Reactor.Primitives;
 
 namespace Avalonia.UI.Reactor.Views;
 
 /// <summary>
-/// Zone recalculée indépendamment : un composant, un élément de <c>ForEach</c> ou un bloc <c>Observe</c>.
-/// Seuls les états lus dans <see cref="Build"/> la font recalculer. Les modificateurs se placent sur son contenu.
+/// Represents a part of the view re-evaluated on its own: a component, a <c>ForEach</c> item or an <c>Observe</c> block.
 /// </summary>
+/// <remarks>
+/// Only the state read in <see cref="Build"/> makes it re-evaluate. Modifiers apply to its content.
+/// </remarks>
+/// <param name="Build">The function that builds the content of the scope.</param>
 public sealed record ScopeView(Func<View> Build) : View
 {
-    static readonly ConditionalWeakTable<ScopeView, ZStackView> Wrappers = new();
+    private static readonly ConditionalWeakTable<ScopeView, ZStackView> s_wrappers = [];
 
-    /// <summary>Instance de composant : son état survit aux recalculs du parent.</summary>
+    /// <summary>
+    /// Gets the component instance that the scope displays; its state survives the re-evaluations of its parent.
+    /// </summary>
     internal object? Identity { get; init; }
 
     /// <summary>
-    /// Modificateurs posés sur la portée (<c>counter.Padding(8)</c>) : ils s'appliquent à une enveloppe autour de son
-    /// contenu, alignée en haut à gauche ; null si elle n'en porte aucun. L'enveloppe est gardée en cache pour que la même
-    /// portée donne toujours la même référence (les moteurs comparent les vues par référence).
+    /// Returns the wrapper that carries the modifiers set on the scope (<c>counter.Padding(8)</c>).
     /// </summary>
+    /// <remarks>
+    /// The modifiers apply to a wrapper around the content, aligned to the top left. The wrapper is cached so that the
+    /// same scope always gives the same instance: the engine compares views by reference.
+    /// </remarks>
+    /// <returns>The wrapper, or <see langword="null"/> if the scope has no modifier.</returns>
     internal ZStackView? ModifierWrapper()
     {
         var plain = new ScopeView(Build) { Identity = Identity };
-        if (this with { Key = null } == plain) return null;
-        return Wrappers.GetValue(this, s =>
-            new ZStackView([plain]) { Alignment = Alignment.TopLeft }.CopyFrom(s) with { Key = null });
+        if (this with { Key = null } == plain)
+        {
+            return null;
+        }
+
+        return s_wrappers.GetValue(this, scope =>
+            new ZStackView([plain]) { Alignment = Alignment.TopLeft }.CopyFrom(scope) with { Key = null });
     }
 }

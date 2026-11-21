@@ -1,10 +1,15 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Tests.Probes;
 
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Barre de menus : raccourcis, élément grisé, coche liée à un état, sous-menu, séparateur, et un champ.</summary>
+/// <summary>
+/// A menu bar: shortcuts, a disabled item, a check mark bound to state, a submenu, a separator, and a field.
+/// </summary>
 public sealed partial class MenuProbe : Component
 {
     [State] public partial string Last { get; set; } = "";

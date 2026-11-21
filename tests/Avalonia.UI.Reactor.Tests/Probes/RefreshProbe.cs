@@ -1,13 +1,18 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Tests.Probes;
 
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Composant sans <c>[State]</c> : un champ ordinaire, affiché après un appel explicite à <c>Refresh</c>.</summary>
+/// <summary>
+/// A component without <c>[State]</c>: a plain field, displayed after an explicit call to <c>Refresh</c>.
+/// </summary>
 public sealed class RefreshProbe : Component
 {
-    int _value;
+    private int _value;
 
     public void Set(int value)
     {

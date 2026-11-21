@@ -1,22 +1,35 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.UI.Reactor.Theming;
 
 namespace Avalonia.UI.Reactor.State;
 
 /// <summary>
-/// Ce qui affiche des portées (une fenêtre, quel que soit son moteur) : il reçoit leurs demandes de mise à jour,
-/// fournit le catalogue de thèmes aux composants qu'il affiche et signale les erreurs de leurs actions.
+/// Represents what displays scopes, typically a window: it receives their update requests, provides the theme catalog
+/// to the components it displays, and reports the errors of their actions.
 /// </summary>
 internal interface IScopeHost
 {
-    /// <summary>Catalogue des thèmes de l'application (<c>Component.Themes</c>).</summary>
-    Themes Themes { get; }
+    /// <summary>
+    /// Gets the theme catalog of the application, exposed to components as <c>Component.Themes</c>.
+    /// </summary>
+    public Themes Themes { get; }
 
-    /// <summary>Un état lu par une portée a changé : planifier une mise à jour. Appelable depuis n'importe quel thread.</summary>
-    void RequestUpdate();
+    /// <summary>
+    /// Schedules an update because some state read by a scope changed. This method can be called from any thread.
+    /// </summary>
+    public void RequestUpdate();
 
-    /// <summary>Erreur d'une action, synchrone ou async : elle est signalée et l'application continue.</summary>
-    void Report(Exception error);
+    /// <summary>
+    /// Reports an error thrown by an action, synchronous or async; the application keeps running.
+    /// </summary>
+    /// <param name="error">The exception thrown by the action.</param>
+    public void Report(Exception error);
 
-    /// <summary>Hot reload : tout réévaluer sur le thread d'interface de l'hôte. Appelable depuis n'importe quel thread.</summary>
-    void Reload();
+    /// <summary>
+    /// Re-evaluates everything on the user interface thread of the host, after a hot reload. This method can be called
+    /// from any thread.
+    /// </summary>
+    public void Reload();
 }

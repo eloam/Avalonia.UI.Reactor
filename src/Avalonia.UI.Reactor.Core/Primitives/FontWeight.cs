@@ -1,14 +1,25 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Primitives;
 
-/// <summary>Graisses de police usuelles, sur l'échelle OpenType (100 fin à 900 noir).</summary>
+/// <summary>
+/// Provides common font weights, on the OpenType scale from 100 (thin) to 900 (black).
+/// </summary>
 public static class FontWeight
 {
-    /// <summary>Normal (400).</summary>
+    /// <summary>
+    /// Regular weight (400).
+    /// </summary>
     public const int Regular = 400;
 
-    /// <summary>Demi-gras (600) : titres, et seuil à partir duquel une police est considérée comme grasse.</summary>
+    /// <summary>
+    /// Semibold weight (600), used by titles.
+    /// </summary>
     public const int SemiBold = 600;
 
-    /// <summary>Gras (700).</summary>
+    /// <summary>
+    /// Bold weight (700).
+    /// </summary>
     public const int Bold = 700;
 }

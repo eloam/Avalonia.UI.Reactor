@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -11,6 +14,7 @@ using Avalonia.VisualTree;
 namespace Avalonia.UI.Reactor.Hosting;
 
 using Avalonia.UI.Reactor.Menus;
+using Avalonia.UI.Reactor.Primitives;
 using Avalonia.UI.Reactor.Reconciliation;
 using Avalonia.UI.Reactor.Runtime;
 using Avalonia.UI.Reactor.State;
@@ -18,42 +22,65 @@ using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 
 /// <summary>
-/// Contrôle Avalonia qui affiche un composant : il tient le réconciliateur et applique les mises à jour demandées
-/// par les états. L'action d'un contrôle (un clic, une saisie) est suivie tout de suite de sa mise à jour, pour que
-/// l'événement suivant voie le nouvel état ; un changement venu d'ailleurs (suite d'un <c>await</c>, autre thread) la
-/// planifie sur le thread d'interface. Une erreur dans une action, ou plus tard sur le thread
-/// d'interface (suite d'un <c>async void</c>), est signalée sans fermer l'application. L'hôte applique aussi le zoom de
-/// l'interface (Ctrl + / Ctrl − / Ctrl 0, Cmd sur macOS).
+/// Represents the Avalonia control that displays a component: it owns the reconciler and applies the updates requested
+/// by state changes.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The action of a control (a click, a keystroke) is followed immediately by its update, so that the next event sees the
+/// new state; a change that comes from elsewhere (the continuation of an <see langword="await"/>, another thread)
+/// schedules the update on the user interface thread.
+/// </para>
+/// <para>
+/// An error in an action, or later on the user interface thread (the continuation of an <see langword="async"/>
+/// <see langword="void"/> method), is reported without closing the application. The host also applies the zoom of the
+/// interface (Ctrl + / Ctrl − / Ctrl 0, Cmd on macOS).
+/// </para>
+/// </remarks>
 internal sealed class ReactorHost : Border, IScopeHost
 {
-    /// <summary>Plus petit zoom de l'interface (50 %).</summary>
+    /// <summary>
+    /// The smallest zoom of the interface (50 %).
+    /// </summary>
     internal const double MinZoom = 0.5;
 
-    /// <summary>Plus grand zoom de l'interface (300 %).</summary>
+    /// <summary>
+    /// The largest zoom of the interface (300 %).
+    /// </summary>
     internal const double MaxZoom = 3;
 
-    /// <summary>Pas des raccourcis de zoom (10 %).</summary>
+    /// <summary>
+    /// The step of the zoom shortcuts (10 %).
+    /// </summary>
     internal const double ZoomStep = 0.1;
 
-    static readonly Primitives.KeyGesture[] ZoomInGestures =
-        [new(Primitives.KeyCode.Plus, Primitives.KeyModifiers.Ctrl), new(Primitives.KeyCode.Equal, Primitives.KeyModifiers.Ctrl)];
-    static readonly Primitives.KeyGesture ZoomOutGesture = new(Primitives.KeyCode.Minus, Primitives.KeyModifiers.Ctrl);
-    static readonly Primitives.KeyGesture ZoomResetGesture = new(Primitives.KeyCode.D0, Primitives.KeyModifiers.Ctrl);
+    private static readonly Primitives.KeyGesture[] s_zoomInGestures =
+    [
+        new(KeyCode.Plus, Primitives.KeyModifiers.Ctrl),
+        new(KeyCode.Equal, Primitives.KeyModifiers.Ctrl),
+    ];
 
-    readonly View _root;
-    readonly Reconciler _reconciler;
-    readonly Action _themesChanged;
-    readonly EventHandler<PlatformColorValues> _systemColorsChanged;
-    readonly EventHandler<KeyEventArgs> _keyDown;
-    readonly DispatcherUnhandledExceptionEventHandler _dispatcherError;
-    readonly LayoutTransformControl _zoom = new();
-    readonly ThemeVariantScope _variant = new();
-    IPlatformSettings? _platform;
-    TopLevel? _window;
-    int _updatePending = 1;
-    bool _attached;
+    private static readonly Primitives.KeyGesture s_zoomOutGesture = new(KeyCode.Minus, Primitives.KeyModifiers.Ctrl);
+    private static readonly Primitives.KeyGesture s_zoomResetGesture = new(KeyCode.D0, Primitives.KeyModifiers.Ctrl);
 
+    private readonly View _root;
+    private readonly Reconciler _reconciler;
+    private readonly Action _themesChanged;
+    private readonly EventHandler<PlatformColorValues> _systemColorsChanged;
+    private readonly EventHandler<KeyEventArgs> _keyDown;
+    private readonly DispatcherUnhandledExceptionEventHandler _dispatcherError;
+    private readonly LayoutTransformControl _zoom = new();
+    private readonly ThemeVariantScope _variant = new();
+    private IPlatformSettings? _platform;
+    private TopLevel? _window;
+    private int _updatePending = 1;
+    private bool _attached;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ReactorHost"/> class.
+    /// </summary>
+    /// <param name="root">The root component.</param>
+    /// <param name="themes">The theme catalog of the application.</param>
     public ReactorHost(Component root, Themes themes)
     {
         _root = root;
@@ -67,53 +94,79 @@ internal sealed class ReactorHost : Border, IScopeHost
         Child = _zoom;
     }
 
+    /// <summary>
+    /// Occurs when an action throws, synchronously or asynchronously. Without a subscriber, the error is written to the
+    /// standard error output and to the debugger.
+    /// </summary>
+    public event Action<Exception>? UnhandledException;
+
+    /// <summary>
+    /// Gets the theme catalog of the application.
+    /// </summary>
     public Themes Themes { get; }
 
     /// <summary>
-    /// Zoom de l'interface (1 = 100 %, de <see cref="MinZoom"/> à <see cref="MaxZoom"/>), en plus du facteur d'échelle
-    /// de l'écran : la mise en page se refait à la nouvelle taille, le texte reste net.
+    /// Gets or sets the zoom of the interface, from <see cref="MinZoom"/> to <see cref="MaxZoom"/> (1 is 100 %), on top
+    /// of the scale factor of the display: the layout is computed again at the new size and text stays sharp.
     /// </summary>
     public double Zoom
     {
-        get => _zoomFactor;
+        get;
         set
         {
             double zoom = Math.Clamp(value, MinZoom, MaxZoom);
-            if (zoom == _zoomFactor) return;
-            _zoomFactor = zoom;
+            if (zoom == field)
+            {
+                return;
+            }
+
+            field = zoom;
             _zoom.LayoutTransform = zoom == 1 ? null : new ScaleTransform(zoom, zoom);
         }
-    }
-    double _zoomFactor = 1;
+    } = 1;
 
-    /// <summary>Ctrl + / Ctrl − / Ctrl 0 (Cmd sur macOS) zooment, dézooment, reviennent à 100 % ; vrai par défaut.</summary>
+    /// <summary>
+    /// Gets or sets a value indicating whether Ctrl + / Ctrl − / Ctrl 0 (Cmd on macOS) zoom in, zoom out and reset the
+    /// zoom.
+    /// </summary>
     public bool ZoomShortcuts { get; set; } = true;
 
-    /// <summary>Contrôle de la vue racine (sous la portée de variante d'Avalonia).</summary>
-    internal Control? Content => _variant.Child;
-
-    /// <summary>Bilan de la dernière mise à jour : portées réévaluées, reprises telles quelles, total.</summary>
+    /// <summary>
+    /// Gets the outcome of the last update: scopes re-evaluated, scopes kept, total.
+    /// </summary>
     public UpdateStats LastUpdate => _reconciler.LastStats;
 
-    /// <summary>Erreur dans une action (synchrone ou async) ; sans abonné, elle est écrite sur la sortie d'erreur et dans le débogueur.</summary>
-    public event Action<Exception>? UnhandledException;
+    /// <summary>
+    /// Gets the control of the root view, below the theme variant scope of Avalonia.
+    /// </summary>
+    internal Control? Content => _variant.Child;
 
+    /// <inheritdoc/>
     public void RequestUpdate()
     {
-        if (Interlocked.Exchange(ref _updatePending, 1) == 1) return;
+        if (Interlocked.Exchange(ref _updatePending, 1) == 1)
+        {
+            return;
+        }
+
         Dispatcher.UIThread.Post(Update);
     }
 
+    /// <inheritdoc/>
     public void Report(Exception error)
     {
-        if (UnhandledException is { } handler) handler(error);
-        else
+        if (UnhandledException is { } handler)
         {
-            Console.Error.WriteLine($"[Reactor] Unhandled exception: {error}");
-            Debug.WriteLine($"[Reactor] Unhandled exception: {error}");
+            handler(error);
+            return;
         }
+
+        string message = $"[Reactor] Unhandled exception: {error}";
+        Console.Error.WriteLine(message);
+        Debug.WriteLine(message);
     }
 
+    /// <inheritdoc/>
     public void Reload() => Dispatcher.UIThread.Post(() =>
     {
         _reconciler.MarkAllDirty();
@@ -121,30 +174,7 @@ internal sealed class ReactorHost : Border, IScopeHost
         Update();
     });
 
-    /// <summary>Exécute l'action d'un contrôle pour le compte de cet hôte, puis met l'interface à jour.</summary>
-    void Run(Action? action)
-    {
-        if (action is null) return;
-        try { RunningAction.Run(this, action); }
-        catch (Exception e) { Report(e); }
-        Update();
-    }
-
-    void Update()
-    {
-        if (!_attached || Interlocked.Exchange(ref _updatePending, 0) == 0) return;
-        var content = _reconciler.Update(_root, Themes);
-        if (!ReferenceEquals(_variant.Child, content))
-        {
-            Reconciler.Detach(content);
-            _variant.Child = content;
-        }
-        if (_reconciler.RootTheme is not { } theme) return;
-        this.SetBrush(BackgroundProperty, theme.Palette.Page);
-        // Ce que Fluent dessine encore (défilement, fenêtre) suit le mode de la vue racine.
-        _variant.RequestedThemeVariant = theme.Scheme == ColorScheme.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
-    }
-
+    /// <inheritdoc/>
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
@@ -154,78 +184,166 @@ internal sealed class ReactorHost : Border, IScopeHost
         _window = TopLevel.GetTopLevel(this);
         _window?.AddHandler(KeyDownEvent, _keyDown, RoutingStrategies.Bubble);
         Dispatcher.UIThread.UnhandledException += _dispatcherError;
-        // Mode clair ou sombre du système, suivi tant que la fenêtre est ouverte.
+
+        // The light or dark mode of the system is followed as long as the window is open.
         _platform = this.GetPlatformSettings();
         if (_platform is not null)
         {
             Themes.SystemScheme = SchemeOf(_platform.GetColorValues());
             _platform.ColorValuesChanged += _systemColorsChanged;
         }
+
         Interlocked.Exchange(ref _updatePending, 1);
         Update();
     }
 
     /// <summary>
-    /// Fenêtre fermée (ou hôte retiré) : les portées se désabonnent de leurs états et l'hôte du catalogue de thèmes et du
-    /// hot reload, sinon un état ou un catalogue qui survit à la fenêtre la garderait en mémoire. Les composants gardent leur état.
+    /// Releases what the host subscribed to when the window closes (or the host is removed).
     /// </summary>
+    /// <remarks>
+    /// The scopes unsubscribe from their state, and the host from the theme catalog, hot reload, the platform settings,
+    /// the dispatcher and the keyboard of the window; otherwise, state or a catalog that outlives the window would keep it
+    /// in memory. Components keep their state.
+    /// </remarks>
+    /// <param name="e">The event data.</param>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         _attached = false;
         Themes.Changed -= _themesChanged;
         HotReload.Unregister(this);
-        if (_platform is not null) _platform.ColorValuesChanged -= _systemColorsChanged;
+        if (_platform is not null)
+        {
+            _platform.ColorValuesChanged -= _systemColorsChanged;
+        }
+
         _window?.RemoveHandler(KeyDownEvent, _keyDown);
         Dispatcher.UIThread.UnhandledException -= _dispatcherError;
         _window = null;
         _platform = null;
-        _reconciler.Dispose();
+        _reconciler.Release();
     }
 
-    /// <summary>
-    /// Raccourcis de la fenêtre, reçus après le contrôle qui a le focus (un champ garde ses touches d'édition) : ceux de
-    /// la barre de menus, même menus fermés (la barre du système, quand elle s'affiche, exécute elle-même les siens),
-    /// puis le zoom.
-    /// </summary>
-    void OnKeyDown(object? sender, KeyEventArgs e)
+    private static ColorScheme SchemeOf(PlatformColorValues colors) =>
+        colors.ThemeVariant == PlatformThemeVariant.Dark ? ColorScheme.Dark : ColorScheme.Light;
+
+    // Runs the action of a control on behalf of this host, then updates the interface.
+    private void Run(Action? action)
     {
-        if (e.Handled || KeyMap.ToKeyCode(e.Key) is not { } key) return;
-        var modifiers = KeyMap.ToModifiers(e.KeyModifiers);
+        if (action is null)
+        {
+            return;
+        }
+
+        try
+        {
+            RunningAction.Run(this, action);
+        }
+        catch (Exception exception)
+        {
+            Report(exception);
+        }
+
+        Update();
+    }
+
+    private void Update()
+    {
+        if (!_attached || Interlocked.Exchange(ref _updatePending, 0) == 0)
+        {
+            return;
+        }
+
+        Control content = _reconciler.Update(_root, Themes);
+        if (!ReferenceEquals(_variant.Child, content))
+        {
+            Reconciler.Detach(content);
+            _variant.Child = content;
+        }
+
+        if (_reconciler.RootTheme is not { } theme)
+        {
+            return;
+        }
+
+        this.SetBrush(BackgroundProperty, theme.Palette.Page);
+
+        // What Fluent still draws (scroll bars, the window) follows the mode of the root view.
+        _variant.RequestedThemeVariant = theme.Scheme == ColorScheme.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
+    }
+
+    // Window shortcuts, received after the focused control (a field keeps its editing keys): those of the menu bar, even
+    // with the menus closed (the system menu bar, when shown, runs its own), then the zoom.
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Handled || KeyMap.ToKeyCode(e.Key) is not { } key)
+        {
+            return;
+        }
+
+        Primitives.KeyModifiers modifiers = KeyMap.ToModifiers(e.KeyModifiers);
         e.Handled = MenuShortcut(key, modifiers) || ZoomShortcut(key, modifiers);
     }
 
-    bool MenuShortcut(Primitives.KeyCode key, Primitives.KeyModifiers modifiers)
+    private bool MenuShortcut(KeyCode key, Primitives.KeyModifiers modifiers)
     {
-        if (_reconciler.MenuBar is not { View: MenuBarView bar, Content: ReactorMenuBar { UsesSystemBar: false } }) return false;
+        if (_reconciler.MenuBar is not { View: MenuBarView bar, Content: ReactorMenuBar { UsesSystemBar: false } })
+        {
+            return false;
+        }
+
         bool editing = _window?.FocusManager?.GetFocusedElement() is TextBox;
-        if (MenuShortcuts.Find(bar, key, modifiers, editing) is not { } item) return false;
-        if (item.IsEnabled) Run(item.Action);
+        if (MenuShortcuts.Find(bar, key, modifiers, editing) is not { } item)
+        {
+            return false;
+        }
+
+        if (item.IsEnabled)
+        {
+            Run(item.Action);
+        }
+
         return true;
     }
 
-    bool ZoomShortcut(Primitives.KeyCode key, Primitives.KeyModifiers modifiers)
+    private bool ZoomShortcut(KeyCode key, Primitives.KeyModifiers modifiers)
     {
-        if (!ZoomShortcuts) return false;
-        if (ZoomInGestures.Any(g => g.Matches(key, modifiers))) Zoom = Math.Round(Zoom + ZoomStep, 1);
-        else if (ZoomOutGesture.Matches(key, modifiers)) Zoom = Math.Round(Zoom - ZoomStep, 1);
-        else if (ZoomResetGesture.Matches(key, modifiers)) Zoom = 1;
-        else return false;
+        if (!ZoomShortcuts)
+        {
+            return false;
+        }
+
+        if (s_zoomInGestures.Any(g => g.Matches(key, modifiers)))
+        {
+            Zoom = Math.Round(Zoom + ZoomStep, 1);
+        }
+        else if (s_zoomOutGesture.Matches(key, modifiers))
+        {
+            Zoom = Math.Round(Zoom - ZoomStep, 1);
+        }
+        else if (s_zoomResetGesture.Matches(key, modifiers))
+        {
+            Zoom = 1;
+        }
+        else
+        {
+            return false;
+        }
+
         return true;
     }
 
-    /// <summary>
-    /// Exception levée plus tard sur le thread d'interface, hors de <see cref="Run"/> : la suite d'une action
-    /// <c>async void</c>, par exemple. Elle est signalée comme une erreur d'action, sans fermer l'application ; avec
-    /// plusieurs fenêtres, le premier hôte qui la voit la signale.
-    /// </summary>
-    void OnDispatcherError(object sender, DispatcherUnhandledExceptionEventArgs e)
+    // An exception thrown later on the user interface thread, outside Run: the continuation of an async void action,
+    // for example. It is reported like an action error, without closing the application; with several windows, the
+    // first host that sees it reports it.
+    private void OnDispatcherError(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        if (e.Handled) return;
+        if (e.Handled)
+        {
+            return;
+        }
+
         e.Handled = true;
         Report(e.Exception);
     }
-
-    static ColorScheme SchemeOf(PlatformColorValues colors) =>
-        colors.ThemeVariant == PlatformThemeVariant.Dark ? ColorScheme.Dark : ColorScheme.Light;
 }

@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Threading;
 
@@ -6,41 +9,58 @@ namespace Avalonia.UI.Reactor.Widgets;
 using Avalonia.UI.Reactor.State;
 
 /// <summary>
-/// Porte le contrôle d'un <c>Native(…)</c>. Sa mise à jour a sa propre portée : un état lu par elle la fait refaire quand
-/// il change, sans réévaluer la vue qui contient le contrôle (comme le dessin d'un <c>Canvas</c>).
+/// Represents the holder of the control of a <c>Native(…)</c> view.
 /// </summary>
+/// <remarks>
+/// The update of the control has its own scope: a state it reads makes it run again when that state changes, without
+/// re-evaluating the view that contains the control, as for the drawing of a <c>Canvas</c>.
+/// </remarks>
 internal sealed class NativeHost : Decorator
 {
-    /// <summary>Nom de la portée de la mise à jour (elle n'a pas de place dans l'arbre des portées).</summary>
-    const string UpdateScopeId = "native";
+    // The name of the scope of the update, which has no place in the tree of scopes.
+    private const string UpdateScopeId = "native";
 
-    readonly Scope _updates;
-    Action? _update;
-    int _rerunPending;
+    private readonly Scope _updates;
+    private Action? _update;
+    private int _rerunPending;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="NativeHost"/> class.
+    /// </summary>
     public NativeHost() => _updates = new Scope(RequestRerun, UpdateScopeId, identity: null);
 
-    /// <summary>Applique la mise à jour de la vue courante au contrôle, en suivant les états qu'elle lit.</summary>
+    /// <summary>
+    /// Applies the update of the current view to the control, while tracking the state it reads.
+    /// </summary>
+    /// <param name="update">The update of the control.</param>
     public void Apply(Action update)
     {
         _update = update;
         _updates.Evaluate(update);
     }
 
+    /// <inheritdoc/>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _updates.Dispose();
+        _updates.Release();
     }
 
-    /// <summary>Un état lu par la mise à jour a changé (n'importe quel thread) : la refaire une fois, sur le thread d'interface.</summary>
-    void RequestRerun()
+    // A state read by the update changed, on any thread: run the update again, once, on the user interface thread.
+    private void RequestRerun()
     {
-        if (Interlocked.Exchange(ref _rerunPending, 1) == 1) return;
+        if (Interlocked.Exchange(ref _rerunPending, 1) == 1)
+        {
+            return;
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
             Interlocked.Exchange(ref _rerunPending, 0);
-            if (_update is { } update) _updates.Evaluate(update);
+            if (_update is { } update)
+            {
+                _updates.Evaluate(update);
+            }
         });
     }
 }

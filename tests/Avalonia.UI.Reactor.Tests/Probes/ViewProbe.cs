@@ -1,9 +1,14 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Tests.Probes;
 
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
 
-/// <summary>Composant sans état qui affiche une vue donnée : pour vérifier la mise en page ou le thème d'une vue.</summary>
+/// <summary>
+/// A component without state that displays a given view: to check the layout or the theme of a view.
+/// </summary>
 public sealed class ViewProbe(Func<View> body) : Component
 {
     public override View Body => body();

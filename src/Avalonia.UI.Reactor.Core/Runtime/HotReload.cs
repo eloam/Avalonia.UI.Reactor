@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using System.Reflection.Metadata;
 using Avalonia.UI.Reactor.Runtime;
 using Avalonia.UI.Reactor.State;
@@ -7,36 +10,64 @@ using Avalonia.UI.Reactor.State;
 namespace Avalonia.UI.Reactor.Runtime;
 
 /// <summary>
-/// Branchement sur le Hot Reload de .NET (<c>dotnet watch</c>, Visual Studio, Rider).
-/// Après chaque modification de code appliquée à chaud, le runtime appelle
-/// <see cref="UpdateApplication"/> : chaque fenêtre ouverte, quel que soit son moteur, réévalue tous ses composants.
-/// L'état est conservé, seule la vue est recalculée.
+/// Connects the framework to .NET Hot Reload (<c>dotnet watch</c>, Visual Studio, Rider).
 /// </summary>
+/// <remarks>
+/// After each code change applied at run time, the runtime calls <see cref="UpdateApplication"/>: every open window
+/// re-evaluates all its components. State is preserved; only the views are recomputed.
+/// </remarks>
 internal static class HotReload
 {
-    static readonly List<WeakReference<IScopeHost>> Hosts = [];
+    private static readonly List<WeakReference<IScopeHost>> s_hosts = [];
 
+    /// <summary>
+    /// Registers a host to re-evaluate after each code change. The host is held weakly.
+    /// </summary>
+    /// <param name="host">The host of an open window.</param>
     internal static void Register(IScopeHost host)
     {
-        lock (Hosts) Hosts.Add(new(host));
+        lock (s_hosts)
+        {
+            s_hosts.Add(new(host));
+        }
     }
 
+    /// <summary>
+    /// Stops re-evaluating a host, typically when its window closes.
+    /// </summary>
+    /// <param name="host">The host to remove.</param>
     internal static void Unregister(IScopeHost host)
     {
-        lock (Hosts) Hosts.RemoveAll(w => !w.TryGetTarget(out var h) || ReferenceEquals(h, host));
+        lock (s_hosts)
+        {
+            s_hosts.RemoveAll(w => !w.TryGetTarget(out IScopeHost? h) || ReferenceEquals(h, host));
+        }
     }
 
-    // Appelés par le runtime, sur un thread quelconque.
-    internal static void ClearCache(Type[]? types) { }
-
-    internal static void UpdateApplication(Type[]? types)
+    /// <summary>
+    /// Called by the runtime, on any thread, before <see cref="UpdateApplication"/>. The framework has no cache to clear.
+    /// </summary>
+    /// <param name="_">The updated types, unused.</param>
+    internal static void ClearCache(Type[]? _)
     {
-        lock (Hosts)
+    }
+
+    /// <summary>
+    /// Called by the runtime, on any thread, after a code change: asks every registered host to reload its views.
+    /// </summary>
+    /// <param name="_">The updated types, unused: every component is re-evaluated.</param>
+    internal static void UpdateApplication(Type[]? _)
+    {
+        lock (s_hosts)
         {
-            Hosts.RemoveAll(w => !w.TryGetTarget(out _));
-            foreach (var w in Hosts)
-                if (w.TryGetTarget(out var host))
+            s_hosts.RemoveAll(w => !w.TryGetTarget(out IScopeHost? _));
+            foreach (WeakReference<IScopeHost> reference in s_hosts)
+            {
+                if (reference.TryGetTarget(out IScopeHost? host))
+                {
                     host.Reload();
+                }
+            }
         }
     }
 }

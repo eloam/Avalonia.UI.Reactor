@@ -1,25 +1,40 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.UI.Reactor.Primitives;
 
 namespace Avalonia.UI.Reactor.Theming;
 
 /// <summary>
-/// Barre de menus dessinée dans la fenêtre : fond, bordure basse et marges. Les menus ouverts gardent pour l'instant
-/// l'apparence d'Avalonia ; la barre du système (macOS) suit celle du système.
+/// Represents the look of the menu bar drawn in the window: background, bottom line and padding.
 /// </summary>
+/// <remarks>
+/// Open menus keep the look of Avalonia for now; the system menu bar (macOS) follows the system.
+/// </remarks>
 public sealed record MenuTheme
 {
-    /// <summary>Fond de la barre.</summary>
+    /// <summary>
+    /// Gets the standard menu bar look.
+    /// </summary>
+    public static readonly MenuTheme Default = new();
+
+    /// <summary>
+    /// Gets the background of the bar.
+    /// </summary>
     public ColorValue BarBackground { get; init; } = ColorRole.Surface;
 
-    /// <summary>Couleur du trait qui sépare la barre du contenu.</summary>
+    /// <summary>
+    /// Gets the color of the line that separates the bar from the content.
+    /// </summary>
     public ColorValue BarBorderColor { get; init; } = ColorRole.Border;
 
-    /// <summary>Épaisseur de ce trait.</summary>
+    /// <summary>
+    /// Gets the thickness of the line that separates the bar from the content.
+    /// </summary>
     public float BarBorderWidth { get; init; } = 1;
 
-    /// <summary>Marges intérieures de la barre.</summary>
+    /// <summary>
+    /// Gets the inner spacing of the bar.
+    /// </summary>
     public Thickness BarPadding { get; init; } = new(4, 2);
-
-    /// <summary>Barre standard.</summary>
-    public static readonly MenuTheme Default = new();
 }

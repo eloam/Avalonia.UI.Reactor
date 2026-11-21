@@ -1,14 +1,20 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Avalonia.UI.Reactor.Tests;
 
+using Avalonia.Controls;
 using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Theming;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Un champ est un vrai TextBox d'Avalonia, lié à l'état : la saisie va vers l'état, l'état décide de l'affichage.</summary>
+/// <summary>
+/// A field is a real Avalonia TextBox bound to state: input goes to the state, and the state decides what is shown.
+/// </summary>
 public class TextFieldTests
 {
     [AvaloniaFact]
@@ -33,7 +39,7 @@ public class TextFieldTests
         var probe = new FormProbe();
         using var t = new ReactorTestHost(probe);
 
-        // Texte changé puis action, dans la même tâche du thread d'interface : rien en attente ne passe entre les deux.
+        // Text changed, then an action, in the same task of the user interface thread: nothing pending runs in between.
         t.Field.Text = "tout de suite";
         t.ButtonLabeled("Ajouter").RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
         t.Settle();
@@ -45,7 +51,7 @@ public class TextFieldTests
     public void The_field_keeps_its_control_focus_and_caret_while_the_state_changes()
     {
         using var t = new ReactorTestHost(new FormProbe());
-        var field = t.Field;
+        TextBox field = t.Field;
         t.Click(field);
 
         t.Type("abc");
@@ -83,7 +89,7 @@ public class TextFieldTests
     public void A_long_text_scrolls_inside_the_field_instead_of_widening_it()
     {
         using var t = new ReactorTestHost(new FormProbe());
-        var style = Theme.Light.TextField;
+        TextFieldTheme style = Theme.Light.TextField;
         double width = t.Field.Bounds.Width;
         Assert.Equal(style.MinWidth + style.Padding.Horizontal, width);
         t.Click(t.Field);

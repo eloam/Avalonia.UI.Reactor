@@ -1,8 +1,13 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.UI.Reactor.Primitives;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-/// <summary>Raccourcis clavier écrits comme on les lit.</summary>
+/// <summary>
+/// Keyboard shortcuts written as they read.
+/// </summary>
 public class KeyGestureTests
 {
     [Theory]
@@ -23,14 +28,14 @@ public class KeyGestureTests
     [InlineData("")]
     public void Parse_rejects_an_invalid_shortcut_with_an_explicit_message(string text)
     {
-        var e = Assert.Throws<ArgumentException>(() => KeyGesture.Parse(text));
+        ArgumentException e = Assert.Throws<ArgumentException>(() => KeyGesture.Parse(text));
         Assert.StartsWith($"'{text}' is not a valid keyboard shortcut. Use a form such as 'Ctrl+N'", e.Message);
     }
 
     [Fact]
     public void Shortcut_text_follows_the_platform_conventions()
     {
-        var text = KeyGesture.Parse("Ctrl+Shift+S").ToString();
+        string text = KeyGesture.Parse("Ctrl+Shift+S").ToString();
         Assert.Equal(OperatingSystem.IsMacOS() ? "⇧⌘S" : "Ctrl+Shift+S", text);
     }
 
@@ -38,7 +43,7 @@ public class KeyGestureTests
     public void Matches_requires_exactly_the_same_modifiers()
     {
         var save = KeyGesture.Parse("Ctrl+S");
-        var ctrl = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Ctrl;
+        KeyModifiers ctrl = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Ctrl;
 
         Assert.True(save.Matches(KeyCode.S, ctrl));
         Assert.False(save.Matches(KeyCode.S, ctrl | KeyModifiers.Shift));

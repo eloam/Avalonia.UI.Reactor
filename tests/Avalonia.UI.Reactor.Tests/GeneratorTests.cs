@@ -1,23 +1,28 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using System.Globalization;
+using Avalonia.UI.Reactor.Generators;
+using Avalonia.UI.Reactor.State;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Avalonia.UI.Reactor.Generators;
-using Avalonia.UI.Reactor.State;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-/// <summary>Le générateur [State] et ses diagnostics, sur des extraits de code compilés en mémoire.</summary>
+/// <summary>
+/// The [State] generator and its diagnostics, on code snippets compiled in memory.
+/// </summary>
 public class GeneratorTests
 {
-    const string Usings =
+    private const string Usings =
         "using System; using System.Collections.Generic; using Avalonia.UI.Reactor.Primitives; using Avalonia.UI.Reactor.State; " +
         "using Avalonia.UI.Reactor.Theming; using Avalonia.UI.Reactor.Views; using static Avalonia.UI.Reactor.Views.Ui;\n";
 
     [Fact]
     public void Valid_state_compiles_without_diagnostics()
     {
-        var diags = Compile("""
+        IReadOnlyList<Diagnostic> diags = Compile("""
             public partial class Counter : Component
             {
                 [State] partial int Count { get; set; }
@@ -155,8 +160,8 @@ public class GeneratorTests
     [Fact]
     public void State_passed_to_a_TextField_without_its_binding_says_what_to_write()
     {
-        // Ne compile pas (pas de fonction de modification) : MVU012 dit quoi écrire, à côté de l'erreur du compilateur.
-        var diagnostic = Assert.Single(Compile("""
+        // Does not compile (no change function): MVU012 says what to write, next to the compiler error.
+        Diagnostic diagnostic = Assert.Single(Compile("""
             public partial class Form : Component
             {
                 [State] partial string Name { get; set; } = "";
@@ -169,8 +174,8 @@ public class GeneratorTests
     [Fact]
     public void State_passed_to_a_Checkbox_without_its_binding_is_reported_even_though_it_compiles()
     {
-        // Compile, mais la case ne ferait qu'afficher l'état : c'est le cas silencieux.
-        var diagnostic = Assert.Single(Compile("""
+        // Compiles, but the checkbox would only display the state: the silent case.
+        Diagnostic diagnostic = Assert.Single(Compile("""
             public partial class Todo { [State] public partial bool Done { get; set; } }
             public class List : Component
             {
@@ -190,11 +195,11 @@ public class GeneratorTests
                 [State] partial string Name { get; set; } = "";
                 [State] partial bool Agreed { get; set; }
                 public override View Body => VStack(
-                    TextField(Bind.Name, "Nom"),                         // liaison
-                    TextField(Name, v => Name = v.Trim(), "Nom nettoyé"), // modification explicite
-                    Checkbox(Agreed, null, "Lecture seule voulue"),       // lecture seule explicite
-                    Text(Name),                                           // contrôle sans liaison possible
-                    TextField(Name.ToUpper(), null));                     // valeur calculée
+                    TextField(Bind.Name, "Nom"),                         // Binding.
+                    TextField(Name, v => Name = v.Trim(), "Nom nettoyé"), // Explicit change function.
+                    Checkbox(Agreed, null, "Lecture seule voulue"),       // Explicitly read-only.
+                    Text(Name),                                           // Control that cannot take a binding.
+                    TextField(Name.ToUpper(), null));                     // Computed value.
             }
             """));
 
@@ -230,20 +235,23 @@ public class GeneratorTests
     [Fact]
     public void Themes_Select_points_to_the_declarative_way()
     {
-        var error = Assert.Single(Compile("""
+        Diagnostic error = Assert.Single(Compile("""
             public class C { void M(Themes themes) => themes.Select("Sable"); }
-            """), d => d.Id == "CS0619");   // membre obsolète, en erreur
+            // Obsolete member, as an error.
+            """), d => d.Id == "CS0619");
         Assert.Contains(".Theme(", error.GetMessage(CultureInfo.InvariantCulture));
     }
 
-    static string[] Ids(string code) => Compile(code).Select(d => d.Id).Distinct().ToArray();
+    private static string[] Ids(string code) => [.. Compile(code).Select(d => d.Id).Distinct()];
 
-    /// <summary>Compile l'extrait avec le générateur et l'analyseur ; renvoie avertissements et erreurs.</summary>
-    static IReadOnlyList<Diagnostic> Compile(string code)
+    /// <summary>
+    /// Compiles the snippet with the generator and the analyzer; returns the warnings and errors.
+    /// </summary>
+    private static IReadOnlyList<Diagnostic> Compile(string code)
     {
         var parse = new CSharpParseOptions(LanguageVersion.Preview);
-        var tpa = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
-        var refs = tpa.Append(typeof(Component).Assembly.Location)
+        string[] tpa = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
+        IEnumerable<PortableExecutableReference> refs = tpa.Append(typeof(Component).Assembly.Location)
             .DistinctBy(Path.GetFileName)
             .Select(p => MetadataReference.CreateFromFile(p));
 
@@ -252,11 +260,13 @@ public class GeneratorTests
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
 
         CSharpGeneratorDriver.Create([new StateGenerator().AsSourceGenerator()], parseOptions: parse)
-            .RunGeneratorsAndUpdateCompilation(compilation, out var output, out _);
+            .RunGeneratorsAndUpdateCompilation(compilation, out Compilation? output, out _);
 
-        return output.WithAnalyzers([new StateAnalyzer()])
-            .GetAllDiagnosticsAsync().Result
-            .Where(d => d.Severity >= DiagnosticSeverity.Warning)
-            .ToList();
+        return
+        [
+            .. output.WithAnalyzers([new StateAnalyzer()])
+                .GetAllDiagnosticsAsync().Result
+                .Where(d => d.Severity >= DiagnosticSeverity.Warning),
+        ];
     }
 }

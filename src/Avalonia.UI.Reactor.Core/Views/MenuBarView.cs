@@ -1,7 +1,14 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Views;
 
 /// <summary>
-/// Barre de menus de la fenêtre. Dessinée en haut de la fenêtre, ou confiée à la barre du
-/// système quand la plateforme en a une (macOS) — le code de l'application ne change pas.
+/// Represents the menu bar of the window.
 /// </summary>
+/// <remarks>
+/// The bar is drawn at the top of the window, or handed to the system menu bar when the platform has one (macOS); the
+/// code of the application does not change.
+/// </remarks>
+/// <param name="Menus">The menus of the bar.</param>
 public sealed record MenuBarView(IReadOnlyList<MenuView> Menus) : View;

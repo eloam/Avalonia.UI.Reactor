@@ -1,13 +1,22 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 
 namespace Avalonia.UI.Reactor.Panels;
 
 /// <summary>
-/// Couches de <c>ZStack</c> / <c>Overlay</c> : les enfants sont superposés (le dernier au-dessus), chacun à sa taille
-/// naturelle et placé selon l'alignement de la pile, ou étiré s'il remplit. La taille naturelle est celle du plus grand.
+/// Represents the panel of <c>ZStack</c> and <c>Overlay</c>: the children are layered, the last one on top.
 /// </summary>
+/// <remarks>
+/// Each child takes its natural size and is placed according to the alignment of the stack, or stretched if it fills.
+/// The natural size of the stack is that of its largest child.
+/// </remarks>
 internal sealed class LayerStack : Panel
 {
+    /// <summary>
+    /// Identifies the <see cref="Alignment"/> property.
+    /// </summary>
     public static readonly StyledProperty<Primitives.Alignment> AlignmentProperty =
         AvaloniaProperty.Register<LayerStack, Primitives.Alignment>(nameof(Alignment), Primitives.Alignment.Center);
 
@@ -17,31 +26,49 @@ internal sealed class LayerStack : Panel
         AffectsParentMeasure<LayerStack>(Flex.ChildProperties);
     }
 
-    public Primitives.Alignment Alignment { get => GetValue(AlignmentProperty); set => SetValue(AlignmentProperty, value); }
+    /// <summary>
+    /// Gets or sets the position of the children that are smaller than the stack.
+    /// </summary>
+    public Primitives.Alignment Alignment
+    {
+        get => GetValue(AlignmentProperty);
+        set => SetValue(AlignmentProperty, value);
+    }
 
+    /// <inheritdoc/>
     protected override Size MeasureOverride(Size availableSize)
     {
-        double width = 0, height = 0;
-        foreach (var child in Children)
+        double width = 0;
+        double height = 0;
+        foreach (Control child in Children)
         {
             child.Measure(availableSize);
             width = Math.Max(width, child.DesiredSize.Width);
             height = Math.Max(height, child.DesiredSize.Height);
         }
+
         return new Size(width, height);
     }
 
+    /// <inheritdoc/>
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var alignment = Alignment;
-        foreach (var child in Children)
+        Primitives.Alignment alignment = Alignment;
+        foreach (Control child in Children)
         {
-            var (x, width) = Flex.Place(finalSize.Width, child.DesiredSize.Width, Flex.GetFillWidth(child),
+            (double x, double width) = Flex.Place(
+                finalSize.Width,
+                child.DesiredSize.Width,
+                Flex.GetFillWidth(child),
                 Flex.GetSelfAlign(child) ?? alignment.Horizontal);
-            var (y, height) = Flex.Place(finalSize.Height, child.DesiredSize.Height, Flex.GetFillHeight(child),
+            (double y, double height) = Flex.Place(
+                finalSize.Height,
+                child.DesiredSize.Height,
+                Flex.GetFillHeight(child),
                 alignment.Vertical);
             child.Arrange(new Rect(x, y, width, height));
         }
+
         return finalSize;
     }
 }

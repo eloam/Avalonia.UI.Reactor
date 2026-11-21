@@ -1,10 +1,15 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 namespace Avalonia.UI.Reactor.Tests.Probes;
 
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Views;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary>Champ dont l'état transforme la saisie (en majuscules) : le champ affiche la valeur de l'état.</summary>
+/// <summary>
+/// A field whose state transforms the input (to uppercase): the field shows the value of the state.
+/// </summary>
 public sealed partial class ShoutProbe : Component
 {
     [State] public partial string Shout { get; set; } = "";

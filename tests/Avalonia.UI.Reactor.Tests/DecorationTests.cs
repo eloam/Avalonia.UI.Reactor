@@ -1,16 +1,21 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 
 namespace Avalonia.UI.Reactor.Tests;
 
-using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Panels;
+using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
 using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
-/// <summary><c>Divider()</c> et <c>Box()</c> : des vues faites de leurs seules valeurs de thème et modificateurs.</summary>
+/// <summary>
+/// <c>Divider()</c> and <c>Box()</c>: views made of their theme values and modifiers only.
+/// </summary>
 public class DecorationTests
 {
     [AvaloniaFact]
@@ -30,7 +35,7 @@ public class DecorationTests
     {
         using var t = new ReactorTestHost(new ViewProbe(() => VStack(Box().Size(30, 20).Background(ColorRole.Accent).Radius(4))));
 
-        var box = t.Controls.OfType<Surface>().Single();
+        Surface box = t.Controls.OfType<Surface>().Single();
         Assert.Equal(new Size(30, 20), box.Bounds.Size);
         Assert.Equal(new CornerRadius(4), box.CornerRadius);
         Assert.Equal(Theme.Light.Palette.Accent.ToAvaloniaColor(), box.Background.ColorOf());

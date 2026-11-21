@@ -1,3 +1,6 @@
+// Copyright (c) Yohann Breuil.
+// Licensed under the MIT License.
+
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -5,6 +8,7 @@ using Avalonia.Input;
 
 namespace Avalonia.UI.Reactor.Tests;
 
+using Avalonia.Controls;
 using Avalonia.UI.Reactor.Tests.Probes;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
@@ -12,12 +16,12 @@ using Avalonia.UI.Reactor.Widgets;
 using static Avalonia.UI.Reactor.Views.Ui;
 
 /// <summary>
-/// Nos contrôles portent l'apparence du thème de leur branche, et non celle de Fluent : pixels rendus dans les quatre
-/// variantes, puis couleurs de chaque état (survol, appui, focus).
+/// Our controls carry the look of the theme of their branch, not that of Fluent: pixels rendered in the four
+/// variants, then the colors of each state (hover, pressed, focus).
 /// </summary>
 public class ControlLookTests
 {
-    static ReactorTestHost Show(string family, ColorScheme scheme) => new(new ViewProbe(() =>
+    private static ReactorTestHost Show(string family, ColorScheme scheme) => new(new ViewProbe(() =>
             VStack(Button("Bouton"), Checkbox(true, onChange: null, label: "Case"), TextField("texte", onChange: null))
                 .Padding(16).Theme(family).ColorScheme(scheme)),
         themes: TestThemes.Create());
@@ -29,12 +33,12 @@ public class ControlLookTests
     [InlineData("Sable", ColorScheme.Dark)]
     public void Controls_are_painted_with_the_colors_of_their_theme(string family, ColorScheme scheme)
     {
-        var theme = TestThemes.Of(family, scheme);
-        using var t = Show(family, scheme);
+        Theme theme = TestThemes.Of(family, scheme);
+        using ReactorTestHost t = Show(family, scheme);
 
-        var button = t.BoundsOf(t.ButtonLabeled("Bouton"));
-        var box = t.BoundsOf(t.Controls.OfType<CheckGlyph>().Single());
-        var field = t.BoundsOf(t.Field);
+        Rect button = t.BoundsOf(t.ButtonLabeled("Bouton"));
+        Rect box = t.BoundsOf(t.Controls.OfType<CheckGlyph>().Single());
+        Rect field = t.BoundsOf(t.Field);
 
         Assert.Equal(theme.Palette.Page.ToAvaloniaColor(), t.PixelAt(4, 4));
         Assert.Equal(theme.Palette.Accent.ToAvaloniaColor(), t.PixelAt(button.X + 6, button.Center.Y));
@@ -47,9 +51,9 @@ public class ControlLookTests
     public void A_button_takes_the_hover_then_the_pressed_overlay_of_its_variant()
     {
         using var t = new ReactorTestHost(new ViewProbe(() => VStack(Button("Bouton"))));
-        var light = Theme.Light;
-        var accent = light.Palette.Accent;
-        var button = t.ButtonLabeled("Bouton");
+        Theme light = Theme.Light;
+        Primitives.Color accent = light.Palette.Accent;
+        Button button = t.ButtonLabeled("Bouton");
 
         t.Hover(button);
         Assert.Equal(light.Overlay(accent, light.Button.Primary.HoverOverlay).ToAvaloniaColor(), button.Background.ColorOf());
@@ -63,9 +67,9 @@ public class ControlLookTests
     public void A_focused_field_takes_the_focus_border_without_moving_its_text()
     {
         using var t = new ReactorTestHost(new FormProbe());
-        var style = Theme.Light.TextField;
-        var text = t.Controls.OfType<TextPresenter>().Single();
-        var before = t.BoundsOf(text).TopLeft;
+        TextFieldTheme style = Theme.Light.TextField;
+        TextPresenter text = t.Controls.OfType<TextPresenter>().Single();
+        Point before = t.BoundsOf(text).TopLeft;
 
         t.Click(t.Field);
 
