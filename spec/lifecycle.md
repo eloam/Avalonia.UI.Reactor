@@ -1,6 +1,6 @@
 # View lifecycle
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-11-21
 - **Spike**: done (see [Spike results](#spike-results))
 
@@ -71,8 +71,9 @@ took them again (fixed, with a test in `NativeTests`).
   A lifecycle is alive when its node was visited, or when the innermost scope that declares it was kept by the update
   without being re-evaluated: the nodes of such a scope are not visited, and the spike shows that without this rule a
   child component would disappear whenever its parent is re-evaluated.
-- The actions run **after** the update, posted on the dispatcher: the disappearances first, then the appearances and
-  the restarted tasks. An action that changes state schedules the next update, instead of changing a `Body` being
+- The actions run **after** the update, posted on the dispatcher: the disappearances first, children before their
+  parents, then the appearances and the restarted tasks, parents before their children (ordered by depth in the tree,
+  then in tree order). An action that changes state schedules the next update, instead of changing a `Body` being
   computed. A view that goes away before its posted appearance runs gets neither `OnAppear` nor `OnDisappear`.
 - When the window closes, the dispatcher may not run again: `OnDisappear` runs at once and the tasks are cancelled.
 - An update keeps the latest closures (`node.View`), as event handlers do: a re-evaluated `Body` never runs `OnAppear`
@@ -111,7 +112,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 
 1. `OnAppear` and `OnDisappear`, with the sweep of the reconciler. Tests: an action runs once, not again on an update;
    `OnDisappear` runs when a branch closes, a row is removed and the window closes, not when a control moves into a
-   decoration.
+   decoration. **Done.**
 2. `Task` with and without a key, and MVU017. Tests: cancelled on removal and when the window closes, restarted when the
    key changes, an exception reported (`ReactorTestHost.Errors`).
 3. The sample app shows a clock or a search that uses them.
@@ -137,7 +138,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 ## Risks
 
 - **Not verified by the spike**: Windows and Linux (the real window ran on macOS only), a lifecycle inside a control
-  template (`RenderTemplate`), and the order of the actions in the tree (the spike runs them in declaration order).
+  template (`RenderTemplate`).
 - **Cost**: the sweep visits every lifecycle on every update. The spike measured about +15 % on the updates of a list
   of 1,000 rows that all declare `OnAppear`; the implementation keeps the lifecycles in a set, since removing them from
   a list costs a linear search each.
@@ -153,7 +154,6 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 
 ## Unresolved questions
 
-- In which order do a parent and its children run `OnAppear`, and `OnDisappear`? SwiftUI does not document one.
 - Should `.OnChange(value, action)` be added, like SwiftUI's `.onChange(of:)`, or is `.Task(value, …)` enough?
 - Should an analyzer suggest a key when a task reads a state before its first `await`?
 

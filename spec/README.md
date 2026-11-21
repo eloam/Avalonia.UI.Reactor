@@ -7,7 +7,7 @@ code, and is updated as the feature moves on.
 | Feature | Status |
 |---|---|
 | [View builder blocks](view-builder.md) | Proposed |
-| [View lifecycle](lifecycle.md) | Proposed |
+| [View lifecycle](lifecycle.md) | Accepted |
 
 ## Format
 

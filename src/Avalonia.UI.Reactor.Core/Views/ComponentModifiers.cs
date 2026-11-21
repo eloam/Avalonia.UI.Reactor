@@ -221,6 +221,22 @@ public static class ComponentModifiers
     public static View OnTap(this Component component, Func<Task> action) => AsView(component).OnTap(action);
 
     /// <summary>
+    /// Runs an action once when the component appears.
+    /// </summary>
+    /// <param name="component">The component to modify.</param>
+    /// <param name="action">The action run when the component appears.</param>
+    /// <returns>The view of the component with the modifier.</returns>
+    public static View OnAppear(this Component component, Action action) => AsView(component).OnAppear(action);
+
+    /// <summary>
+    /// Runs an action once when the component disappears.
+    /// </summary>
+    /// <param name="component">The component to modify.</param>
+    /// <param name="action">The action run when the component disappears.</param>
+    /// <returns>The view of the component with the modifier.</returns>
+    public static View OnDisappear(this Component component, Action action) => AsView(component).OnDisappear(action);
+
+    /// <summary>
     /// Places a view over the component (a badge, an overlay), aligned within its bounds.
     /// </summary>
     /// <param name="component">The component below.</param>

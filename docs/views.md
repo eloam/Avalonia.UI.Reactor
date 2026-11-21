@@ -62,10 +62,26 @@ ForEach(contacts, c => Text(c.Name))   // keyed by c.Id, even when the records a
 | `.OnTap(() => …)` | Makes any view clickable, with the hover overlay of the theme |
 | `.Overlay(badge, Alignment.TopRight)` | Places a view over another |
 | `.Key("…")` | Identity of a view in a list: keeps its control, focus and hover |
+| `.OnAppear(…)`, `.OnDisappear(…)` | Runs an action when the view enters the tree and when it leaves it (see [Lifecycle](#lifecycle)) |
 
 Modifiers also apply to components: `counter.Padding(8).Background(ColorRole.Surface)`. Named arguments remove any
 ambiguity: `.Padding(horizontal: 6, vertical: 4)`. A border takes its own space, as in CSS: with
 `.Padding(16).Border(…, 2)`, the content starts at 18.
+
+## Lifecycle
+
+A view can run an action when it appears and when it disappears, as with `.onAppear` and `.onDisappear` in SwiftUI:
+
+```csharp
+TextField(Bind.Draft).OnAppear(LoadDraft).OnDisappear(SaveDraft)
+```
+
+- The view **appears** when it enters the tree, and **disappears** when it leaves it: a branch that closes, a row
+  removed from a list, a component no longer shown, or the window that closes. An update of the `Body` does not run
+  `OnAppear` again, and moving the control (into a decoration, within a reordered list) does not count.
+- The actions run **after** the update, parents before their children for `OnAppear`, children before their parents
+  for `OnDisappear`. A state they change schedules the next update. When the window closes, `OnDisappear` runs at once.
+- An exception in an action is reported like the exception of any other action.
 
 ## Actions and bindings
 

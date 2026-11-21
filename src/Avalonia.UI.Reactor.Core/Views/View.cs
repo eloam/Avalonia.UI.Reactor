@@ -119,6 +119,16 @@ public abstract record View
     public Action? TapAction { get; init; }
 
     /// <summary>
+    /// Gets the action run once when the view appears, or <see langword="null"/>.
+    /// </summary>
+    public Action? AppearAction { get; init; }
+
+    /// <summary>
+    /// Gets the action run once when the view disappears, or <see langword="null"/>.
+    /// </summary>
+    public Action? DisappearAction { get; init; }
+
+    /// <summary>
     /// Gets the property that a bound control reads and writes, which identifies the control among its siblings, or
     /// <see langword="null"/>.
     /// </summary>

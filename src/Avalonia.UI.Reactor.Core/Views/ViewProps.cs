@@ -43,6 +43,8 @@ internal static class ViewProps
             ThemeFamily = source.ThemeFamily,
             Scheme = source.Scheme,
             TapAction = source.TapAction,
+            AppearAction = source.AppearAction,
+            DisappearAction = source.DisappearAction,
         });
 
     /// <summary>

@@ -4,6 +4,7 @@
 using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace Avalonia.UI.Reactor.Reconciliation;
 
@@ -17,10 +18,10 @@ using Avalonia.UI.Reactor.Widgets;
 /// Applies a tree of views (immutable records) to a tree of Avalonia controls that it keeps from one update to the next.
 /// </summary>
 /// <remarks>
-/// A control is reused as long as its view keeps the same path (its <c>Key</c>, otherwise its index) and the same kind
+/// A control is reused as long as its view keeps the same place (see <see cref="ReconcileChildren"/>) and the same kind
 /// of control: only its properties change, so it keeps its focus, hover and selection. Each scope (component,
 /// <c>ForEach</c> item, <c>Observe</c> block) is re-evaluated only when some state it read changed; otherwise its controls
-/// stay as they are.
+/// stay as they are. A view that declares <c>OnAppear</c> or <c>OnDisappear</c> has a lifecycle, which follows its node.
 /// </remarks>
 /// <param name="host">The host that displays the tree.</param>
 /// <param name="run">The function that runs the action of a control, then updates the interface.</param>
@@ -48,8 +49,12 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     private readonly Dictionary<string, Scope> _scopes = [];
     private readonly Dictionary<Scope, Node> _content = [];
     private readonly Stack<List<Scope>> _collectors = new();
+    private readonly HashSet<Lifecycle> _lifecycles = [];
+    private readonly Stack<Scope> _owners = new();
     private Node? _root;
     private int _pass;
+    private int _depth;
+    private long _visits;
     private int _evaluated;
     private int _reused;
 
@@ -175,6 +180,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         _pass++;
         _evaluated = 0;
         _reused = 0;
+        _depth = 0;
         _root = Reconcile(_root, root, ViewEnvironment.Root(themes), RootId);
 
         // The scopes that left the tree unsubscribe from their state.
@@ -184,15 +190,18 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             _scopes.Remove(gone.Id);
         }
 
+        SweepLifecycles();
         LastStats = new UpdateStats(_evaluated, _reused, _scopes.Count);
         return _root.Root;
     }
 
     /// <summary>
-    /// Releases every scope when the window closes; the next update starts from scratch.
+    /// Releases every scope when the window closes, and runs the <c>OnDisappear</c> actions of the views that appeared;
+    /// the next update starts from scratch.
     /// </summary>
     public void Release()
     {
+        ReleaseLifecycles();
         foreach (Scope scope in _scopes.Values)
         {
             Release(scope);
@@ -243,7 +252,10 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             : new Node(id, adapter, view, n => adapter.Create(this, n));
         node.View = view;
         node.Environment = environment;
+        TrackLifecycle(node, view);
+        _depth++;
         Apply(node, () => adapter.Update(this, node, view, environment));
+        _depth--;
         Decorate(node, view, environment.Theme);
         Place(node, view);
         return node;
@@ -421,11 +433,13 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         if (reevaluate)
         {
             scope.Content = scope.Evaluate(view.Build);
+            scope.EvaluatedPass = _pass;
             _evaluated++;
         }
 
         var inner = new List<Scope>();
         _collectors.Push(inner);
+        _owners.Push(scope);
         Node node;
         try
         {
@@ -434,6 +448,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         finally
         {
             _collectors.Pop();
+            _owners.Pop();
         }
 
         scope.Descendants = inner;
@@ -494,5 +509,110 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         {
             ApplyDecoration(surface, view, theme);
         }
+    }
+
+    // Visited before the children of the node, so that the order of the visits is the order of the tree.
+    private void TrackLifecycle(Node node, View view)
+    {
+        if (view.AppearAction is null && view.DisappearAction is null)
+        {
+            return;
+        }
+
+        if (node.Lifecycle is not { } lifecycle)
+        {
+            lifecycle = new Lifecycle(node);
+            node.Lifecycle = lifecycle;
+            _lifecycles.Add(lifecycle);
+        }
+
+        lifecycle.Owner = _owners.TryPeek(out Scope? owner) ? owner : null;
+        lifecycle.LastVisit = _pass;
+        lifecycle.Depth = _depth;
+        lifecycle.Order = ++_visits;
+    }
+
+    // A lifecycle is alive when its node was visited, or when the scope that declares it was kept by the update without
+    // being re-evaluated: the nodes of such a scope are not visited, and without this rule a child component would
+    // disappear whenever its parent is re-evaluated. The actions run after the update, on the dispatcher, so that a
+    // state they change schedules the next update instead of changing a Body being computed: the disappearances first,
+    // children before their parents, then the appearances, parents before their children.
+    private void SweepLifecycles()
+    {
+        List<Lifecycle>? gone = null;
+        List<Lifecycle>? appearing = null;
+        foreach (Lifecycle lifecycle in _lifecycles)
+        {
+            if (lifecycle.LastVisit != _pass && !IsKept(lifecycle.Owner))
+            {
+                (gone ??= []).Add(lifecycle);
+            }
+            else if (!lifecycle.Appeared)
+            {
+                lifecycle.Appeared = true;
+                (appearing ??= []).Add(lifecycle);
+            }
+        }
+
+        if (gone is null && appearing is null)
+        {
+            return;
+        }
+
+        gone?.ForEach(Forget);
+        gone?.Sort(Lifecycle.ChildrenFirst);
+        appearing?.Sort(Lifecycle.ParentsFirst);
+        Dispatcher.UIThread.Post(() =>
+        {
+            gone?.ForEach(Disappear);
+            appearing?.ForEach(Appear);
+        });
+    }
+
+    // Kept by the update: visited, not re-evaluated, and still the scope at its place.
+    private bool IsKept(Scope? owner) =>
+        owner is not null
+        && owner.LastVisit == _pass
+        && owner.EvaluatedPass != _pass
+        && _scopes.TryGetValue(owner.Id, out Scope? live)
+        && ReferenceEquals(live, owner);
+
+    private void Forget(Lifecycle lifecycle)
+    {
+        _lifecycles.Remove(lifecycle);
+        lifecycle.Gone = true;
+        if (ReferenceEquals(lifecycle.Node.Lifecycle, lifecycle))
+        {
+            lifecycle.Node.Lifecycle = null;
+        }
+    }
+
+    // A view that went away before its posted appearance ran gets neither OnAppear nor OnDisappear.
+    private void Appear(Lifecycle lifecycle)
+    {
+        if (lifecycle.Gone)
+        {
+            return;
+        }
+
+        lifecycle.AppearRan = true;
+        run(lifecycle.Node.View.AppearAction);
+    }
+
+    private void Disappear(Lifecycle lifecycle)
+    {
+        if (lifecycle.AppearRan)
+        {
+            run(lifecycle.Node.View.DisappearAction);
+        }
+    }
+
+    // The window closes: the dispatcher may not run again, so the views that appeared disappear at once.
+    private void ReleaseLifecycles()
+    {
+        List<Lifecycle> all = [.. _lifecycles];
+        all.Sort(Lifecycle.ChildrenFirst);
+        all.ForEach(Forget);
+        all.ForEach(Disappear);
     }
 }

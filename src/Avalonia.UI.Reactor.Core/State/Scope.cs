@@ -64,6 +64,12 @@ internal sealed class Scope(Action requestUpdate, string id, object? identity)
     public int LastVisit { get; set; }
 
     /// <summary>
+    /// Gets or sets the number of the last update that re-evaluated this scope: a scope visited but not re-evaluated
+    /// kept its content, whose nodes were not visited.
+    /// </summary>
+    public int EvaluatedPass { get; set; }
+
+    /// <summary>
     /// Gets a value indicating whether some state read by this scope changed since its last evaluation.
     /// </summary>
     public bool IsDirty => _dirty;

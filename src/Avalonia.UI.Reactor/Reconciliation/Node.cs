@@ -93,6 +93,11 @@ internal sealed class Node
     public Node? Template { get; set; }
 
     /// <summary>
+    /// Gets or sets the lifecycle of the view (<c>OnAppear</c>, <c>OnDisappear</c>), if it declares one.
+    /// </summary>
+    public Lifecycle? Lifecycle { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the control takes all the available width (<c>.FillWidth()</c>, or a
     /// stack with such a child).
     /// </summary>

@@ -272,6 +272,35 @@ public static class Modifiers
         where T : View => (T)(AsView(view) with { TapAction = Ui.Async(action) });
 
     /// <summary>
+    /// Runs an action once when the view appears: <c>TextField(Bind.Draft).OnAppear(LoadDraft)</c>.
+    /// </summary>
+    /// <remarks>
+    /// The view appears when it enters the tree: an update of its <c>Body</c> does not run the action again. The action
+    /// runs after the update, parents before their children; a state it changes schedules the next update.
+    /// </remarks>
+    /// <typeparam name="T">The type of the view.</typeparam>
+    /// <param name="view">The view to modify.</param>
+    /// <param name="action">The action run when the view appears.</param>
+    /// <returns>A copy of the view with the action.</returns>
+    public static T OnAppear<T>(this T view, Action action)
+        where T : View => (T)(AsView(view) with { AppearAction = action });
+
+    /// <summary>
+    /// Runs an action once when the view disappears: <c>TextField(Bind.Draft).OnDisappear(SaveDraft)</c>.
+    /// </summary>
+    /// <remarks>
+    /// The view disappears when it leaves the tree (a branch that closes, a row removed from a list) or when the window
+    /// closes; moving its control, into a decoration for example, does not count. The action runs after the update,
+    /// children before their parents, and at once when the window closes.
+    /// </remarks>
+    /// <typeparam name="T">The type of the view.</typeparam>
+    /// <param name="view">The view to modify.</param>
+    /// <param name="action">The action run when the view disappears.</param>
+    /// <returns>A copy of the view with the action.</returns>
+    public static T OnDisappear<T>(this T view, Action action)
+        where T : View => (T)(AsView(view) with { DisappearAction = action });
+
+    /// <summary>
     /// Places a view over this one (a badge, an overlay), aligned within its bounds.
     /// </summary>
     /// <param name="view">The view below.</param>
