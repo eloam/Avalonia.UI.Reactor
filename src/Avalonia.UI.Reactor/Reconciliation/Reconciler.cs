@@ -239,10 +239,11 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
                 : ReconcileScope(scope, environment, id);
         }
 
-        // A group that a stack did not unfold (alone, or with modifiers) stacks its children vertically.
+        // A group that no container unfolded (alone, as the content of a component or a row) stacks its children
+        // vertically. Its modifiers go to each child, as in a container; its key identifies the stack.
         if (view is GroupView group)
         {
-            view = Ui.VStack([.. group.Children]).CopyFrom(group);
+            view = Ui.VStack([.. Ui.Unfold(group)]) with { Key = group.Key };
         }
 
         environment = environment.Enter(view);

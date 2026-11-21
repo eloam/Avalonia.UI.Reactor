@@ -33,6 +33,34 @@ public class ViewPropsTests
         }
     }
 
+    [Fact]
+    public void Inherit_fills_every_View_property_that_the_child_does_not_set()
+    {
+        // The key is the exception: the key of the group is placed above the key of the child (see the next test).
+        var properties = typeof(View).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.DeclaringType == typeof(View) && p.CanWrite && p.Name != nameof(View.Key))
+            .ToList();
+
+        View group = new BoxView();
+        foreach (PropertyInfo? p in properties)
+            p.SetValue(group, SampleFor(p));
+        View child = new BoxView().Inherit(group, position: 0);
+
+        foreach (PropertyInfo? p in properties)
+        {
+            Assert.True(Equals(p.GetValue(child), p.GetValue(group)),
+                $"'View.{p.Name}' is not filled by 'ViewProps.Inherit'. Add it to that method.");
+        }
+    }
+
+    [Fact]
+    public void The_key_of_a_group_is_placed_above_the_keys_or_positions_of_its_children()
+    {
+        StackView stack = Ui.VStack(Ui.Group(Ui.Text("a"), Ui.Text("b").Key("b")).Key("g"));
+
+        Assert.Equal(["g/0", "g/b"], stack.Children.Select(child => child.Key));
+    }
+
     /// <summary>
     /// Returns a non-default value for each property type of <see cref="View"/>.
     /// </summary>

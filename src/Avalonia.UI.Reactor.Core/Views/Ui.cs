@@ -113,6 +113,11 @@ public static class Ui
     /// <summary>
     /// Creates several views presented as one; in a stack, they take their places among the children of the stack.
     /// </summary>
+    /// <remarks>
+    /// As in SwiftUI, a modifier of the group applies to each child that does not set it itself:
+    /// <c>HStack(Group(a, b).Padding(8))</c> pads <c>a</c> and <c>b</c>, side by side. The key of a group identifies it:
+    /// it is placed above the keys of its children.
+    /// </remarks>
     /// <param name="children">The views of the group.</param>
     /// <returns>The group view.</returns>
     public static GroupView Group(params View?[] children) => new(Flatten(children));
@@ -233,6 +238,21 @@ public static class Ui
         }
     };
 
+    /// <summary>
+    /// Returns the children of a group, ready to take their places among the children of a container.
+    /// </summary>
+    /// <remarks>
+    /// Nested groups are unfolded too. As in SwiftUI, each modifier of a group applies to each of its children that does
+    /// not set it itself; the key of the group is placed above the keys of its children.
+    /// </remarks>
+    /// <param name="group">The group.</param>
+    /// <returns>The children of the group, with its modifiers.</returns>
+    internal static IEnumerable<View> Unfold(GroupView group)
+    {
+        IEnumerable<View> children = group.Children.SelectMany(Expand);
+        return group.HasNoModifiers() ? children : children.Select((child, position) => child.Inherit(group, position));
+    }
+
     // The entries of a menu: as for a stack, null entries are ignored and groups are unfolded. ForEach rows are built
     // immediately: a menu has no scope of its own and follows the state of the view that declares it.
     private static View[] MenuEntries(IEnumerable<View?> items) =>
@@ -266,14 +286,14 @@ public static class Ui
     private static StackView Stack(Axis axis, View?[] children) =>
         new(axis, Flatten(children)) { CrossAlign = axis == Axis.Horizontal ? Align.Center : Align.Start };
 
-    // The children of a stack: null children are ignored (for "condition ? Text(…) : null") and groups without
-    // modifiers (ForEach, Group) are unfolded in place.
+    // The children of a stack: null children are ignored (for "condition ? Text(…) : null") and groups (ForEach, Group)
+    // are unfolded in place (see Unfold).
     private static View[] Flatten(IEnumerable<View?> children) => [.. children.SelectMany(Expand)];
 
     private static IEnumerable<View> Expand(View? view) => view switch
     {
         null => [],
-        GroupView group when group.HasNoModifiers() => group.Children.SelectMany(Expand),
+        GroupView group => Unfold(group),
         _ => [view],
     };
 }

@@ -13,7 +13,7 @@ factories once with `global using static Avalonia.UI.Reactor.Views.Ui;`.
 | `Checkbox(Bind.Done, "Label")` | A checkbox with an optional label |
 | `VStack(…)`, `HStack(…)` | Vertical and horizontal stacks |
 | `ZStack(…)` | Layers; the last child is on top and receives the clicks |
-| `Group(…)` | Several views where one is expected; unfolded in place inside a stack |
+| `Group(…)` | Several views where one is expected; unfolded in place inside a stack, its modifiers applied to each child |
 | `ForEach(items, row)` | One view per item, mixed freely with the other children (see [Lists](#lists)) |
 | `Spacer()`, `Divider()`, `Box()` | Flexible space, separator line, empty decorated surface |
 | `Canvas(d => …)` | Free drawing |
@@ -68,6 +68,11 @@ ForEach(contacts, c => Text(c.Name))   // keyed by c.Id, even when the records a
 Modifiers also apply to components: `counter.Padding(8).Background(ColorRole.Surface)`. Named arguments remove any
 ambiguity: `.Padding(horizontal: 6, vertical: 4)`. A border takes its own space, as in CSS: with
 `.Padding(16).Border(…, 2)`, the content starts at 18.
+
+A modifier on a `Group` applies to **each** of its children, as in SwiftUI, and the children stay in place:
+`HStack(Group(a, b).Padding(8))` pads `a` and `b`, side by side. A child keeps the modifiers it sets itself. To treat
+several views as one (a single background, a single padding), use a `VStack` or a `Box`. `.OnAppear` and `.Task` on a
+group also run once per child. The key of a group identifies it: it is placed above the keys of its children.
 
 ## Lifecycle
 

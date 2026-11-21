@@ -149,12 +149,33 @@ public class FlexStackTests
     }
 
     [AvaloniaFact]
-    public void A_group_with_modifiers_stacks_its_children_vertically()
+    public void A_modifier_of_a_group_applies_to_each_child_which_stays_in_place()
     {
         using var t = new ReactorTestHost(new ViewProbe(() => HStack(Group(Text("a"), Text("b")).Padding(4))));
 
         Rect a = t.BoundsOf(t.TextShowing("a")), b = t.BoundsOf(t.TextShowing("b"));
-        Assert.True(b.Y > a.Y);
+        // Side by side in the row, as SwiftUI does, each with its own padding.
+        Assert.Equal(a.Y, b.Y);
         Assert.Equal(4, a.X);
+        Assert.True(b.X >= a.Right + 8);
+    }
+
+    [AvaloniaFact]
+    public void A_child_keeps_its_own_modifier_over_the_one_of_its_group()
+    {
+        using var t = new ReactorTestHost(new ViewProbe(() => HStack(Group(Text("a").Padding(10), Text("b")).Padding(4))));
+
+        Assert.Equal(10, t.BoundsOf(t.TextShowing("a")).X);
+    }
+
+    [AvaloniaFact]
+    public void A_group_that_no_container_unfolds_stacks_its_children_with_its_modifiers()
+    {
+        using var t = new ReactorTestHost(new ViewProbe(() => Group(Text("a"), Text("b")).Padding(4)));
+
+        Rect a = t.BoundsOf(t.TextShowing("a")), b = t.BoundsOf(t.TextShowing("b"));
+        Assert.Equal(4, a.X);
+        Assert.Equal(4, b.X);
+        Assert.True(b.Y >= a.Bottom + 8);
     }
 }

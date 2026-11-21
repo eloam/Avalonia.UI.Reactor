@@ -187,13 +187,13 @@ animation ends.
 
 ### Groups
 
-Today a `Group` that has modifiers becomes a `VStack`: in an `HStack`, `Details().Padding(8)` would stack its views
-vertically. As in SwiftUI, a modifier on a `Group` applies to each child, which the parent still lays out; a `VStack`
-or a `Box` treats several views as one. `Key` is the exception: it identifies the group itself, since the same key on
-each child would be a duplicate key.
+A `Group` that had modifiers became a `VStack`: in an `HStack`, `Details().Padding(8)` would have stacked its views
+vertically. As in SwiftUI, a modifier on a `Group` now applies to each child, which the parent still lays out; a child
+keeps the modifiers it sets itself, and a `VStack` or a `Box` treats several views as one. `Key` is the exception: it
+identifies the group itself, and is placed above the keys (or positions) of its children, since the same key on each
+child would be a duplicate key. `.OnAppear` and `.Task` on a group run once per child, as in SwiftUI.
 
-This is a breaking change: today's behavior is tested (`A_group_with_modifiers_stacks_its_children_vertically`) and
-described in `docs/views.md`; both change with it.
+This was a breaking change (shipped): the test of the former behavior and `docs/views.md` changed with it.
 
 ```csharp
 HStack(() => { Details().Padding(8); })   // each view of Details gets its own padding, side by side
@@ -360,7 +360,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 1. MVU013, MVU016 and `IIdentifiable` keys, useful today. **Done.**
 2. Identity by components, bindings, then view type and rank, which fixes `cond ? view : null` today (a behavior
    change). **Done.**
-3. Group modifiers applied to each child: a breaking change (`refactor!`).
+3. Group modifiers applied to each child: a breaking change. **Done.**
 4. Fragments.
 5. Blocks: `[ViewBuilder]` parameters, interceptors, `Show`, MVU014, MVU015 and the code fixes.
 6. Scopes of view methods and the `Observe` block, measured (see [Risks](#risks)).
