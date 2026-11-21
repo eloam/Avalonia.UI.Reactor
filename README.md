@@ -27,6 +27,24 @@ public sealed partial class CounterApp : Component
 }
 ```
 
+Controls bind to state with the generated `Bind` property: `Bind.Name` is a `Binding<string>` that the field reads and
+writes, so there is no event handler to write.
+
+```csharp
+public sealed partial class SignUp : Component
+{
+    [State] partial string Name { get; set; } = "";
+    [State] partial bool Newsletter { get; set; }
+
+    public override View Body =>
+        VStack(
+            TextField(Bind.Name, "Your name"),               // reads and writes Name
+            Checkbox(Bind.Newsletter, "Send me the news"),   // reads and writes Newsletter
+            Text(Name.Length == 0 ? "Hello!" : $"Hello, {Name}!"))
+        .Padding(24);
+}
+```
+
 <p align="center">
   <img src="docs/images/demo-standard-light.png" alt="The sample app with the Standard light theme" width="380">
   &nbsp;

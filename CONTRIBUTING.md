@@ -33,21 +33,41 @@ small test components in `Probes/`.
 
 When in doubt about an API, look at SwiftUI and Jetpack Compose, then simplify further.
 
-## Coding conventions
+## Coding style
 
-- Identifiers in English, named like SwiftUI (`Button`, `VStack`, `Theme`). XML documentation comments are written in
-  French.
+The repository follows Microsoft's [C# coding conventions](https://learn.microsoft.com/dotnet/csharp/fundamentals/coding-style/coding-conventions)
+and the [dotnet/runtime coding style](https://github.com/dotnet/runtime/blob/main/docs/coding-guidelines/coding-style.md),
+for code and comments alike. [.editorconfig](.editorconfig) describes the rules and the build enforces them; run
+`dotnet format Avalonia.UI.Reactor.sln` to apply most of them automatically.
+
+- Every file starts with the license header; namespaces are file-scoped; braces follow the Allman style, and an
+  embedded statement without braces goes on its own line.
+- Accessibility modifiers are always written. Instance fields are `_camelCase`, static fields `s_camelCase`, constants
+  `PascalCase`. No `this.`; language keywords (`string`, `int`) instead of type names; `var` only when the type is
+  apparent from the right-hand side.
+- Members are ordered: fields, constructors, events, properties, methods; public before private.
+- Asynchronous methods end with `Async` (except `async void` handlers). A method named `Dispose` implies `IDisposable`.
+- Everything is in English: identifiers (named like SwiftUI: `Button`, `VStack`, `Theme`), comments and documentation.
+- Comments are complete sentences, with a capital letter and a final period, on their own line above the code.
+- Every public member of the libraries has XML documentation in the style of the .NET API documentation: a
+  `<summary>` in the third person ("Gets or sets…", "Initializes a new instance of the X class."), then `<param>`,
+  `<returns>` and `<exception>`; details go in `<remarks>` and samples in `<example>`. A missing comment is a build
+  error (CS1591).
+
+## API conventions
+
 - One type per file; the folder gives the namespace.
 - Views and themes are immutable records, customized with `with` and chainable `WithXxx` methods.
 - View factories live in `Ui` (no `new` in views) and take their children first; settings go through modifiers.
 - Every modifier exists in `Modifiers` (generic) **and** `ComponentModifiers` (same signature).
 - A control with a value gets a `Binding<T>` overload.
-- `internal` by default; every public member has an XML comment and is designed to last.
+- `internal` by default; a public type follows the .NET Framework Design Guidelines and is designed to last.
 - Diagnostics, exceptions and logs are in English, in the style of Microsoft's messages. Logs start with `[Reactor]`.
 
 ## Quality bar
 
-- The build treats warnings as errors and runs the .NET analyzers: fix a warning, do not suppress it.
+- The build treats warnings as errors, runs the .NET analyzers and enforces the code style: fix a warning, do not
+  suppress it.
 - No magic numbers or strings: use a named constant or a theme value.
 - No dead code, legacy overloads or duplicated APIs.
 - Every fixed bug comes with a test that fails without the fix.

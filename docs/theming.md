@@ -11,7 +11,7 @@ var sable = Theme.Light.Named("Sable")          // starts from Light: a light th
     .WithFont("Georgia", bodySize: 15)
     .WithRadius(12);
 
-var sableNight = Theme.Dark.Named("Sable night") // starts from Dark: a dark theme
+var sableNight = Theme.Dark.Named("Sable Night") // starts from Dark: a dark theme
     .WithAccent("#F97316");
 ```
 

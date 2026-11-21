@@ -69,7 +69,7 @@ src/Avalonia.UI.Reactor/
   Widgets/         ReactorButton, ReactorCheckBox, ReactorTextBox, their look (ReactorThemes), Surface, DrawingCanvas
 samples/TodoDemo/
   Program.cs       ReactorApp.Run<TodoApp>(new WindowOptions { … })
-  DemoThemes.cs    Standard and Sable families (Sable and Sable night, with control templates)
+  DemoThemes.cs    Standard and Sable families (Sable and Sable Night, with control templates)
   Components/      TodoApp, CounterCard, TodoList
   Models/          Todo, Filter
   Widgets.cs       Card, Segmented, ProgressRing (stateless components)
