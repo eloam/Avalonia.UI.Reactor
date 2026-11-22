@@ -1,8 +1,6 @@
 // Copyright (c) Yohann Breuil.
 // Licensed under the MIT License.
 
-using TodoDemo;
-
 ReactorApp.Run<TodoApp>(new WindowOptions
 {
     Title = "Reactor — Todo",

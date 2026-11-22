@@ -1,37 +1,27 @@
 // Copyright (c) Yohann Breuil.
 // Licensed under the MIT License.
 
-using Avalonia.UI.Reactor.Primitives;
-using Avalonia.UI.Reactor.State;
-using Avalonia.UI.Reactor.Theming;
-using Avalonia.UI.Reactor.Views;
-
 namespace TodoDemo.Components;
 
 /// <summary>
-/// The root: the menu bar, the header with the theme picker, and two components that each have their own state.
-/// The chosen theme is state like any other: the view derives from it, nothing is called to apply it.
+/// Represents the root of the sample: the menu bar, the header with the theme picker, and two components that each
+/// have their own state.
 /// </summary>
+/// <remarks>
+/// The chosen theme is state like any other: the view derives from it, nothing is called to apply it.
+/// </remarks>
 public sealed partial class TodoApp : Component
 {
-    [State] private partial string ThemeName { get; set; } = "Standard";
-
-    /// <summary>
-    /// Gets or sets the forced color scheme; <see langword="null"/> for the system one.
-    /// </summary>
-    [State]
-    private partial ColorScheme? Scheme { get; set; }
-
-    [State] private partial bool ShowCounter { get; set; } = true;
-    [State] private partial bool ShowAbout { get; set; }
-    [State] private partial int AboutSeconds { get; set; }
+    // The tick of the clock of the About card.
+    private static readonly TimeSpan s_clockInterval = TimeSpan.FromSeconds(1);
 
     private readonly CounterCard _counter = new();
     private readonly TodoList _todos = new();
 
+    /// <inheritdoc/>
     public override View Body =>
         VStack(
-                // A separate block: checking a task re-evaluates the bar only, not the whole screen.
+                // Observed on its own: checking a task re-evaluates the bar only, not the whole screen.
                 Observe(Menus),
                 VStack(() =>
                     {
@@ -53,10 +43,19 @@ public sealed partial class TodoApp : Component
             // …in light, in dark, or following the system.
             .ColorScheme(Scheme);
 
-    /// <summary>
-    /// Drawn at the top of the window, or the system menu bar when the platform has one (macOS).
-    /// Check marks, disabled items and lists follow the state, like the rest of the view.
-    /// </summary>
+    [State] private partial string ThemeName { get; set; } = DemoThemes.StandardFamily;
+
+    // The forced color scheme, or null to follow the system.
+    [State] private partial ColorScheme? Scheme { get; set; }
+
+    [State] private partial bool ShowCounter { get; set; } = true;
+
+    [State] private partial bool ShowAbout { get; set; }
+
+    [State] private partial int AboutSeconds { get; set; }
+
+    // Drawn at the top of the window, or the system menu bar when the platform has one (macOS). Check marks, disabled
+    // items and lists follow the state, like the rest of the view.
     private View Menus() =>
         MenuBar(
             Menu("&File",
@@ -65,8 +64,8 @@ public sealed partial class TodoApp : Component
                 Divider(),
                 MenuItem("&Quit", ReactorApp.Quit).Shortcut("Ctrl+Q")),
             Menu("&View",
-                Menu("&Theme", [.. Themes.Families.Select(f =>
-                    MenuItem(f.Name, () => ThemeName = f.Name).Checked(ThemeName == f.Name))]),
+                Menu("&Theme", [.. Themes.Families.Select(family =>
+                    MenuItem(family.Name, () => ThemeName = family.Name).Checked(ThemeName == family.Name))]),
                 Menu("&Appearance",
                     MenuItem("&System", () => Scheme = null).Checked(Scheme is null),
                     MenuItem("&Light", () => Scheme = ColorScheme.Light).Checked(Scheme == ColorScheme.Light),
@@ -80,10 +79,10 @@ public sealed partial class TodoApp : Component
         VStack(
                 HStack(
                         Text("Reactor").Font(TextStyle.Title),
-                        // The row takes the whole width: the picker goes to the right.
+                        // The row takes the whole width: the pickers go to the right.
                         Spacer(),
                         // The families are read from the catalog: adding one adds it here.
-                        Segmented(Bind.ThemeName, [.. Themes.Families.Select(f => (f.Name, f.Name))]),
+                        Segmented(Bind.ThemeName, [.. Themes.Families.Select(family => (family.Name, family.Name))]),
                         Segmented(Bind.Scheme,
                             ("System", null), ("Light", ColorScheme.Light), ("Dark", ColorScheme.Dark)))
                     .Spacing(12),
@@ -93,15 +92,14 @@ public sealed partial class TodoApp : Component
     private View About() =>
         Card(
             Text("About").Font(TextStyle.Headline),
-            Text("Views and state in C#, rendered by Avalonia's controls.")
-                .Foreground(ColorRole.TextMuted),
-            // A separately observed block, re-evaluated alone every second. The clock starts when the card opens and its
-            // task is cancelled when the card closes: nothing is left running.
+            Text("Views and state in C#, rendered by Avalonia's controls.").Foreground(ColorRole.TextMuted),
+            // Observed on its own, re-evaluated alone every second. The clock starts when the card opens, and its task is
+            // cancelled when the card closes: nothing is left running.
             Observe(() => Text($"Open for {AboutSeconds} s").Foreground(ColorRole.TextMuted))
                 .OnAppear(() => AboutSeconds = 0)
                 .Task(async cancellation =>
                 {
-                    using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+                    using var timer = new PeriodicTimer(s_clockInterval);
                     while (await timer.WaitForNextTickAsync(cancellation))
                         AboutSeconds++;
                 }),
