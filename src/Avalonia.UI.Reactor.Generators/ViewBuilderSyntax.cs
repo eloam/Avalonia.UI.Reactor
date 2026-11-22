@@ -10,8 +10,8 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Avalonia.UI.Reactor.Generators;
 
 /// <summary>
-/// Provides the rules of view builder blocks shared by the generator, which intercepts their view statements, and by the
-/// analyzer, which must not report these statements as views never displayed.
+/// Provides the rules of view builder blocks shared by the generator, which intercepts their view statements, the
+/// analyzers, which check their statements, and the code fixes.
 /// </summary>
 internal static class ViewBuilderSyntax
 {
@@ -24,6 +24,21 @@ internal static class ViewBuilderSyntax
     /// The full name of the base type of views.
     /// </summary>
     public const string ViewTypeName = "Avalonia.UI.Reactor.Views.View";
+
+    /// <summary>
+    /// The full name of the base type of components, which convert to views.
+    /// </summary>
+    public const string ComponentTypeName = "Avalonia.UI.Reactor.State.Component";
+
+    /// <summary>
+    /// The full name of the type of the view factories.
+    /// </summary>
+    public const string FactoriesTypeName = "Avalonia.UI.Reactor.Views.Ui";
+
+    /// <summary>
+    /// The name of the factory that adds any view to a block.
+    /// </summary>
+    public const string ShowName = "Show";
 
     /// <summary>
     /// Finds, from the syntax only, the lambda whose block would contain a statement.
@@ -61,6 +76,28 @@ internal static class ViewBuilderSyntax
     }
 
     /// <summary>
+    /// Finds the lambda whose code contains a node, at any depth of statements, without crossing a local function.
+    /// </summary>
+    /// <param name="node">The node.</param>
+    /// <returns>The innermost lambda that contains the node, or <see langword="null"/> if the node is in a local
+    /// function or directly in a member.</returns>
+    public static AnonymousFunctionExpressionSyntax? EnclosingLambda(SyntaxNode node)
+    {
+        for (SyntaxNode? parent = node.Parent; parent is not null; parent = parent.Parent)
+        {
+            switch (parent)
+            {
+                case AnonymousFunctionExpressionSyntax lambda:
+                    return lambda;
+                case LocalFunctionStatementSyntax or MemberDeclarationSyntax:
+                    return null;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Determines whether a node is a statement of a view builder block.
     /// </summary>
     /// <remarks>
@@ -75,6 +112,49 @@ internal static class ViewBuilderSyntax
         BlockLambdaOf(node) is { } lambda && IsBlockLambda(lambda, model, cancellation);
 
     /// <summary>
+    /// Determines whether a lambda is a view builder block: it is passed to a <c>[ViewBuilder]</c> parameter.
+    /// </summary>
+    /// <remarks>
+    /// The parameter comes from the semantic model, so that a named argument (<c>content: () =&gt; { … }</c>) is found
+    /// wherever it is written. A block converts to a delegate that returns nothing: with a <c>Func&lt;…&gt;</c>
+    /// overload, <c>() =&gt; Text("a")</c> is a value, not a block.
+    /// </remarks>
+    /// <param name="lambda">The lambda.</param>
+    /// <param name="model">The semantic model of the tree.</param>
+    /// <param name="cancellation">The cancellation of the analysis.</param>
+    /// <returns><see langword="true"/> if the lambda is a block; otherwise, <see langword="false"/>.</returns>
+    public static bool IsBlockLambda(AnonymousFunctionExpressionSyntax lambda, SemanticModel model, CancellationToken cancellation) =>
+        lambda.Parent is ArgumentSyntax argument
+        && model.GetOperation(argument, cancellation) is IArgumentOperation { Parameter: { } parameter }
+        && IsBlockParameter(parameter);
+
+    /// <summary>
+    /// Determines whether a lambda may be a view builder block while the call that receives it does not resolve, for
+    /// example because the block contains an error that a code fix corrects.
+    /// </summary>
+    /// <param name="lambda">The lambda.</param>
+    /// <param name="model">The semantic model of the tree.</param>
+    /// <param name="cancellation">The cancellation of the analysis.</param>
+    /// <returns><see langword="true"/> if the lambda is a block, or if one of the candidate methods of the call takes a
+    /// block in its place; otherwise, <see langword="false"/>.</returns>
+    public static bool MayBeBlockLambda(AnonymousFunctionExpressionSyntax lambda, SemanticModel model, CancellationToken cancellation)
+    {
+        if (IsBlockLambda(lambda, model, cancellation))
+            return true;
+        if (lambda.Parent is not ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } list } argument)
+            return false;
+
+        int position = list.Arguments.IndexOf(argument);
+        return model.GetSymbolInfo(invocation, cancellation).CandidateSymbols.OfType<IMethodSymbol>().Any(method =>
+        {
+            IParameterSymbol? parameter = argument.NameColon is { } name
+                ? method.Parameters.FirstOrDefault(p => p.Name == name.Name.Identifier.ValueText)
+                : position < method.Parameters.Length ? method.Parameters[position] : null;
+            return parameter is not null && IsBlockParameter(parameter);
+        });
+    }
+
+    /// <summary>
     /// Determines whether a method can be intercepted in a block: it returns a view, it is not the invocation of a
     /// delegate, and the generated code can call it.
     /// </summary>
@@ -83,7 +163,7 @@ internal static class ViewBuilderSyntax
     public static bool IsInterceptable(IMethodSymbol method)
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
-        if (definition.MethodKind != MethodKind.Ordinary || !ReturnsView(definition.ReturnType))
+        if (definition.MethodKind != MethodKind.Ordinary || !IsView(definition.ReturnType))
             return false;
         if (definition.Parameters.Any(p => p.RefKind != RefKind.None) || definition.ContainingType.IsGenericType)
             return false;
@@ -116,31 +196,49 @@ internal static class ViewBuilderSyntax
         return true;
     }
 
-    // The parameter of the lambda comes from the semantic model, so that a named argument (content: () => { … }) is
-    // found wherever it is written. A block converts to a delegate that returns nothing: with a Func<…> overload,
-    // () => Text("a") is a value, not a block.
-    private static bool IsBlockLambda(AnonymousFunctionExpressionSyntax lambda, SemanticModel model, CancellationToken cancellation)
-    {
-        if (lambda.Parent is not ArgumentSyntax argument
-            || model.GetOperation(argument, cancellation) is not IArgumentOperation { Parameter: { } parameter }
-            || parameter.Type is not INamedTypeSymbol { DelegateInvokeMethod.ReturnsVoid: true })
-        {
-            return false;
-        }
+    /// <summary>
+    /// Determines whether a method is <c>Ui.Show</c>, which adds any view to a block.
+    /// </summary>
+    /// <param name="method">The method.</param>
+    /// <returns><see langword="true"/> if the method is <c>Ui.Show</c>; otherwise, <see langword="false"/>.</returns>
+    public static bool IsShow(IMethodSymbol method) =>
+        method.Name == ShowName && method.ContainingType.ToDisplayString() == FactoriesTypeName;
 
-        return parameter.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == AttributeName);
-    }
+    /// <summary>
+    /// Determines whether a type is a view: a type derived from <c>View</c>, or a type parameter constrained to it, as
+    /// the modifiers return.
+    /// </summary>
+    /// <param name="type">The type.</param>
+    /// <returns><see langword="true"/> if the type is a view; otherwise, <see langword="false"/>.</returns>
+    public static bool IsView(ITypeSymbol? type) =>
+        DerivesFrom(type, ViewTypeName) || (type is ITypeParameterSymbol parameter && parameter.ConstraintTypes.Any(IsView));
 
-    private static bool ReturnsView(ITypeSymbol type)
+    /// <summary>
+    /// Determines whether a type is a view or a component, which converts to a view.
+    /// </summary>
+    /// <param name="type">The type.</param>
+    /// <returns><see langword="true"/> if the type is a view or a component; otherwise, <see langword="false"/>.</returns>
+    public static bool IsViewOrComponent(ITypeSymbol? type) => IsView(type) || DerivesFrom(type, ComponentTypeName);
+
+    /// <summary>
+    /// Determines whether a parameter receives a block: it is marked <c>[ViewBuilder]</c>, and its delegate returns
+    /// nothing.
+    /// </summary>
+    /// <param name="parameter">The parameter.</param>
+    /// <returns><see langword="true"/> if the parameter receives a block; otherwise, <see langword="false"/>.</returns>
+    public static bool IsBlockParameter(IParameterSymbol parameter) =>
+        parameter.Type is INamedTypeSymbol { DelegateInvokeMethod.ReturnsVoid: true }
+        && parameter.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == AttributeName);
+
+    private static bool DerivesFrom(ITypeSymbol? type, string baseTypeName)
     {
         for (ITypeSymbol? t = type; t is not null; t = t.BaseType)
         {
-            if (t.ToDisplayString() == ViewTypeName)
+            if (t.ToDisplayString() == baseTypeName)
                 return true;
         }
 
-        // A type parameter constrained to a view (T : View), as the modifiers return.
-        return type is ITypeParameterSymbol parameter && parameter.ConstraintTypes.Any(ReturnsView);
+        return false;
     }
 
     private static bool IsAssemblyVisible(Accessibility accessibility) =>

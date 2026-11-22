@@ -33,7 +33,17 @@ public sealed partial class TodoApp : Component
         VStack(
                 // A separate block: checking a task re-evaluates the bar only, not the whole screen.
                 Observe(Menus),
-                VStack(Header(), ShowAbout ? About() : null, ShowCounter ? _counter : null, _todos)
+                VStack(() =>
+                    {
+                        Header();
+                        if (ShowAbout)
+                            About();
+
+                        // A component is not a statement: Show adds it to the block.
+                        if (ShowCounter)
+                            Show(_counter);
+                        Show(_todos);
+                    })
                     .Spacing(16)
                     .Padding(24))
             .Spacing(0)

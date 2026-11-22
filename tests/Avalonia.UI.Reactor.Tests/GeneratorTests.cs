@@ -2,11 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Globalization;
-using Avalonia.UI.Reactor.Generators;
-using Avalonia.UI.Reactor.State;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Diagnostics;
+using static Avalonia.UI.Reactor.Tests.Snippets;
 
 namespace Avalonia.UI.Reactor.Tests;
 
@@ -15,10 +12,6 @@ namespace Avalonia.UI.Reactor.Tests;
 /// </summary>
 public class GeneratorTests
 {
-    private const string Usings =
-        "using System; using System.Collections.Generic; using Avalonia.UI.Reactor.Primitives; using Avalonia.UI.Reactor.State; " +
-        "using Avalonia.UI.Reactor.Theming; using Avalonia.UI.Reactor.Views; using static Avalonia.UI.Reactor.Views.Ui;\n";
-
     [Fact]
     public void Valid_state_compiles_without_diagnostics()
     {
@@ -269,7 +262,7 @@ public class GeneratorTests
     [Fact]
     public void View_statements_outside_the_block_itself_are_reported()
     {
-        int lost = Compile("""
+        IReadOnlyList<Diagnostic> diagnostics = Compile("""
             public class C : Component
             {
                 public override View Body => VStack(() =>
@@ -279,9 +272,10 @@ public class GeneratorTests
                         Text("In a loop");
                 });
             }
-            """).Count(d => d.Id == "MVU013");
+            """);
 
-        Assert.Equal(2, lost);
+        // The view of the action is lost; the loop is reported as a whole by MVU014.
+        Assert.Equal(["MVU013", "MVU014"], diagnostics.Select(d => d.Id).Order());
     }
 
     [Fact]
@@ -426,33 +420,5 @@ public class GeneratorTests
             // Obsolete member, as an error.
             """), d => d.Id == "CS0619");
         Assert.Contains(".Theme(", error.GetMessage(CultureInfo.InvariantCulture));
-    }
-
-    private static string[] Ids(string code) => [.. Compile(code).Select(d => d.Id).Distinct()];
-
-    /// <summary>
-    /// Compiles the snippet with the generator and the analyzer; returns the warnings and errors.
-    /// </summary>
-    private static IReadOnlyList<Diagnostic> Compile(string code)
-    {
-        var parse = new CSharpParseOptions(LanguageVersion.Preview);
-        string[] tpa = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
-        IEnumerable<PortableExecutableReference> refs = tpa.Append(typeof(Component).Assembly.Location)
-            .DistinctBy(Path.GetFileName)
-            .Select(p => MetadataReference.CreateFromFile(p));
-
-        var compilation = CSharpCompilation.Create("Snippet",
-            [CSharpSyntaxTree.ParseText(Usings + code, parse)], refs,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
-
-        CSharpGeneratorDriver.Create([new StateGenerator().AsSourceGenerator()], parseOptions: parse)
-            .RunGeneratorsAndUpdateCompilation(compilation, out Compilation? output, out _);
-
-        return
-        [
-            .. output.WithAnalyzers([new StateAnalyzer()])
-                .GetAllDiagnosticsAsync().Result
-                .Where(d => d.Severity >= DiagnosticSeverity.Warning),
-        ];
     }
 }

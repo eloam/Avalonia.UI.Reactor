@@ -16,4 +16,9 @@
     <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
   </ItemGroup>
 
+  <!-- The code fixes share the rules of view builder blocks (ViewBuilderSyntax). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Avalonia.UI.Reactor.CodeFixes" />
+  </ItemGroup>
+
 </Project>

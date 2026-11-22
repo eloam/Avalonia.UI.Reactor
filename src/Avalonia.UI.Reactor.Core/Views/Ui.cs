@@ -180,6 +180,31 @@ public static class Ui
     public static GroupView Group([ViewBuilder] Action content) => new(Flatten(ViewCollector.Collect(content, content)));
 
     /// <summary>
+    /// Adds a view to the view builder block being run: a component, a variable, a conditional or a
+    /// <see langword="switch"/> expression, which C# does not accept as statements.
+    /// </summary>
+    /// <remarks>
+    /// A call that creates a view (<c>Text("a");</c>) is already a statement of the block: <c>Show</c> is for the other
+    /// expressions. A <see langword="null"/> view adds nothing, as a <see langword="null"/> child does.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// VStack(() =&gt;
+    /// {
+    ///     Show(_counter);
+    ///     Show(Tab switch
+    ///     {
+    ///         Tab.Home =&gt; Home(),
+    ///         Tab.Settings =&gt; Settings(),
+    ///     });
+    /// })
+    /// </code>
+    /// </example>
+    /// <param name="view">The view to add, or <see langword="null"/> to add nothing.</param>
+    /// <exception cref="InvalidOperationException">The call is not in a view builder block.</exception>
+    public static void Show(View? view) => ViewCollector.Show(view);
+
+    /// <summary>
     /// Creates a free drawing: <c>Canvas(d =&gt; d.FillCircle(d.Bounds.Center, 8, ColorRole.Accent)).Size(16, 16)</c>.
     /// </summary>
     /// <param name="draw">The function that draws the canvas; it is called again when the state it reads changes.</param>

@@ -43,7 +43,8 @@ Avalonia event (click, typing) → action → state changed → subscribed scope
 |---|---|---|
 | `Avalonia.UI.Reactor.Core` | The API of applications: views, DSL, modifiers, themes, reactive state, scopes, hot reload | nothing |
 | `Avalonia.UI.Reactor` | `ReactorApp`, `ReactorHost`, the reconciler, panels, menus, our controls and their look | Avalonia 12 |
-| `Avalonia.UI.Reactor.Generators` | Source generators of `[State]` and of view builder blocks, and the diagnostics analyzer, run at compile time | Roslyn |
+| `Avalonia.UI.Reactor.Generators` | Source generators of `[State]` and of view builder blocks, and the diagnostics analyzers, run at compile time | Roslyn |
+| `Avalonia.UI.Reactor.CodeFixes` | Code fixes and refactoring of view builder blocks, run by the IDE (a separate assembly: analyzers must not reference the workspaces) | Roslyn workspaces |
 | `samples/TodoDemo` | Sample app: counter, task list, async action, theme picker, menu bar | — |
 | `tests/Avalonia.UI.Reactor.Tests` | Tests in real headless windows, and generator tests | xUnit v3, Avalonia.Headless |
 
@@ -61,7 +62,7 @@ src/Avalonia.UI.Reactor.Core/
   Views/           View and its records, Ui (the DSL), Modifiers, ComponentModifiers, ControlTemplates, MenuShortcuts
   State/           Component, [State], Signal, Scope, StateList, Binding
   Rendering/       IDrawingContext and DrawScope (Canvas), CheckboxGlyph
-  Runtime/         HotReload
+  Runtime/         HotReload, ViewCollector (the views of view builder blocks)
 src/Avalonia.UI.Reactor/
   ReactorApp.cs    entry point, WindowOptions, AvaloniaViews (Native)
   Hosting/         ReactorHost (updates, errors, zoom, shortcuts), ReactorApplication

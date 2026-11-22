@@ -52,6 +52,19 @@ public static class ViewCollector
     }
 
     /// <summary>
+    /// Adds a view to the block being run, for <see cref="Ui.Show(View)"/>.
+    /// </summary>
+    /// <param name="view">The view, or <see langword="null"/> to add nothing.</param>
+    /// <exception cref="InvalidOperationException">No block is being run.</exception>
+    internal static void Show(View? view)
+    {
+        List<View> views = Current ?? throw new InvalidOperationException(
+            "'Show' was called outside a view builder block. Call it in a block passed to a container such as 'VStack', or pass the view to the container.");
+        if (view is not null)
+            views.Add(view);
+    }
+
+    /// <summary>
     /// Runs a block and returns the views that its statements emitted.
     /// </summary>
     /// <param name="block">The block, whose assembly must have been compiled with the generator.</param>

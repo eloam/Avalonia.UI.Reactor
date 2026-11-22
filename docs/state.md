@@ -65,7 +65,9 @@ It also writes the `Bind` property that exposes the bindings; it stays private w
 
 ## Diagnostics
 
-An analyzer ([StateAnalyzer.cs](../src/Avalonia.UI.Reactor.Generators/StateAnalyzer.cs)) reports mistakes as you type.
+Two analyzers ([StateAnalyzer.cs](../src/Avalonia.UI.Reactor.Generators/StateAnalyzer.cs) and
+[ViewBuilderAnalyzer.cs](../src/Avalonia.UI.Reactor.Generators/ViewBuilderAnalyzer.cs), for view builder blocks) report
+mistakes as you type; the IDE offers fixes for the blocks (see [Blocks](views.md#blocks)).
 
 | ID | Severity | Description |
 |---|---|---|
@@ -76,6 +78,8 @@ An analyzer ([StateAnalyzer.cs](../src/Avalonia.UI.Reactor.Generators/StateAnaly
 | `MVU010` | Warning | A field displayed by the view and modified, but not `[State]`: the screen would not follow |
 | `MVU011` | Warning | A `List<T>` displayed by the view and modified: use `StateList<T>` |
 | `MVU012` | Error | State passed to a control without its binding (`TextField(Name)`, `Checkbox(todo.Done)`): the message gives `Bind.Name`, `todo.Bind.Done` |
-| `MVU013` | Error | A view created as a statement, whose value is not used (`Text("Title");`): it would never be displayed |
+| `MVU013` | Error | A view created as a statement, whose value is not used (`Text("Title");`), or `Show(…)` outside a block: it would never be displayed |
+| `MVU014` | Error | A statement of a view builder block that adds no view (`Count++;`, a loop, a `try`, an `async` block): the message says what to write |
+| `MVU015` | Warning | A `switch` statement of a block that misses values of an enumeration: these values would show nothing |
 | `MVU016` | Error | A component with state created in a view (`VStack(new Counter())`): a new instance on every update loses its state |
 | `MVU017` | Warning | A task given to `.Task(…)` that ignores its cancellation token: it would keep running after its view disappears |

@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -21,7 +22,8 @@ namespace Avalonia.UI.Reactor.Generators;
 /// without being observed, so that the interface would not update (MVU010–011), state passed to a control without its
 /// binding, so that the control would not change it (MVU012), a view created but never displayed (MVU013), a component
 /// with state created in a view, which would lose its state on every update (MVU016), and a task that ignores its
-/// cancellation token, which would keep running after its view disappears (MVU017).
+/// cancellation token, which would keep running after its view disappears (MVU017). The statements of view builder
+/// blocks are checked by <see cref="ViewBuilderAnalyzer"/>.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class StateAnalyzer : DiagnosticAnalyzer
@@ -116,6 +118,18 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
         description: "A view is a description that appears only when 'Body' returns it or a container receives it. A view created as a statement, whose value is not used, is never displayed. Pass it to a container ('VStack(a, b)'), return it, or remove the statement.");
 
     /// <summary>
+    /// Describes MVU013 for <c>Show</c> called outside a view builder block: its view is never displayed.
+    /// </summary>
+    public static readonly DiagnosticDescriptor ShowOutsideBlock = new(
+        id: "MVU013",
+        title: "View is created but never displayed",
+        messageFormat: "'Show' is not called in a view builder block, so its view is never displayed; call it in a block such as 'VStack(() => { … })', or pass the view to a container",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "'Show' adds a view to the view builder block being run ('VStack(() => { … })'). Called anywhere else, in an action for example, its view is never displayed and the call throws. Call it in a block, or pass the view to a container ('VStack(a, b)').");
+
+    /// <summary>
     /// Describes MVU016: a component with state created in a view.
     /// </summary>
     public static readonly DiagnosticDescriptor ComponentCreatedInView = new(
@@ -142,7 +156,7 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(
             NotPartialProperty, NotPartialType, InvalidShape, ReservedName, UnobservedMember, UnobservedList, UnboundState,
-            DiscardedView, ComponentCreatedInView, IgnoredCancellation);
+            DiscardedView, ShowOutsideBlock, ComponentCreatedInView, IgnoredCancellation);
 
     private static readonly ImmutableHashSet<string> s_listMutators = ImmutableHashSet.Create(
         "Add", "AddRange", "Insert", "InsertRange", "Remove", "RemoveAt", "RemoveAll", "RemoveRange", "Clear", "Sort", "Reverse");
@@ -201,7 +215,7 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
                 };
                 if (member is null || member.IsStatic || !IsComponentMember(member, component))
                     return;
-                if (IsWriteTarget(c.Operation) || InsideLambda(c.Operation))
+                if (IsWriteTarget(c.Operation) || InsideLambda(c.Operation, c.CancellationToken))
                     return;
                 if (IsViewMember(c.ContainingSymbol, view))
                     readInView.TryAdd(member, 0);
@@ -305,30 +319,33 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             state.Name, method?.Identifier.Text ?? invocation.Expression.ToString(), suggestion));
     }
 
-    // MVU013: Text("Title"); as a statement, outside a view builder block. The view is a description: unused, it is lost
-    // without any error. Only a call or a creation makes a view; an assignment (node.View = view) has the type of a view
-    // but keeps it.
+    // MVU013: Text("Title"); or Show(view); as a statement, outside a view builder block. The view is a description:
+    // unused, it is lost without any error. Only a call or a creation makes a view; an assignment (node.View = view) has
+    // the type of a view but keeps it.
     private static void CheckDiscardedView(OperationAnalysisContext c, INamedTypeSymbol view)
     {
         IOperation expression = ((IExpressionStatementOperation)c.Operation).Operation;
+        bool show = expression is IInvocationOperation { TargetMethod: { } target } && ViewBuilderSyntax.IsShow(target);
         string? name = expression switch
         {
             IInvocationOperation invocation when DerivesFrom(invocation.Type, view) => invocation.TargetMethod.Name,
             IObjectCreationOperation creation when DerivesFrom(creation.Type, view) => creation.Type!.Name,
             _ => null,
         };
-        if (name is null)
+        if (name is null && !show)
             return;
 
-        // In a view builder block, the generator intercepts the statement: the view joins the block.
-        if (expression is IInvocationOperation { TargetMethod: { } method }
-            && ViewBuilderSyntax.IsInterceptable(method)
-            && ViewBuilderSyntax.IsBlockStatement(c.Operation.Syntax, c.Operation.SemanticModel!, c.CancellationToken))
+        // In a view builder block, the generator intercepts the statement and the view joins the block; MVU014 reports a
+        // statement that cannot, and the loop or the try that would contain it.
+        if (ViewBuilderSyntax.EnclosingLambda(c.Operation.Syntax) is { } lambda
+            && ViewBuilderSyntax.IsBlockLambda(lambda, c.Operation.SemanticModel!, c.CancellationToken))
         {
             return;
         }
 
-        c.ReportDiagnostic(Diagnostic.Create(DiscardedView, c.Operation.Syntax.GetLocation(), name));
+        c.ReportDiagnostic(show
+            ? Diagnostic.Create(ShowOutsideBlock, c.Operation.Syntax.GetLocation())
+            : Diagnostic.Create(DiscardedView, c.Operation.Syntax.GetLocation(), name));
     }
 
     // MVU016: new CounterCard() in Body, or in a method that returns a view. A component created in an action, kept in a
@@ -339,7 +356,7 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
         var creation = (IObjectCreationOperation)c.Operation;
         if (creation.Type is not INamedTypeSymbol type || !DerivesFrom(type, component) || !DeclaresState(type, stateAttr))
             return;
-        if (!IsViewMember(c.ContainingSymbol, view) || RunsOutsideTheView(creation, view) || IsKept(creation))
+        if (!IsViewMember(c.ContainingSymbol, view) || RunsOutsideTheView(creation, view, c.CancellationToken) || IsKept(creation))
             return;
 
         c.ReportDiagnostic(Diagnostic.Create(ComponentCreatedInView, creation.Syntax.GetLocation(), type.Name));
@@ -378,14 +395,14 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
     }
 
     // Inside a lambda or a local function that does not build a view: an action, which runs later, or a factory, whose
-    // result is kept by its caller.
-    private static bool RunsOutsideTheView(IOperation op, INamedTypeSymbol view)
+    // result is kept by its caller. A view builder block returns nothing, but it builds the view.
+    private static bool RunsOutsideTheView(IOperation op, INamedTypeSymbol view, CancellationToken cancellation)
     {
         for (IOperation? p = op.Parent; p is not null; p = p.Parent)
         {
             IMethodSymbol? function = p switch
             {
-                IAnonymousFunctionOperation lambda => lambda.Symbol,
+                IAnonymousFunctionOperation lambda when !IsBlock(lambda, cancellation) => lambda.Symbol,
                 ILocalFunctionOperation local => local.Symbol,
                 _ => null,
             };
@@ -395,6 +412,11 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    // A view builder block: a lambda passed to a [ViewBuilder] parameter, which runs while the view is built.
+    private static bool IsBlock(IAnonymousFunctionOperation lambda, CancellationToken cancellation) =>
+        lambda.Syntax is AnonymousFunctionExpressionSyntax syntax
+        && ViewBuilderSyntax.IsBlockLambda(syntax, lambda.SemanticModel!, cancellation);
 
     // Assigned to a field or a property (_counter ??= new CounterCard()): the instance is kept from one update to the next.
     private static bool IsKept(IOperation op)
@@ -551,11 +573,13 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
         _ => false,
     };
 
-    private static bool InsideLambda(IOperation op)
+    // Inside a lambda that runs outside the view, an action for example. A view builder block is part of the view: what
+    // it reads is displayed.
+    private static bool InsideLambda(IOperation op, CancellationToken cancellation)
     {
         for (IOperation? p = op.Parent; p is not null; p = p.Parent)
         {
-            if (p is IAnonymousFunctionOperation)
+            if (p is IAnonymousFunctionOperation lambda && !IsBlock(lambda, cancellation))
                 return true;
         }
 

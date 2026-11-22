@@ -1,11 +1,14 @@
 <Project>
   <!--
-    The [State] and view builder generators and the analyzer, plugged into every project of the repository (an external
-    application gets them through the Avalonia.UI.Reactor.Core package, see Avalonia.UI.Reactor.Core.csproj).
-    PrivateAssets: the generator is not a dependency of the packages, it is embedded in Avalonia.UI.Reactor.Core.
+    The [State] and view builder generators, the analyzers and their code fixes, plugged into every project of the
+    repository (an external application gets them through the Avalonia.UI.Reactor.Core package, see
+    Avalonia.UI.Reactor.Core.csproj). PrivateAssets: they are not a dependency of the packages, they are embedded in
+    Avalonia.UI.Reactor.Core.
   -->
-  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Avalonia.UI.Reactor.Generators' and '$(ReactorAutoGenerator)' != 'false'">
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Avalonia.UI.Reactor.Generators' and '$(MSBuildProjectName)' != 'Avalonia.UI.Reactor.CodeFixes' and '$(ReactorAutoGenerator)' != 'false'">
     <ProjectReference Include="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.Generators/Avalonia.UI.Reactor.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.CodeFixes/Avalonia.UI.Reactor.CodeFixes.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 

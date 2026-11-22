@@ -66,9 +66,32 @@ VStack(() =>
 
 - `VStack`, `HStack`, `ZStack`, `Group` and the rows of `ForEach` take a block:
   `ForEach(todos, todo => { Row(todo); if (todo.IsLate) Badge(); })`.
-- A block holds view statements (a call that returns a view, with its modifiers), `if`, `switch`, local variables and
-  `return` for an early exit. A view created in a loop, a `try` or an action (`Button("Add", () => …)`) does not belong
-  to the block: MVU013 reports it.
+- `Show(…)` adds any other view: a component, a variable, a conditional or a `switch` expression, which C# does not
+  accept as statements. A `null` view adds nothing.
+
+  ```csharp
+  VStack(() =>
+  {
+      if (ShowCounter)
+          Show(_counter);
+      Show(Tab switch
+      {
+          Tab.Home => Home(),
+          Tab.Settings => Settings(),
+      });
+  })
+  ```
+
+- A block runs on every update, so it describes views and nothing else, as in SwiftUI: view statements (a call that
+  returns a view, with its modifiers), `Show(…)`, `if`, `switch`, local variables, `return` for an early exit, `throw`,
+  a discard (`_ = …;`) and calls to `[Conditional]` methods such as `Debug.WriteLine`. MVU014 reports the rest: a change
+  of state (`Count++;`), a loop (use `ForEach`, which keeps a row per item), a `try`, a `using`, an `async` block. A view
+  created in an action (`Button("Add", () => …)`) does not belong to the block: MVU013 reports it.
+- A `switch` statement does not check that every value of an enumeration is handled: MVU015 lists the values it
+  misses. A `switch` expression given to `Show` is checked by the compiler.
+- The IDE offers three fixes: **Convert to block** on a container whose arguments contain a `? :` or a `null`,
+  **Wrap in 'Show'** on a component or a conditional written alone in a block (CS0201), and **Convert to 'ForEach'** on
+  a `foreach` loop in a block.
 - A method of the application takes a block when its parameter is marked `[ViewBuilder]`:
 
   ```csharp

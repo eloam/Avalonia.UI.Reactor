@@ -74,10 +74,11 @@ public sealed partial class SignUp : Component
 - **Themes declared by the view.** Light and dark families that follow the system, named colors and styles, and
   `.Theme("Sable")` on any view or component. No visual value is hard-coded.
 - **Control templates.** Replace the whole look of a button, checkbox or text field with a view, keeping its behavior.
-- **View builder blocks.** `VStack(() => { … })` takes `if`, `switch` and local variables; the generator intercepts
-  each view statement at compile time, so the code runs as written.
+- **View builder blocks.** `VStack(() => { … })` takes `if`, `switch` and local variables, and `Show(…)` adds any
+  view; the generator intercepts each view statement at compile time, so the code runs as written, and the IDE offers
+  fixes such as "Convert to block".
 - **View lifecycle.** `.OnAppear`, `.OnDisappear` and `.Task`, whose task is cancelled when the view disappears.
-- **Compile-time diagnostics.** An analyzer reports misuses (`MVU001`–`MVU017`) with the fix in the message.
+- **Compile-time diagnostics.** Analyzers report misuses (`MVU001`–`MVU017`) with the fix in the message.
 - **Hot reload.** Edit a `Body` and save: the window updates in about a second and keeps its state.
 - **Escape hatch.** Any Avalonia control can be embedded with `Native(() => new Calendar())`.
 
@@ -100,14 +101,16 @@ For hot reload, run `dotnet watch --project samples/TodoDemo` and edit any `Body
 
 ### Use it in your app
 
-Until the packages are on NuGet, reference the projects from source. The runtime brings the core; the generator is
-added as an analyzer, and the build rules of the core package are imported (they allow the code that the generator
-writes for view builder blocks):
+Until the packages are on NuGet, reference the projects from source. The runtime brings the core; the generators and
+the code fixes are added as analyzers, and the build rules of the core package are imported (they allow the code that
+the generator writes for view builder blocks):
 
 ```xml
 <ItemGroup>
   <ProjectReference Include="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor\Avalonia.UI.Reactor.csproj" />
   <ProjectReference Include="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor.Generators\Avalonia.UI.Reactor.Generators.csproj"
+                    OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  <ProjectReference Include="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor.CodeFixes\Avalonia.UI.Reactor.CodeFixes.csproj"
                     OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 </ItemGroup>
 

@@ -102,6 +102,50 @@ public class BlockTests
         Assert.False(t.HasText("Liste non vide"));
     }
 
+    [AvaloniaFact]
+    public void Show_adds_components_and_expressions_to_the_block()
+    {
+        var probe = new ShowProbe();
+        using var t = new ReactorTestHost(probe);
+
+        Assert.True(t.HasText("b0"));
+        Assert.False(t.HasText("a0"));
+        Assert.True(t.HasText("Accueil"));
+
+        probe.Page = 3;
+        t.Settle();
+
+        Assert.True(t.HasText("Page 3"));
+        Assert.False(t.HasText("Accueil"));
+    }
+
+    [AvaloniaFact]
+    public void A_component_shown_in_a_block_keeps_its_state_and_control_when_a_branch_opens_before_it()
+    {
+        var probe = new ShowProbe();
+        using var t = new ReactorTestHost(probe);
+        t.ClickButton("b+");
+        Button plus = t.ButtonLabeled("b+");
+
+        probe.ShowFirst = true;
+        t.Settle();
+
+        Assert.True(t.HasText("a0"));
+        Assert.True(t.HasText("b1"));
+        Assert.Same(plus, t.ButtonLabeled("b+"));
+    }
+
+    [Fact]
+    public void Show_outside_a_block_throws()
+    {
+        // MVU013 reports this call at compile time; the test checks what happens when it runs anyway.
+#pragma warning disable MVU013
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Ui.Show(Ui.Text("x")));
+#pragma warning restore MVU013
+
+        Assert.Contains("'Show'", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_block_compiled_without_the_generator_is_reported()
     {

@@ -69,7 +69,8 @@ intercepted like any other. A conditional is not a statement, so it stays an arg
 
 The two ways to write children are an assumed exception to the "no duplicated API" rule, with one usage rule:
 arguments for a fixed list of views (`VStack(a, b)`, on one line), a block as soon as there is an `if`, a `switch` or
-a local variable. A code fix "Convert to block" is offered on a `? :` or a `null` among the arguments.
+a local variable. A refactoring "Convert to block" is offered on a container whose arguments contain a `? :` or a
+`null` (a refactoring, not a code fix: arguments are not an error).
 
 Applications mark their own parameters the same way. A reusable piece of view is a method that returns a group built by
 a block, the equivalent of SwiftUI's `@ViewBuilder var details: some View`:
@@ -341,7 +342,8 @@ accepted: `Debug.WriteLine` traces a value while debugging and vanishes in Relea
 A `switch` statement needs a `break` per case and does not check that every case is handled: a value added to an enum
 later shows nothing. Swift's `switch` is exhaustive. A `switch` expression through `Show` is shorter and checked by the
 compiler (CS8509); a `switch` statement still fits a case that shows several views, and MVU015 reports the enum values
-it misses.
+it misses. A pattern that MVU015 does not read (`not`, a relational pattern, a `when` guard) counts as handling every
+value, so that it never warns wrongly; an enum marked `[Flags]` is not checked, since its values combine.
 
 ### Code style
 
@@ -377,7 +379,8 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 3. Group modifiers applied to each child: a breaking change. **Done.**
 4. Fragments. **Done.**
 5. Blocks: `[ViewBuilder]` parameters and interceptors for `VStack`, `HStack`, `ZStack`, `Group` and the rows of
-   `ForEach` (**done**); then `Show`, MVU014, MVU015 and the code fixes.
+   `ForEach`, `Show`, MVU014, MVU015 and the code fixes, in their own assembly (`Avalonia.UI.Reactor.CodeFixes`: an
+   assembly of analyzers must not reference the workspaces, RS1038). **Done.**
 6. Scopes of view methods and the `Observe` block, measured (see [Risks](#risks)).
 7. `Tags.Bindings`.
 
@@ -541,3 +544,7 @@ Found while implementing the blocks (2026-11-22): the spikes never used a bindin
 `TextField(Bind.Email)` in a block made the call of the container fail to resolve in the compilation that the
 generator sees (without the code of `[State]`), so no statement of the block was intercepted, without an error. Hence
 the compilation with the code of `[State]` described in [Lowering](#lowering), covered by `BlockTests`.
+
+A block returns nothing, so the rules written before blocks took it for an action: MVU010 ignored the fields read in
+a block, and MVU016 the components created in it (`Show(new Counter())`). Both now treat a block as part of the view
+(`ViewBuilderAnalyzerTests`); a new rule that looks at lambdas must do the same.

@@ -16,17 +16,20 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <!-- To test the generators and the analyzer on code snippets. -->
+    <!-- To test the generators and the analyzers on code snippets. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <!-- To apply the code fixes to code snippets. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Avalonia.UI.Reactor\Avalonia.UI.Reactor.csproj" />
     <ProjectReference Include="..\..\samples\TodoDemo\TodoDemo.csproj" />
-    <!-- The generators as a library (GeneratorTests runs them on code snippets); they are also plugged in as generators
-         by Directory.Build.targets. A project reference always follows the latest build, whatever the output folder
-         (a path to bin/ gave a stale copy). -->
+    <!-- The generators and the code fixes as libraries (the tests run them on code snippets); they are also plugged in
+         as analyzers by Directory.Build.targets. A project reference always follows the latest build, whatever the
+         output folder (a path to bin/ gave a stale copy). -->
     <ProjectReference Include="..\..\src\Avalonia.UI.Reactor.Generators\Avalonia.UI.Reactor.Generators.csproj" />
+    <ProjectReference Include="..\..\src\Avalonia.UI.Reactor.CodeFixes\Avalonia.UI.Reactor.CodeFixes.csproj" />
   </ItemGroup>
 
   <ItemGroup>

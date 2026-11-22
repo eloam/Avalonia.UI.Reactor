@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>Avalonia.UI.Reactor</RootNamespace>
-    <!-- The package embeds the generators: an application has nothing to configure. -->
+    <!-- The package embeds the generators, the analyzers and their code fixes: an application has nothing to configure. -->
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);ReactorPackGenerator</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
@@ -18,10 +18,11 @@
     <None Include="buildTransitive\Avalonia.UI.Reactor.Core.targets" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
 
-  <!-- The generator is asked of its project (the real path of its output, even with a custom output folder), never read
-       from bin/. -->
+  <!-- The assemblies are asked of their projects (the real path of their output, even with a custom output folder), never
+       read from bin/. -->
   <Target Name="ReactorPackGenerator">
-    <MSBuild Projects="$(MSBuildThisFileDirectory)../Avalonia.UI.Reactor.Generators/Avalonia.UI.Reactor.Generators.csproj" Targets="GetTargetPath"
+    <MSBuild Projects="$(MSBuildThisFileDirectory)../Avalonia.UI.Reactor.Generators/Avalonia.UI.Reactor.Generators.csproj;$(MSBuildThisFileDirectory)../Avalonia.UI.Reactor.CodeFixes/Avalonia.UI.Reactor.CodeFixes.csproj"
+             Targets="GetTargetPath"
              Properties="Configuration=$(Configuration)">
       <Output TaskParameter="TargetOutputs" ItemName="_ReactorGeneratorAssembly" />
     </MSBuild>
