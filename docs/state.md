@@ -12,6 +12,7 @@ it. This is the model of `$state` in Svelte, `@State` / `@Observable` in SwiftUI
 | `[State]` on a model class (`Todo.Done`) | Checking a task re-evaluates its row only, plus whatever counts the tasks. |
 | `VStack(counter, todoList)` | A component is used like a view. It keeps its state and is re-evaluated only when needed. |
 | `ForEach(todos, Row, t => t.Id)` | One scope per item; the key keeps each row's controls, focus and hover. |
+| `ForEach(Tags.Bind, tag => TextField(tag))` | A binding to each item of a list of values: a row edits its item. |
 | `TextField(Bind.Draft)`, `Checkbox(todo.Bind.Done)` | Two-way binding, generated for every settable `[State]` property. |
 | `Observe(() => …)` | Isolates part of a `Body` in its own scope without creating a component; a block is accepted: `Observe(() => { … })`. |
 | `Progress();` in a block | A view method called as a statement of a block gets its own scope, like a SwiftUI subview (see [Blocks](views.md#blocks)). |

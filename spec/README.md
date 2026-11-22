@@ -6,7 +6,7 @@ code, and is updated as the feature moves on.
 
 | Feature | Status |
 |---|---|
-| [View builder blocks](view-builder.md) | Accepted |
+| [View builder blocks](view-builder.md) | Implemented |
 | [View lifecycle](lifecycle.md) | Accepted |
 
 ## Format

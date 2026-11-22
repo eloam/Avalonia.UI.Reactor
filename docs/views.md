@@ -144,6 +144,22 @@ public sealed record Contact(int Id, string Name) : IIdentifiable<int>;
 ForEach(contacts, c => Text(c.Name))   // keyed by c.Id, even when the records are rebuilt on every update
 ```
 
+A row edits an item of a list of values (strings, numbers) through `Bind`, like `ForEach($tags)` in SwiftUI. Each
+row gets a `Binding<T>` to its item, keyed by its index:
+
+```csharp
+public StateList<string> Tags { get; } = ["red", "green"];
+
+ForEach(Tags.Bind, tag => TextField(tag))                     // typing writes Tags[i]
+ForEach(Tags.Bind, tag => TextField(tag), tag => tag.Value)   // a row keeps its item instead of its index
+```
+
+`Bind` means the same everywhere: `Bind.Count` binds a state of the component, `todo.Bind.Done` a state of a model,
+and `Tags.Bind[2]` the third item of a list.
+
+When an item is removed, the rows that follow show the items that moved up. A list of objects edits their `[State]`
+properties instead: `Checkbox(todo.Bind.Done)`.
+
 ## Modifiers
 
 | Modifier | Effect |

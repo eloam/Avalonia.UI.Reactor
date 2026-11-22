@@ -22,7 +22,7 @@ namespace Avalonia.UI.Reactor.State;
 /// </remarks>
 /// <param name="get">The function that reads the value.</param>
 /// <param name="set">The function that writes the value.</param>
-public readonly struct Binding<T>(Func<T> get, Action<T> set)
+public readonly struct Binding<T>(Func<T> get, Action<T> set) : IBinding
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Binding{T}"/> struct that reads and writes a property of an object.
@@ -55,6 +55,9 @@ public readonly struct Binding<T>(Func<T> get, Action<T> set)
     /// Gets the property that the binding reads and writes, or <see langword="null"/> for a computed binding.
     /// </summary>
     internal BindingTarget? Target { get; }
+
+    /// <inheritdoc/>
+    BindingTarget? IBinding.Target => Target;
 
     /// <summary>
     /// Writes a new value.

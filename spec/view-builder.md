@@ -1,6 +1,6 @@
 # View builder blocks
 
-- **Status**: Accepted
+- **Status**: Implemented (2026-11-22); the questions left open are listed in [Unresolved questions](#unresolved-questions)
 - **Date**: 2026-11-21
 - **Spike**: done, in two parts (see [Spike results](#spike-results))
 
@@ -131,7 +131,7 @@ without blocks (`ForEach(Todos, Row)`), so they ship first.
 item through an index. A list of bindings does the same:
 
 ```csharp
-ForEach(Tags.Bindings, tag => TextField(tag))   // tag: Binding<string>
+ForEach(Tags.Bind, tag => TextField(tag))   // tag: Binding<string>
 ```
 
 A binding is a new object on every update, so these rows are keyed by their index unless a key is given. An overload of
@@ -388,7 +388,12 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
    signal of the nearest component, so that `Refresh()` reaches it. Measured on the sample app: the counts of
    re-evaluated scopes stay those of the arguments version, plus one for the filter picker, a view method whose
    `params` options are a new array on every call.
-7. `Tags.Bindings`.
+7. `Tags.Bind`. **Done**: `StateList<T>.Bind` gives a `Binding<T>` per item, whose target is the list and the index.
+   It is named like the generated `Bind` (`Bind.Count`, `todo.Bind.Done`, `Tags.Bind[2]`), as SwiftUI writes `$count`
+   and `$tags` with the same operator. `ForEach` keys a row by the target of its binding, since a binding is a new value
+   on every update (and a struct, whose `ToString` would give every row the same key). `ForEach(Bind.Tags, …)` was set aside: `Bind` exists
+   for `[State]` properties only, whereas a list is a `StateList<T>` that notifies by itself; it would have to become a
+   `[State]` property replaced on every edit of an item.
 
 ## Strengths
 
@@ -478,9 +483,6 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 - Should `Binding<T>` compare by its target (owner and property), so that a view method that receives a binding
   (`Field(Bind.Name)`) is skipped when its caller is re-evaluated? Today a binding is a new object on every access, so
   such a method runs with its caller.
-- What gives a row a binding to its item: `Tags.Bindings`, or `ForEach(Bind.Tags, tag => TextField(tag))` when `Tags`
-  is a `[State]`, like SwiftUI's `ForEach($tags)`? A `Binding<StateList<T>>` is not an `IEnumerable<T>`, so this
-  overload is not ambiguous, and it reuses the `Bind` vocabulary.
 - Which parameters get blocks, and in which order: container children (stacks, `Group`, `Menu`, `MenuBar`), then the
   labels and decorations that SwiftUI also builds with blocks (`Button(label: () => { … }, action: Save)`,
   `.Overlay(() => { … })`, templates)?

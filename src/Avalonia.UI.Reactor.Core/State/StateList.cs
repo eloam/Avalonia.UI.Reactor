@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections;
+using System.Globalization;
 
 namespace Avalonia.UI.Reactor.State;
 
@@ -40,6 +41,45 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
         {
             _signal.Read();
             return _items.Count;
+        }
+    }
+
+    /// <summary>
+    /// Gets a binding to each item, in order: a row of a list edits its item through it, as with <c>ForEach($tags)</c>
+    /// in SwiftUI.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reading the bindings subscribes the view to the list. In <c>ForEach</c>, a row is keyed by the index of its item,
+    /// like the controls bound to it: when an item is removed, the rows that follow show the items that moved up. A key
+    /// function keeps a row with its item instead: <c>ForEach(Tags.Bind, tag =&gt; TextField(tag), tag =&gt; tag.Value)</c>.
+    /// </para>
+    /// <para>
+    /// A binding whose item has been removed reads the item now at its index, and writing through it does nothing.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// ForEach(Tags.Bind, tag =&gt; TextField(tag))
+    /// </code>
+    /// </example>
+    public IReadOnlyList<Binding<T>> Bind
+    {
+        get
+        {
+            int count = Count;
+            var bindings = new Binding<T>[count];
+            for (int i = 0; i < count; i++)
+            {
+                int index = i;
+                bindings[i] = new Binding<T>(
+                    () => this[index],
+                    value => SetIfPresent(index, value),
+                    this,
+                    string.Create(CultureInfo.InvariantCulture, $"[{index}]"));
+            }
+
+            return bindings;
         }
     }
 
@@ -209,4 +249,13 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    // Writes through a binding of Bind: an item removed meanwhile (the control kept its text) is left as it is.
+    private void SetIfPresent(int index, T value)
+    {
+        if (index < _items.Count)
+        {
+            this[index] = value;
+        }
+    }
 }

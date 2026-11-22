@@ -405,6 +405,13 @@ public static class Ui
             return identifiable.Key.ToString();
         }
 
+        // A binding (ForEach(Tags.Bind, …)) is a new value on every update: its row is keyed by what it binds, an item
+        // of a list by its index. A computed binding binds nothing: its row keeps its place by its rank.
+        if (item is IBinding binding)
+        {
+            return binding.Target is { } target ? $"{ReferenceKeys.Of(target.Owner)}.{target.Property}" : null;
+        }
+
         if (typeof(T).IsValueType || item is string)
         {
             return item.ToString();
