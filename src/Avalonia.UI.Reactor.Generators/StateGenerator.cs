@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
@@ -36,7 +37,26 @@ public sealed class StateGenerator : IIncrementalGenerator
     /// <inheritdoc/>
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        IncrementalValuesProvider<StateModel> states = context.SyntaxProvider.ForAttributeWithMetadataName(
+        IncrementalValuesProvider<StateModel> states = States(context);
+        context.RegisterSourceOutput(states, static (spc, s) => spc.AddSource(s.PropertyHint, s.PropertySource));
+        context.RegisterSourceOutput(states.Collect(), static (spc, all) =>
+        {
+            foreach ((string hintName, string text) in BindingSources(all))
+                spc.AddSource(hintName, text);
+        });
+    }
+
+    /// <summary>
+    /// Creates the pipeline that describes the <c>[State]</c> properties of a compilation.
+    /// </summary>
+    /// <remarks>
+    /// The view builder generator shares it: generators do not see each other's code, so it resolves the calls of
+    /// the blocks (<c>TextField(Bind.Email)</c>) in a compilation that contains this code (see <see cref="Sources"/>).
+    /// </remarks>
+    /// <param name="context">The context of the generator.</param>
+    /// <returns>The description of each <c>[State]</c> property.</returns>
+    internal static IncrementalValuesProvider<StateModel> States(IncrementalGeneratorInitializationContext context) =>
+        context.SyntaxProvider.ForAttributeWithMetadataName(
             StateAttribute,
             static (node, _) => node is PropertyDeclarationSyntax p
                 && p.Modifiers.Any(SyntaxKind.PartialKeyword)
@@ -44,9 +64,13 @@ public sealed class StateGenerator : IIncrementalGenerator
                 && list.Accessors.All(a => a.Body is null && a.ExpressionBody is null),
             static (ctx, _) => Describe((PropertyDeclarationSyntax)ctx.TargetNode, (IPropertySymbol)ctx.TargetSymbol));
 
-        context.RegisterSourceOutput(states, static (spc, s) => spc.AddSource(s.PropertyHint, s.PropertySource));
-        context.RegisterSourceOutput(states.Collect(), static (spc, all) => EmitBindings(spc, all));
-    }
+    /// <summary>
+    /// Gets the code that this generator writes for the <c>[State]</c> properties of a compilation.
+    /// </summary>
+    /// <param name="all">The description of every <c>[State]</c> property of the compilation.</param>
+    /// <returns>The name and the text of each generated file.</returns>
+    internal static IEnumerable<(string HintName, string Text)> Sources(ImmutableArray<StateModel> all) =>
+        all.Select(s => (s.PropertyHint, s.PropertySource)).Concat(BindingSources(all));
 
     private static StateModel Describe(PropertyDeclarationSyntax syntax, IPropertySymbol property)
     {
@@ -130,7 +154,7 @@ public sealed class StateGenerator : IIncrementalGenerator
     // One StateBindings type per class, exposed by Bind. It is private if every state is; otherwise it is public, with
     // public bindings for public states and internal ones for the others (a nested struct cannot offer a member visible
     // to its containing class only).
-    private static void EmitBindings(SourceProductionContext spc, ImmutableArray<StateModel> all)
+    private static IEnumerable<(string HintName, string Text)> BindingSources(ImmutableArray<StateModel> all)
     {
         foreach (IGrouping<string, StateModel> group in all.Where(s => s.CanBind).GroupBy(s => s.TypeKey))
         {
@@ -170,7 +194,7 @@ public sealed class StateGenerator : IIncrementalGenerator
             sb.AppendLine("    }");
             sb.Append(first.Footer);
 
-            spc.AddSource($"{first.OwnerHint}.Bind.g.cs", sb.ToString());
+            yield return ($"{first.OwnerHint}.Bind.g.cs", sb.ToString());
         }
     }
 
@@ -218,7 +242,7 @@ public sealed class StateGenerator : IIncrementalGenerator
 
     // Everything the generator needs to know about a [State] property, as plain values that the incremental cache can
     // compare.
-    private readonly record struct StateModel(
+    internal readonly record struct StateModel(
         string PropertyHint,
         string PropertySource,
         string TypeKey,

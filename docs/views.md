@@ -11,7 +11,7 @@ factories once with `global using static Avalonia.UI.Reactor.Views.Ui;`.
 | `Button("OK", action)` | A push button; the action can be `Action` or `Func<Task>` |
 | `TextField(Bind.Name, "Placeholder", onSubmit)` | A single-line text field (selection, undo, input methods, context menu) |
 | `Checkbox(Bind.Done, "Label")` | A checkbox with an optional label |
-| `VStack(…)`, `HStack(…)` | Vertical and horizontal stacks |
+| `VStack(…)`, `HStack(…)` | Vertical and horizontal stacks; children as arguments or as a [block](#blocks) |
 | `ZStack(…)` | Layers; the last child is on top and receives the clicks |
 | `Group(…)` | Several views where one is expected; unfolded in place inside a stack, its modifiers applied to each child |
 | `ForEach(items, row)` | One view per item, mixed freely with the other children (see [Lists](#lists)) |
@@ -33,6 +33,58 @@ ZStack(Icon(), Badge()).Alignment(Alignment.TopRight)
 
 The rules are SwiftUI's: children take their natural size, `Spacer` and `.Grow(n)` share the remaining space in
 proportion, and an explicit `.Width(…)` wins over flexible children.
+
+## Blocks
+
+A container also takes a **block**: a lambda whose view statements are its children, like a `@ViewBuilder` in SwiftUI.
+Pass arguments for a fixed list of views, and write a block as soon as there is an `if`, a `switch` or a local
+variable:
+
+```csharp
+VStack(() =>
+{
+    Header();
+    if (Todos.Count == 0)
+        Text("Nothing to do").Foreground(ColorRole.TextMuted);
+    else
+        VStack(ForEach(Todos, Row)).Spacing(0);
+
+    switch (Filter)
+    {
+        case Filter.Done:
+            Text($"{Todos.Count(t => t.Done)} done");
+            break;
+        default:
+            Text($"{Todos.Count(t => !t.Done)} left");
+            break;
+    }
+
+    TextField(Bind.Draft, "What needs to be done?");
+})
+.Spacing(16);
+```
+
+- `VStack`, `HStack`, `ZStack`, `Group` and the rows of `ForEach` take a block:
+  `ForEach(todos, todo => { Row(todo); if (todo.IsLate) Badge(); })`.
+- A block holds view statements (a call that returns a view, with its modifiers), `if`, `switch`, local variables and
+  `return` for an early exit. A view created in a loop, a `try` or an action (`Button("Add", () => …)`) does not belong
+  to the block: MVU013 reports it.
+- A method of the application takes a block when its parameter is marked `[ViewBuilder]`:
+
+  ```csharp
+  public static StackView Card([ViewBuilder] Action content) => VStack(content).Padding(16).Radius(10);
+
+  Card(() => { Text("Title"); if (HasMore) Details(); });
+  ```
+
+- A reusable piece of view is a method that returns a group built by a block:
+  `private View Details() => Group(() => { … })`. In a block, `Details();` adds its views to the container.
+- At compile time, the generator of the package intercepts each view statement of a block (C# interceptors) so that it
+  adds its view to the block; the code runs as written, breakpoints included. A block compiled without the generator
+  throws instead of showing nothing.
+- Source generators do not see each other's code: the generator resolves a block with the code of `[State]`
+  (`Bind.Draft`), but not with the code written by another generator. A block that uses such code shows nothing,
+  without an error: read the value before the block.
 
 ## Lists
 
@@ -148,7 +200,8 @@ It is written to the standard error output and to the debugger, prefixed with `[
 
 - A component with state is a class deriving from `Component`; a stateless one is just a function that returns a
   `View` (see `Card` and `Segmented` in the sample app).
-- Conditional display: `condition ? Text("…") : null`; several views at once: `condition ? Group(a, b) : null`.
+- Conditional display: an `if` in a [block](#blocks); among arguments, `condition ? Text("…") : null`, and
+  `condition ? Group(a, b) : null` for several views at once.
 - Several views returned by a component, a `ForEach` row or an `Observe` block take their places among the children of
   the container, as in SwiftUI: in an `HStack`, `ForEach(items, item => Group(Name(item), Badge(item)))` puts every
   view side by side. A block re-evaluated alone updates its own views only; the modifiers of a component or a block

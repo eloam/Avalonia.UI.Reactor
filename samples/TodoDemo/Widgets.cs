@@ -16,8 +16,16 @@ public static class Widgets
     /// <summary>
     /// A card: always the full width, even when its content does not stretch.
     /// </summary>
-    public static StackView Card(params View?[] children) =>
-        VStack(children)
+    public static StackView Card(params View?[] children) => Decorate(VStack(children));
+
+    /// <summary>
+    /// A card whose content is a block, as with the containers of the framework:
+    /// <c>Card(() => { Title(); if (HasMore) Details(); })</c>.
+    /// </summary>
+    public static StackView Card([ViewBuilder] Action content) => Decorate(VStack(content));
+
+    private static StackView Decorate(StackView content) =>
+        content
             .Spacing(12)
             .Padding(16)
             .Background(ColorRole.Surface)

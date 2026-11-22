@@ -1,8 +1,8 @@
 <Project>
   <!--
-    Générateur et analyseur [State] branchés automatiquement dans tous les projets du dépôt
-    (une application externe les reçoit via le paquet Avalonia.UI.Reactor.Core, voir Avalonia.UI.Reactor.Core.csproj).
-    PrivateAssets : le générateur n'est pas une dépendance des paquets, il est embarqué dans Avalonia.UI.Reactor.Core.
+    The [State] and view builder generators and the analyzer, plugged into every project of the repository (an external
+    application gets them through the Avalonia.UI.Reactor.Core package, see Avalonia.UI.Reactor.Core.csproj).
+    PrivateAssets: the generator is not a dependency of the packages, it is embedded in Avalonia.UI.Reactor.Core.
   -->
   <ItemGroup Condition="'$(MSBuildProjectName)' != 'Avalonia.UI.Reactor.Generators' and '$(ReactorAutoGenerator)' != 'false'">
     <ProjectReference Include="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.Generators/Avalonia.UI.Reactor.Generators.csproj"
@@ -10,15 +10,16 @@
   </ItemGroup>
 
   <!--
-    Exécutables du dépôt (démo, tests) compilés pour la plateforme de la machine : seules ses bibliothèques natives
-    (Skia, HarfBuzz) sont copiées, au lieu de celles des 14 plateformes des paquets (Android, iOS, Linux…).
-    Pour une autre cible : dotnet publish -r linux-x64 (la valeur passée l'emporte). Une application externe fait ce
-    choix elle-même (voir « Publier » dans le README) : un paquet ne peut pas le faire, la cible est lue avant les paquets.
+    The executables of the repository (sample app, tests) are built for the platform of the machine: only its native
+    libraries (Skia, HarfBuzz) are copied, instead of those of the 14 platforms of the packages (Android, iOS, Linux…).
+    For another target: dotnet publish -r linux-x64 (the value passed wins). An external application makes this choice
+    itself (see "Publishing" in the README): a package cannot, since the target is read before the packages.
   -->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' == '' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe' or '$(IsTestProject)' == 'true')">
     <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
   </PropertyGroup>
 
-  <!-- Mêmes règles de compilation que les applications qui utilisent le paquet Avalonia.UI.Reactor. -->
+  <!-- The same build rules as the applications that use the packages. -->
+  <Import Project="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.Core/buildTransitive/Avalonia.UI.Reactor.Core.targets" />
   <Import Project="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor/buildTransitive/Avalonia.UI.Reactor.targets" />
 </Project>

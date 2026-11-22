@@ -313,6 +313,10 @@ Progress();                      [InterceptsLocation(1, "…")]
 - Private methods of the user's type are called through `[UnsafeAccessor]`: no reflection, compatible with AOT.
 - Interceptors are marked `[DebuggerStepThrough]`.
 - Interceptors require an opt-in: the package sets `InterceptorsNamespaces` in its `buildTransitive` targets.
+- Source generators do not see each other's code, so a block that uses `Bind.Email` would not resolve, and
+  none of its views would be collected. The generator resolves the blocks in the compilation plus the code of
+  `[State]`, built by the same pipeline as the `[State]` generator. Code written by another generator stays invisible
+  (see [Risks](#risks)).
 - A block compiled without the generator would be empty, without an error. The generator registers each assembly it
   processes (a module initializer), and `VStack(Action)` throws when the assembly of the block (`content.Method.Module`)
   is not registered.
@@ -360,8 +364,8 @@ methods, which cost nothing now that they have their own scope (see [Scopes](#sc
 A component created in a view is a new instance on every update, so its state is lost each time: MVU016 asks to keep it
 in a field or, for a list row (`ForEach(Todos, t => Show(new TodoRow(t)))`), to move its state into the item
 (`todo.Bind.Done`) and draw the row with a view method. MVU013 and MVU016 are useful without blocks
-(`VStack(new CounterCard())` loses its state today); they are implemented, and MVU013 reports every view statement
-until blocks exist.
+(`VStack(new CounterCard())` loses its state today); they are implemented, and MVU013 leaves out the view statements
+of a block.
 
 ### Delivery order
 
@@ -372,7 +376,8 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
    change). **Done.**
 3. Group modifiers applied to each child: a breaking change. **Done.**
 4. Fragments. **Done.**
-5. Blocks: `[ViewBuilder]` parameters, interceptors, `Show`, MVU014, MVU015 and the code fixes.
+5. Blocks: `[ViewBuilder]` parameters and interceptors for `VStack`, `HStack`, `ZStack`, `Group` and the rows of
+   `ForEach` (**done**); then `Show`, MVU014, MVU015 and the code fixes.
 6. Scopes of view methods and the `Observe` block, measured (see [Risks](#risks)).
 7. `Tags.Bindings`.
 
@@ -436,6 +441,12 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
   before and after, the allocated bytes (`GC.GetAllocatedBytesForCurrentThread`) and the re-evaluated scopes
   (`ReactorTestHost.Stats`); small methods may need to opt out of scopes.
 - **Diagnostics quality**: a compile error in a block may point to generated code if the generator is wrong.
+- **Code of other generators**: generators do not see each other's output. A block that refers to a member written
+  by another source generator does not resolve, and its views are lost without an error: the analyzer sees the final
+  compilation, where the call resolves, and cannot tell. The workaround is to read the value before the block. A
+  diagnostic would need to know whether the call was intercepted (`GetInterceptorMethod`), which may be wrong in an
+  IDE whose generated code is not up to date (Visual Studio runs generators on save by default); it is left open
+  (see [Unresolved questions](#unresolved-questions)).
 
 ## Alternatives
 
@@ -461,6 +472,9 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 - Which parameters get blocks, and in which order: container children (stacks, `Group`, `Menu`, `MenuBar`), then the
   labels and decorations that SwiftUI also builds with blocks (`Button(label: () => { … }, action: Save)`,
   `.Overlay(() => { … })`, templates)?
+- Should a view statement of a block that was not intercepted be an error (see the code of other generators in
+  [Risks](#risks)), once the behavior of `GetInterceptorMethod` with stale generated code is checked in Rider and Visual
+  Studio?
 - Should builders be typed, like SwiftUI's `@CommandsBuilder` for menus (`[ViewBuilder(typeof(MenuItemView))]`), so that
   MVU014 rejects a `Text` in a `Menu` block?
 
@@ -522,3 +536,8 @@ Lessons from the second spike:
 
 Not covered: stepping in Rider and Visual Studio, Windows and Linux, large files, hot reload of the calls that get a
 scope, and running a scope at once (only deferred scopes were built).
+
+Found while implementing the blocks (2026-11-22): the spikes never used a binding in a block. In the repository,
+`TextField(Bind.Email)` in a block made the call of the container fail to resolve in the compilation that the
+generator sees (without the code of `[State]`), so no statement of the block was intercepted, without an error. Hence
+the compilation with the code of `[State]` described in [Lowering](#lowering), covered by `BlockTests`.

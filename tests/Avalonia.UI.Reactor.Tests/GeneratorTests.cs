@@ -250,6 +250,41 @@ public class GeneratorTests
             """));
 
     [Fact]
+    public void View_statements_of_a_block_are_not_reported() =>
+        Assert.Empty(Ids("""
+            public partial class C : Component
+            {
+                [State] partial string Email { get; set; } = "";
+                public override View Body => VStack(() =>
+                {
+                    Text("Title").Bold();
+                    if (Email.Length == 0)
+                        Text("Required");
+                    TextField(Bind.Email, "Email");
+                    HStack(content: () => Text("Named"));
+                });
+            }
+            """));
+
+    [Fact]
+    public void View_statements_outside_the_block_itself_are_reported()
+    {
+        int lost = Compile("""
+            public class C : Component
+            {
+                public override View Body => VStack(() =>
+                {
+                    Button("Add", () => { Text("In an action"); });
+                    foreach (string name in new[] { "a" })
+                        Text("In a loop");
+                });
+            }
+            """).Count(d => d.Id == "MVU013");
+
+        Assert.Equal(2, lost);
+    }
+
+    [Fact]
     public void Component_with_state_created_in_a_view_is_reported_with_what_to_write()
     {
         Diagnostic diagnostic = Assert.Single(Compile("""

@@ -1,10 +1,10 @@
 <Project>
   <!--
-    Livré avec le paquet Avalonia.UI.Reactor : s'applique à toute application qui l'utilise (et aux projets de ce dépôt,
-    qui l'importent depuis Directory.Build.targets).
+    Shipped with the Avalonia.UI.Reactor package: it applies to every application that uses it (and to the projects of
+    this repository, which import it from Directory.Build.targets).
 
-    Symboles de débogage des bibliothèques natives (libSkiaSharp.pdb : environ 100 Mo) : utiles seulement pour déboguer
-    Skia en C++. Ni copiés ni publiés par défaut ; ReactorCopyNativeSymbols=true pour les retrouver.
+    Debugging symbols of the native libraries (libSkiaSharp.pdb: about 100 MB) are only useful to debug Skia in C++.
+    They are neither copied nor published by default; set ReactorCopyNativeSymbols to true to get them back.
   -->
   <Target Name="ReactorSkipNativeSymbols" AfterTargets="ResolvePackageAssets" Condition="'$(ReactorCopyNativeSymbols)' != 'true'">
     <ItemGroup>

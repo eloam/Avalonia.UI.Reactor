@@ -43,7 +43,7 @@ Avalonia event (click, typing) → action → state changed → subscribed scope
 |---|---|---|
 | `Avalonia.UI.Reactor.Core` | The API of applications: views, DSL, modifiers, themes, reactive state, scopes, hot reload | nothing |
 | `Avalonia.UI.Reactor` | `ReactorApp`, `ReactorHost`, the reconciler, panels, menus, our controls and their look | Avalonia 12 |
-| `Avalonia.UI.Reactor.Generators` | `[State]` source generator and diagnostics analyzer, run at compile time | Roslyn |
+| `Avalonia.UI.Reactor.Generators` | Source generators of `[State]` and of view builder blocks, and the diagnostics analyzer, run at compile time | Roslyn |
 | `samples/TodoDemo` | Sample app: counter, task list, async action, theme picker, menu bar | — |
 | `tests/Avalonia.UI.Reactor.Tests` | Tests in real headless windows, and generator tests | xUnit v3, Avalonia.Headless |
 

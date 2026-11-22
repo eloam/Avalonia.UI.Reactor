@@ -18,10 +18,13 @@ public sealed partial class CounterCard : Component
     public override View Body =>
         Card(
             Text("Counter").Font(TextStyle.Headline),
-            HStack(
-                Button("−", () => Count--).Style(ButtonStyle.Secondary),
-                Text($"{Count}").FontSize(28).Bold().Width(72).TextAlignment(TextAlign.Center),
-                Button("+", () => Count++),
-                Spacer(),
-                Count != 0 ? Button("Reset", () => Count = 0).Style(ButtonStyle.Ghost) : null));
+            HStack(() =>
+            {
+                Button("−", () => Count--).Style(ButtonStyle.Secondary);
+                Text($"{Count}").FontSize(28).Bold().Width(72).TextAlignment(TextAlign.Center);
+                Button("+", () => Count++);
+                Spacer();
+                if (Count != 0)
+                    Button("Reset", () => Count = 0).Style(ButtonStyle.Ghost);
+            }));
 }

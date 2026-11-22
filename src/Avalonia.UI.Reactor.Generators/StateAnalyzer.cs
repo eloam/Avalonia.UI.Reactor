@@ -305,18 +305,30 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             state.Name, method?.Identifier.Text ?? invocation.Expression.ToString(), suggestion));
     }
 
-    // MVU013: Text("Title"); as a statement. The view is a description: unused, it is lost without any error. Only a
-    // call or a creation makes a view; an assignment (node.View = view) has the type of a view but keeps it.
+    // MVU013: Text("Title"); as a statement, outside a view builder block. The view is a description: unused, it is lost
+    // without any error. Only a call or a creation makes a view; an assignment (node.View = view) has the type of a view
+    // but keeps it.
     private static void CheckDiscardedView(OperationAnalysisContext c, INamedTypeSymbol view)
     {
-        string? name = ((IExpressionStatementOperation)c.Operation).Operation switch
+        IOperation expression = ((IExpressionStatementOperation)c.Operation).Operation;
+        string? name = expression switch
         {
             IInvocationOperation invocation when DerivesFrom(invocation.Type, view) => invocation.TargetMethod.Name,
             IObjectCreationOperation creation when DerivesFrom(creation.Type, view) => creation.Type!.Name,
             _ => null,
         };
-        if (name is not null)
-            c.ReportDiagnostic(Diagnostic.Create(DiscardedView, c.Operation.Syntax.GetLocation(), name));
+        if (name is null)
+            return;
+
+        // In a view builder block, the generator intercepts the statement: the view joins the block.
+        if (expression is IInvocationOperation { TargetMethod: { } method }
+            && ViewBuilderSyntax.IsInterceptable(method)
+            && ViewBuilderSyntax.IsBlockStatement(c.Operation.Syntax, c.Operation.SemanticModel!, c.CancellationToken))
+        {
+            return;
+        }
+
+        c.ReportDiagnostic(Diagnostic.Create(DiscardedView, c.Operation.Syntax.GetLocation(), name));
     }
 
     // MVU016: new CounterCard() in Body, or in a method that returns a view. A component created in an action, kept in a

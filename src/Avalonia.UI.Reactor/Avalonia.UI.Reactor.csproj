@@ -3,7 +3,7 @@
     <RootNamespace>Avalonia.UI.Reactor</RootNamespace>
   </PropertyGroup>
 
-  <!-- Avalonia 12 : contrôles, hôte de bureau (Windows, macOS, Linux) et thème Fluent, en attendant nos thèmes de contrôles. -->
+  <!-- Avalonia 12: controls, desktop host (Windows, macOS, Linux) and the Fluent theme, for the infrastructure. -->
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.6" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
@@ -14,12 +14,12 @@
     <ProjectReference Include="..\Avalonia.UI.Reactor.Core\Avalonia.UI.Reactor.Core.csproj" />
   </ItemGroup>
 
-  <!-- Les tests vérifient aussi le réconciliateur et ses contrôles (internes). -->
+  <!-- The tests also check the reconciler and its controls (internal). -->
   <ItemGroup>
     <InternalsVisibleTo Include="Avalonia.UI.Reactor.Tests" />
   </ItemGroup>
 
-  <!-- Règles de compilation livrées avec le paquet : elles s'appliquent aux applications qui l'utilisent. -->
+  <!-- Build rules shipped with the package: they apply to the applications that use it. -->
   <ItemGroup>
     <None Include="buildTransitive\Avalonia.UI.Reactor.targets" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>

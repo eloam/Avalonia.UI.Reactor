@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Tests sans écran : une vraie fenêtre Avalonia (Avalonia.Headless, rendu par Skia) pour le moteur, et des extraits de
-    code compilés en mémoire pour le générateur et l'analyseur. Avalonia.Headless.XUnit impose xunit v3.
+    Tests without a screen: a real Avalonia window (Avalonia.Headless, rendered by Skia) for the engine, and code
+    snippets compiled in memory for the generators and the analyzer. Avalonia.Headless.XUnit requires xunit v3.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -16,16 +16,16 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <!-- Pour tester le générateur et l'analyseur sur des extraits de code. -->
+    <!-- To test the generators and the analyzer on code snippets. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Avalonia.UI.Reactor\Avalonia.UI.Reactor.csproj" />
     <ProjectReference Include="..\..\samples\TodoDemo\TodoDemo.csproj" />
-    <!-- Le générateur en tant que bibliothèque (GeneratorTests l'exécute sur des extraits de code) ; il est aussi
-         branché comme générateur par Directory.Build.targets. Une référence de projet suit toujours la dernière
-         compilation, quel que soit le dossier de sortie (un chemin vers bin/ donnait une copie périmée). -->
+    <!-- The generators as a library (GeneratorTests runs them on code snippets); they are also plugged in as generators
+         by Directory.Build.targets. A project reference always follows the latest build, whatever the output folder
+         (a path to bin/ gave a stale copy). -->
     <ProjectReference Include="..\..\src\Avalonia.UI.Reactor.Generators\Avalonia.UI.Reactor.Generators.csproj" />
   </ItemGroup>
 

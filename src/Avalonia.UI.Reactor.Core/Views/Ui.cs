@@ -3,6 +3,7 @@
 
 using Avalonia.UI.Reactor.Primitives;
 using Avalonia.UI.Reactor.Rendering;
+using Avalonia.UI.Reactor.Runtime;
 using Avalonia.UI.Reactor.State;
 
 namespace Avalonia.UI.Reactor.Views;
@@ -97,11 +98,42 @@ public static class Ui
     public static StackView VStack(params View?[] children) => Stack(Axis.Vertical, children);
 
     /// <summary>
-    /// Creates a horizontal stack, with the same rules as <see cref="VStack"/>; children are centered vertically.
+    /// Creates a vertical stack whose children are the views of a block, as in SwiftUI.
+    /// </summary>
+    /// <remarks>
+    /// In the block, a statement that creates a view adds it to the stack, and <see langword="if"/>,
+    /// <see langword="else"/>, <see langword="switch"/> and local variables decide which views are added. For a fixed list
+    /// of views, pass them as arguments instead: <c>VStack(a, b)</c>.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// VStack(() =&gt;
+    /// {
+    ///     Header();
+    ///     if (IsLoggedIn)
+    ///         Text($"Hello, {Name}!");
+    ///     else
+    ///         Button("Sign in", SignIn);
+    /// })
+    /// </code>
+    /// </example>
+    /// <param name="content">The block, whose views are the children of the stack, from top to bottom.</param>
+    /// <returns>The stack view.</returns>
+    public static StackView VStack([ViewBuilder] Action content) => Stack(Axis.Vertical, ViewCollector.Collect(content, content));
+
+    /// <summary>
+    /// Creates a horizontal stack, with the same rules as <see cref="VStack(View[])"/>; children are centered vertically.
     /// </summary>
     /// <param name="children">The views of the stack, from left to right.</param>
     /// <returns>The stack view.</returns>
     public static StackView HStack(params View?[] children) => Stack(Axis.Horizontal, children);
+
+    /// <summary>
+    /// Creates a horizontal stack whose children are the views of a block (see <see cref="VStack(Action)"/>).
+    /// </summary>
+    /// <param name="content">The block, whose views are the children of the stack, from left to right.</param>
+    /// <returns>The stack view.</returns>
+    public static StackView HStack([ViewBuilder] Action content) => Stack(Axis.Horizontal, ViewCollector.Collect(content, content));
 
     /// <summary>
     /// Creates layers, the last child on top, centered unless <c>.Alignment(…)</c> is set.
@@ -109,6 +141,13 @@ public static class Ui
     /// <param name="children">The layers, from bottom to top.</param>
     /// <returns>The layered view.</returns>
     public static ZStackView ZStack(params View?[] children) => new(Flatten(children));
+
+    /// <summary>
+    /// Creates layers whose views are those of a block, the last one on top (see <see cref="VStack(Action)"/>).
+    /// </summary>
+    /// <param name="content">The block, whose views are the layers, from bottom to top.</param>
+    /// <returns>The layered view.</returns>
+    public static ZStackView ZStack([ViewBuilder] Action content) => new(Flatten(ViewCollector.Collect(content, content)));
 
     /// <summary>
     /// Creates several views presented as one; in a stack, they take their places among the children of the stack.
@@ -121,6 +160,24 @@ public static class Ui
     /// <param name="children">The views of the group.</param>
     /// <returns>The group view.</returns>
     public static GroupView Group(params View?[] children) => new(Flatten(children));
+
+    /// <summary>
+    /// Creates several views presented as one, from a block: the reusable piece of a view, as
+    /// <c>@ViewBuilder var details: some View</c> in SwiftUI (see <see cref="VStack(Action)"/>).
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// private View Details() =&gt; Group(() =&gt;
+    /// {
+    ///     Text("Size: 42");
+    ///     if (HasColor)
+    ///         Text("Color: blue");
+    /// });
+    /// </code>
+    /// </example>
+    /// <param name="content">The block, whose views are those of the group.</param>
+    /// <returns>The group view.</returns>
+    public static GroupView Group([ViewBuilder] Action content) => new(Flatten(ViewCollector.Collect(content, content)));
 
     /// <summary>
     /// Creates a free drawing: <c>Canvas(d =&gt; d.FillCircle(d.Bounds.Center, 8, ColorRole.Accent)).Size(16, 16)</c>.
@@ -164,6 +221,32 @@ public static class Ui
     /// <returns>The group of item views.</returns>
     public static GroupView ForEach<T>(IEnumerable<T> items, Func<T, View> row, Func<T, object>? key = null) =>
         new([.. items.Select(item => new ScopeView(() => row(item)) { Key = KeyOf(item, key) })]);
+
+    /// <summary>
+    /// Creates the views of each item from a block, each row re-evaluated on its own, as <c>ForEach</c> in SwiftUI.
+    /// </summary>
+    /// <remarks>
+    /// The block of a row runs in the scope of the row: checking a task re-evaluates its row only. Its views take their
+    /// places among the children of the container (see <see cref="VStack(Action)"/>).
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// ForEach(Todos, todo =&gt;
+    /// {
+    ///     Row(todo);
+    ///     if (todo.IsLate)
+    ///         Text("Late").Foreground(ColorRole.Danger);
+    /// })
+    /// </code>
+    /// </example>
+    /// <typeparam name="T">The type of the items.</typeparam>
+    /// <param name="items">The items.</param>
+    /// <param name="row">The block of a row, which receives its item.</param>
+    /// <param name="key">The function that identifies an item (see <see cref="ForEach{T}(IEnumerable{T}, Func{T, View}, Func{T, object})"/>).</param>
+    /// <returns>The group of item views.</returns>
+    public static GroupView ForEach<T>(IEnumerable<T> items, [ViewBuilder] Action<T> row, Func<T, object>? key = null) =>
+        new([.. items.Select(item =>
+            new ScopeView(() => new GroupView(Flatten(ViewCollector.Collect(row, () => row(item))))) { Key = KeyOf(item, key) })]);
 
     /// <summary>
     /// Creates a block re-evaluated on its own when the state it reads changes, without creating a component.

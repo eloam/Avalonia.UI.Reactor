@@ -18,14 +18,20 @@ public sealed partial class CounterApp : Component
     [State] partial int Count { get; set; }
 
     public override View Body =>
-        HStack(
-            Button("−", () => Count--).Style(ButtonStyle.Secondary),
-            Text($"{Count}").Font(TextStyle.Title),
-            Button("+", () => Count++),
-            Count != 0 ? Button("Reset", () => Count = 0).Style(ButtonStyle.Ghost) : null)
+        HStack(() =>
+        {
+            Button("−", () => Count--).Style(ButtonStyle.Secondary);
+            Text($"{Count}").Font(TextStyle.Title);
+            Button("+", () => Count++);
+            if (Count != 0)
+                Button("Reset", () => Count = 0).Style(ButtonStyle.Ghost);
+        })
         .Padding(24);
 }
 ```
+
+A stack takes its children as arguments, `HStack(a, b)`, or as a block, as above: each view statement of the block is
+a child, and `if`, `switch` and local variables decide which views are shown, as in a SwiftUI `@ViewBuilder`.
 
 Controls bind to state with the generated `Bind` property: `Bind.Name` is a `Binding<string>` that the field reads and
 writes, so there is no event handler to write.
@@ -68,6 +74,8 @@ public sealed partial class SignUp : Component
 - **Themes declared by the view.** Light and dark families that follow the system, named colors and styles, and
   `.Theme("Sable")` on any view or component. No visual value is hard-coded.
 - **Control templates.** Replace the whole look of a button, checkbox or text field with a view, keeping its behavior.
+- **View builder blocks.** `VStack(() => { … })` takes `if`, `switch` and local variables; the generator intercepts
+  each view statement at compile time, so the code runs as written.
 - **View lifecycle.** `.OnAppear`, `.OnDisappear` and `.Task`, whose task is cancelled when the view disappears.
 - **Compile-time diagnostics.** An analyzer reports misuses (`MVU001`–`MVU017`) with the fix in the message.
 - **Hot reload.** Edit a `Body` and save: the window updates in about a second and keeps its state.
@@ -93,7 +101,8 @@ For hot reload, run `dotnet watch --project samples/TodoDemo` and edit any `Body
 ### Use it in your app
 
 Until the packages are on NuGet, reference the projects from source. The runtime brings the core; the generator is
-added as an analyzer:
+added as an analyzer, and the build rules of the core package are imported (they allow the code that the generator
+writes for view builder blocks):
 
 ```xml
 <ItemGroup>
@@ -101,6 +110,8 @@ added as an analyzer:
   <ProjectReference Include="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor.Generators\Avalonia.UI.Reactor.Generators.csproj"
                     OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 </ItemGroup>
+
+<Import Project="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor.Core\buildTransitive\Avalonia.UI.Reactor.Core.targets" />
 ```
 
 Then import the namespaces once, in a `GlobalUsings.cs` file:

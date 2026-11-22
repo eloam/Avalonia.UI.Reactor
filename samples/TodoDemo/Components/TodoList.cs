@@ -32,22 +32,29 @@ public sealed partial class TodoList : Component
                 _ => true,
             }).ToList();
 
-            return Card(
+            // A block: its view statements are the children of the card, an if included.
+            return Card(() =>
+            {
                 HStack(
                     Text("Tasks").Font(TextStyle.Headline),
                     Spacer(),
-                    Observe(() => ProgressRing(_todos.Count(t => t.Done), _todos.Count))),
+                    Observe(() => ProgressRing(_todos.Count(t => t.Done), _todos.Count)));
+
                 // A separately observed block: typing text re-evaluates this row only.
                 Observe(() => HStack(
                     TextField(Bind.Draft, "What needs to be done?", onSubmit: Add).Grow(),
                     // A button style added by the theme.
                     Button("Add", Add).Style("success"),
-                    Button(Thinking ? "…" : "Idea", SuggestAsync).Style(ButtonStyle.Secondary))),
-                visible.Count == 0
-                    ? Text("Nothing to show").Foreground(ColorRole.TextMuted).Padding(4, 8)
-                    : VStack(ForEach(visible, Row)).Spacing(0),
-                Divider(),
-                Observe(Footer));
+                    Button(Thinking ? "…" : "Idea", SuggestAsync).Style(ButtonStyle.Secondary)));
+
+                if (visible.Count == 0)
+                    Text("Nothing to show").Foreground(ColorRole.TextMuted).Padding(4, 8);
+                else
+                    VStack(ForEach(visible, Row)).Spacing(0);
+
+                Divider();
+                Observe(Footer);
+            });
         }
     }
 
@@ -61,15 +68,15 @@ public sealed partial class TodoList : Component
         .OnTap(() => t.Done = !t.Done);
 
     private View Footer() =>
-        HStack(
+        HStack(() =>
+        {
             // A text style added by the theme.
-            Text($"{_todos.Count(t => !t.Done)} left").Foreground(ColorRole.TextMuted).Font("caption"),
-            Spacer(),
-            Segmented(Bind.Filter, ("All", Filter.All), ("Active", Filter.Active), ("Done", Filter.Done)),
-            _todos.Any(t => t.Done)
-                ? Button("Purge", Purge)
-                    .Style(ButtonStyle.Danger).Padding(10, 4).Font(TextStyle.Small)
-                : null);
+            Text($"{_todos.Count(t => !t.Done)} left").Foreground(ColorRole.TextMuted).Font("caption");
+            Spacer();
+            Segmented(Bind.Filter, ("All", Filter.All), ("Active", Filter.Active), ("Done", Filter.Done));
+            if (HasDone)
+                Button("Purge", Purge).Style(ButtonStyle.Danger).Padding(10, 4).Font(TextStyle.Small);
+        });
 
     /// <summary>
     /// Gets a value indicating whether at least one task is done (the "Purge" menu item is disabled otherwise).

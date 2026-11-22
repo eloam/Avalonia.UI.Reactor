@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Générateur et analyseur Roslyn de [State]. S'exécutent dans le compilateur, rien n'est ajouté à l'application. -->
+  <!-- The Roslyn generators of [State] and of view builder blocks, and the analyzer. They run in the compiler: nothing is
+       added to the application. -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
