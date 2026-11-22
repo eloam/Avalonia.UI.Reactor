@@ -157,8 +157,9 @@ so they run on any machine.
 
 ## Roadmap
 
-`ScrollView` and virtualized lists, multiline text, images, input controls (`Toggle`, `Picker`, `Slider`),
-navigation and modal sheets, animations, accessibility labels, then mobile and browser hosts.
+Continuous integration on Windows and Linux, `ScrollView` and virtualized lists, navigation and modal sheets, input
+controls (`Toggle`, `Picker`, `Slider`, multiline text), images, animations, accessibility, then mobile and browser
+hosts. The [roadmap](ROADMAP.md) gives the milestones and what has shipped.
 
 ## Contributing
 
