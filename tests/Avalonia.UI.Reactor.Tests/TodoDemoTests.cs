@@ -157,8 +157,9 @@ public class TodoDemoTests
         Assert.Equal(1, t.Stats.Evaluated);
 
         t.Click(t.TextShowing("Add a mobile backend"));
-        // The checked row, the "N remaining" footer and the progress ring.
-        Assert.Equal(3, t.Stats.Evaluated);
+        // The checked row, the "N left" footer and the progress ring; and, in the footer, the filter picker: a view
+        // method with its own scope, whose options (a params array) are a new object on every update.
+        Assert.Equal(4, t.Stats.Evaluated);
     }
 
     [AvaloniaFact]

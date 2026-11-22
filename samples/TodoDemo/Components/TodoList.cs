@@ -7,7 +7,7 @@ namespace TodoDemo.Components;
 /// Represents the task list: an input row, the tasks that the filter shows, and a footer.
 /// </summary>
 /// <remarks>
-/// The parts that change often are observed on their own: typing re-evaluates the input row only, and checking a task
+/// The parts that change often have their own scopes: typing re-evaluates the input row only, and checking a task
 /// re-evaluates its row, the footer and the progress ring.
 /// </remarks>
 public sealed partial class TodoList : Component
@@ -38,12 +38,8 @@ public sealed partial class TodoList : Component
             // Observed on its own: checking a task redraws the ring, not the card.
             Observe(() => ProgressRing(_todos.Count(todo => todo.Done), _todos.Count)));
 
-        // Observed on its own: typing re-evaluates this row only.
-        Observe(() => HStack(
-            TextField(Bind.Draft, "What needs to be done?", onSubmit: Add).Grow(),
-            // A button style added by the theme.
-            Button("Add", Add).Style(DemoThemes.Success),
-            Button(Thinking ? "…" : "Idea", SuggestAsync).Style(ButtonStyle.Secondary)));
+        // A view method called in a block has its own scope, like a SwiftUI subview: typing re-evaluates this row only.
+        InputRow();
 
         // A local variable and an if decide which views are shown, as in a SwiftUI view builder.
         List<Todo> visible = [.. _todos.Where(IsVisible)];
@@ -53,7 +49,7 @@ public sealed partial class TodoList : Component
             VStack(ForEach(visible, Row)).Spacing(0);
 
         Divider();
-        Observe(Footer);
+        Footer();
     });
 
     [State] private partial string Draft { get; set; } = "";
@@ -104,6 +100,13 @@ public sealed partial class TodoList : Component
         _todos.Add(new(Draft.Trim()));
         Draft = "";
     }
+
+    private View InputRow() =>
+        HStack(
+            TextField(Bind.Draft, "What needs to be done?", onSubmit: Add).Grow(),
+            // A button style added by the theme.
+            Button("Add", Add).Style(DemoThemes.Success),
+            Button(Thinking ? "…" : "Idea", SuggestAsync).Style(ButtonStyle.Secondary));
 
     private View Row(Todo todo) =>
         HStack(

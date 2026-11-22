@@ -13,7 +13,8 @@ it. This is the model of `$state` in Svelte, `@State` / `@Observable` in SwiftUI
 | `VStack(counter, todoList)` | A component is used like a view. It keeps its state and is re-evaluated only when needed. |
 | `ForEach(todos, Row, t => t.Id)` | One scope per item; the key keeps each row's controls, focus and hover. |
 | `TextField(Bind.Draft)`, `Checkbox(todo.Bind.Done)` | Two-way binding, generated for every settable `[State]` property. |
-| `Observe(() => …)` | Isolates part of a `Body` in its own scope without creating a component. |
+| `Observe(() => …)` | Isolates part of a `Body` in its own scope without creating a component; a block is accepted: `Observe(() => { … })`. |
+| `Progress();` in a block | A view method called as a statement of a block gets its own scope, like a SwiftUI subview (see [Blocks](views.md#blocks)). |
 
 ```csharp
 public sealed partial class TodoList : Component
@@ -50,12 +51,13 @@ public sealed partial class Todo(string title)
 - A `Body` is **pure**: it reads state, it never changes it and performs no I/O.
 - A scope whose state did not change keeps its controls as they are: its `Body` is not called again and its controls
   are not touched.
-- Plain fields are **not** observed. Use `[State]`, or call `Refresh()` as a last resort.
+- Plain fields are **not** observed. Use `[State]`, or call `Refresh()` as a last resort: it re-evaluates the
+  component and the view methods that it calls in its blocks.
 - A component keeps its state as long as the same instance is displayed: create it once, in a field
   (`private readonly Counter _counter = new();`), not in `Body` (MVU016).
 
-In the sample app, clicking **+** re-evaluates one scope (the counter), typing re-evaluates one (the input row), and
-checking a task re-evaluates two (the row and the list footer).
+In the sample app, clicking **+** re-evaluates one scope (the counter), typing re-evaluates one (the input row, a view
+method), and checking a task re-evaluates four (the row, the progress ring, the list footer and its filter picker).
 
 ## The generator
 

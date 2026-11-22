@@ -483,11 +483,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         _collectors.TryPeek(out List<Scope>? parent);
         parent?.Add(scope);
 
-        // A component keeps its content as long as its state does not change; an anonymous block (ForEach, Observe) is
-        // re-evaluated when its parent was, because its parameters may have changed.
-        bool reevaluate = scope.IsDirty
-            || scope.Content is null
-            || (view.Identity is null && !ReferenceEquals(view, scope.LastView));
+        bool reevaluate = scope.IsDirty || scope.Content is null || InputsChanged(view, scope.LastView);
         scope.LastView = view;
         _content.TryGetValue(scope, out IReadOnlyList<Node>? previous);
 
@@ -509,7 +505,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
         if (reevaluate)
         {
-            scope.Content = scope.Evaluate(view.Build);
+            scope.Content = scope.Evaluate(() => Build(view));
             scope.EvaluatedPass = _pass;
             _evaluated++;
         }
@@ -533,6 +529,28 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         scope.Environment = environment;
         _content[scope] = nodes;
         return nodes;
+    }
+
+    // A component keeps its content as long as its state does not change; a view method as long as its arguments are
+    // equal; an anonymous block (ForEach, Observe) is re-evaluated when its parent was, because its parameters may have
+    // changed.
+    private static bool InputsChanged(ScopeView view, ScopeView? last) => view switch
+    {
+        { Identity: Component } => false,
+        { Inputs: { } inputs } => !Equals(inputs, last?.Inputs),
+        _ => !ReferenceEquals(view, last),
+    };
+
+    // A view method also follows Refresh() of the component that calls it: skipped when its arguments are equal, it
+    // would otherwise miss a plain field that Refresh() announces.
+    private View Build(ScopeView view)
+    {
+        if (view.Inputs is not null && _owners.Select(owner => owner.Identity).OfType<Component>().FirstOrDefault() is { } component)
+        {
+            component.TrackRefresh();
+        }
+
+        return view.Build();
     }
 
     private void Release(Scope scope)

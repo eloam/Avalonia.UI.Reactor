@@ -40,6 +40,12 @@ internal static class ViewBuilderSyntax
     /// </summary>
     public const string ShowName = "Show";
 
+    // The assembly of the factories and the modifiers, whose calls run at once: they only build views.
+    private const string CoreAssemblyName = "Avalonia.UI.Reactor.Core";
+
+    // The inputs of a scope are a tuple of its receiver and its arguments: ValueTuple.Create takes eight values at most.
+    private const int MaxScopeInputs = 8;
+
     /// <summary>
     /// Finds, from the syntax only, the lambda whose block would contain a statement.
     /// </summary>
@@ -174,6 +180,26 @@ internal static class ViewBuilderSyntax
 
         // A private generic method would need a generic UnsafeAccessor; it is not intercepted.
         return !definition.IsGenericMethod || IsAccessibleFromAssembly(definition);
+    }
+
+    /// <summary>
+    /// Determines whether a view method called at the start of a statement of a block gets its own scope.
+    /// </summary>
+    /// <remarks>
+    /// A view method of the application or of a component library gets a scope, as a <c>@Composable</c> function does in
+    /// Compose: it runs later, re-evaluated alone when the state it reads changes and skipped when its arguments are
+    /// equal. The method returns <c>View</c> itself, so that the scope can stand for its result; the factories and the
+    /// modifiers of the framework run at once, since they only build views.
+    /// </remarks>
+    /// <param name="method">The method called at the start of the statement.</param>
+    /// <returns><see langword="true"/> if the call gets a scope; otherwise, <see langword="false"/>.</returns>
+    public static bool IsScopedViewMethod(IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+        return IsInterceptable(definition)
+            && definition.ReturnType.ToDisplayString() == ViewTypeName
+            && definition.ContainingAssembly?.Name != CoreAssemblyName
+            && definition.Parameters.Length + (definition.IsStatic ? 0 : 1) <= MaxScopeInputs;
     }
 
     /// <summary>

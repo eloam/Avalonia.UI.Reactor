@@ -102,6 +102,26 @@ VStack(() =>
 
 - A reusable piece of view is a method that returns a group built by a block:
   `private View Details() => Group(() => { … })`. In a block, `Details();` adds its views to the container.
+- A view method called as a statement of a block gets **its own scope**, like a SwiftUI subview: it is re-evaluated
+  alone when the state it reads changes, and skipped when its caller is re-evaluated with equal arguments (compared
+  with `Equals`). `Progress();` and `Progress().Padding(8);` both get one; `Progress()` passed as an argument runs at
+  once. The method runs when the view is applied, not during the `Body` that calls it: a breakpoint in it stops there.
+
+  ```csharp
+  private View Progress() => Group(() =>    // re-evaluated alone when Done or Total changes
+  {
+      Text(/{Total}");
+      if (Done == Total)
+          Text("All done");
+  });
+
+  VStack(() => { Header(); Progress(); Rows(); });   // no Observe needed
+  ```
+
+  A view method is a method of the application or of a library that returns `View` itself; the factories and the
+  modifiers of the framework run at once. An argument that is a new object on every call (an action, a binding, a
+  `params` array) makes the method run with its caller. `Refresh()` re-evaluates the view methods of the component too.
+- `Observe(() => { … })` isolates a block written in place in its own scope.
 - At compile time, the generator of the package intercepts each view statement of a block (C# interceptors) so that it
   adds its view to the block; the code runs as written, breakpoints included. A block compiled without the generator
   throws instead of showing nothing.

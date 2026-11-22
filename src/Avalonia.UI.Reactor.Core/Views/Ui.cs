@@ -281,6 +281,28 @@ public static class Ui
     public static ScopeView Observe(Func<View> body) => new(body);
 
     /// <summary>
+    /// Creates a block re-evaluated on its own when the state it reads changes, whose views are those of a view builder
+    /// block (see <see cref="VStack(Action)"/>).
+    /// </summary>
+    /// <remarks>
+    /// Among the children of a container, the views of the block take their places among the other children.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// Observe(() =&gt;
+    /// {
+    ///     Text($"{Done}/{Total}");
+    ///     if (Done == Total)
+    ///         Text("All done");
+    /// })
+    /// </code>
+    /// </example>
+    /// <param name="content">The block, whose views are those of the scope.</param>
+    /// <returns>The scope view.</returns>
+    public static ScopeView Observe([ViewBuilder] Action content) =>
+        new(() => new GroupView(Flatten(ViewCollector.Collect(content, content))));
+
+    /// <summary>
     /// Creates the menu bar of the window: <c>MenuBar(Menu("&amp;File", MenuItem("New", New).Shortcut("Ctrl+N")))</c>.
     /// </summary>
     /// <remarks>

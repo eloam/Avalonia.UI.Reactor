@@ -73,6 +73,15 @@ public abstract class Component
     /// </remarks>
     protected void Refresh() => _refresh.Notify();
 
+    /// <summary>
+    /// Subscribes the scope being evaluated to <see cref="Refresh"/>.
+    /// </summary>
+    /// <remarks>
+    /// The scope of a view method is skipped when the component is re-evaluated with the same arguments: it follows
+    /// <see cref="Refresh"/> as well, so that a plain field that it reads is displayed again.
+    /// </remarks>
+    internal void TrackRefresh() => _refresh.Read();
+
     private View Render()
     {
         _refresh.Read();

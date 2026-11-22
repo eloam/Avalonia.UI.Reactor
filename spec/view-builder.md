@@ -208,8 +208,9 @@ own inputs change. Here, only a component, a `ForEach` row and `Observe` have th
 that runs again with the whole `Body`.
 
 As the Compose compiler does for each `@Composable` function, the interceptor of a statement that calls a view method
-wraps the call in a scope instead of running it at once. A view method is any method that returns a view, in the
-application or in a component library, except the factories and modifiers of `Avalonia.UI.Reactor.Core`:
+wraps the call in a scope instead of running it at once. A view method is any method that returns `View` itself (a
+scope can stand for a `View`, not for a `StackView`), in the application or in a component library, except the
+factories and modifiers of `Avalonia.UI.Reactor.Core`:
 
 ```csharp
 private View Progress() => Group(() =>                  // its own scope: re-evaluated alone when Done or Total changes
@@ -381,7 +382,12 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 5. Blocks: `[ViewBuilder]` parameters and interceptors for `VStack`, `HStack`, `ZStack`, `Group` and the rows of
    `ForEach`, `Show`, MVU014, MVU015 and the code fixes, in their own assembly (`Avalonia.UI.Reactor.CodeFixes`: an
    assembly of analyzers must not reference the workspaces, RS1038). **Done.**
-6. Scopes of view methods and the `Observe` block, measured (see [Risks](#risks)).
+6. Scopes of view methods and the `Observe` block. **Done**: the scope is identified by the name of the method, as a
+   component by its instance, so a view that appears before it does not move it; its inputs are a tuple of its
+   receiver and its arguments (eight values at most, beyond which the method runs at once); it reads the refresh
+   signal of the nearest component, so that `Refresh()` reaches it. Measured on the sample app: the counts of
+   re-evaluated scopes stay those of the arguments version, plus one for the filter picker, a view method whose
+   `params` options are a new array on every call.
 7. `Tags.Bindings`.
 
 ## Strengths
@@ -469,6 +475,9 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 
 - A `switch` expression over an enum also gets CS8524 (unnamed values) unless it ends with `_ =>`, which turns off the
   check for values added later. Should MVU015 cover `switch` expressions too, so that applications can turn CS8524 off?
+- Should `Binding<T>` compare by its target (owner and property), so that a view method that receives a binding
+  (`Field(Bind.Name)`) is skipped when its caller is re-evaluated? Today a binding is a new object on every access, so
+  such a method runs with its caller.
 - What gives a row a binding to its item: `Tags.Bindings`, or `ForEach(Bind.Tags, tag => TextField(tag))` when `Tags`
   is a `[State]`, like SwiftUI's `ForEach($tags)`? A `Binding<StateList<T>>` is not an `IEnumerable<T>`, so this
   overload is not ambiguous, and it reuses the `Bind` vocabulary.

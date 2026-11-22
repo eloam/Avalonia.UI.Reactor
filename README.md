@@ -66,7 +66,8 @@ public sealed partial class SignUp : Component
 - **Concise C# views.** Views are immutable records built with factory functions (`Text`, `Button`, `VStack`…) and
   chainable modifiers (`.Padding(16)`, `.Background(…)`). The common case fits on one line.
 - **Fine-grained reactivity.** Properties marked `[State]` are generated at compile time. A change re-evaluates only
-  the components that read it, whether it comes from an action, after an `await` or from a background thread.
+  the components and the view methods that read it, whether it comes from an action, after an `await` or from a
+  background thread.
 - **Generated two-way bindings.** `TextField(Bind.Draft)`, `Checkbox(todo.Bind.Done)`: each `[State]` property gets
   its binding, like `$draft` in SwiftUI.
 - **Real Avalonia controls.** A reconciler maps each view to an Avalonia control and keeps it from one update to the

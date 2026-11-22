@@ -88,15 +88,15 @@ public sealed class ViewBuilderGenerator : IIncrementalGenerator
         foreach (IGrouping<SyntaxTree, SyntaxNode> file in statements.GroupBy(s => s.SyntaxTree))
         {
             SemanticModel model = compilation.GetSemanticModel(file.Key);
-            foreach (SyntaxNode statement in file)
-            {
-                if (Describe(statement, model, cancellation) is { } site)
-                    yield return site;
-            }
+            foreach (Site site in file.SelectMany(statement => Describe(statement, model, cancellation)))
+                yield return site;
         }
     }
 
-    private static Site? Describe(SyntaxNode statement, SemanticModel model, CancellationToken cancellation)
+    // The calls of a statement to intercept: the call of the statement, which adds its view to the block, and, when the
+    // statement starts with a view method (Progress(); or Progress().Padding(8);), the call of that method, which becomes
+    // a scope run later.
+    private static IEnumerable<Site> Describe(SyntaxNode statement, SemanticModel model, CancellationToken cancellation)
     {
         InvocationExpressionSyntax invocation = statement as InvocationExpressionSyntax
             ?? (InvocationExpressionSyntax)((ExpressionStatementSyntax)statement).Expression;
@@ -104,9 +104,28 @@ public sealed class ViewBuilderGenerator : IIncrementalGenerator
             || model.GetSymbolInfo(invocation, cancellation).Symbol is not IMethodSymbol method
             || !ViewBuilderSyntax.IsInterceptable(method))
         {
-            return null;
+            yield break;
         }
 
+        InvocationExpressionSyntax head = HeadOf(invocation);
+        bool scoped = model.GetSymbolInfo(head, cancellation).Symbol is IMethodSymbol headMethod
+            && ViewBuilderSyntax.IsScopedViewMethod(headMethod);
+        if (scoped && head != invocation && SiteOf(head, model, InterceptionKind.Scope, cancellation) is { } scope)
+            yield return scope;
+
+        if (SiteOf(invocation, model, scoped && head == invocation ? InterceptionKind.EmitScope : InterceptionKind.Emit, cancellation) is { } site)
+            yield return site;
+    }
+
+    // The first call of a chain of modifiers: Progress() in Progress().Padding(8).
+    private static InvocationExpressionSyntax HeadOf(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax { Expression: InvocationExpressionSyntax receiver }
+            ? HeadOf(receiver)
+            : invocation;
+
+    private static Site? SiteOf(InvocationExpressionSyntax invocation, SemanticModel model, InterceptionKind kind, CancellationToken cancellation)
+    {
+        var method = (IMethodSymbol)model.GetSymbolInfo(invocation, cancellation).Symbol!;
 #pragma warning disable RSEXPERIMENTAL002 // The interceptable location of a call is an experimental API of Roslyn.
         InterceptableLocation? location = model.GetInterceptableLocation(invocation, cancellation);
 #pragma warning restore RSEXPERIMENTAL002
@@ -115,24 +134,33 @@ public sealed class ViewBuilderGenerator : IIncrementalGenerator
 
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
         return new Site(
-            KeyOf(definition),
-            InterceptorOf(definition),
+            KeyOf(definition, kind),
+            InterceptorOf(definition, kind),
             location.GetInterceptsLocationAttributeSyntax(),
             invocation.SyntaxTree.FilePath,
             invocation.SpanStart);
     }
 
-    // A stable name per intercepted method, made of its type, its name and the types of its parameters.
-    private static string KeyOf(IMethodSymbol method)
+    // A stable name per intercepted method and kind of interception, made of its type, its name and the types of its
+    // parameters.
+    private static string KeyOf(IMethodSymbol method, InterceptionKind kind)
     {
         string signature = method.ContainingType.ToDisplayString() + "_" + method.Name + "_"
             + string.Join("_", method.Parameters.Select(p => p.Type.ToDisplayString()));
-        return "View_" + new string([.. signature.Select(c => char.IsLetterOrDigit(c) ? c : '_')]);
+        string prefix = kind switch
+        {
+            InterceptionKind.EmitScope => "ScopedView_",
+            InterceptionKind.Scope => "Scope_",
+            _ => "View_",
+        };
+        return prefix + new string([.. signature.Select(c => char.IsLetterOrDigit(c) ? c : '_')]);
     }
 
-    // The text of the interceptor of a method: it calls the method as written, then emits its view. A method of the
-    // application that the generated code cannot reach is called through an UnsafeAccessor.
-    private static string InterceptorOf(IMethodSymbol method)
+    // The text of the interceptor of a method: it calls the method as written, then emits its view; or, for a view
+    // method, it returns a scope that calls the method later, with the receiver and the arguments as the inputs that the
+    // reconciler compares. A method of the application that the generated code cannot reach is called through an
+    // UnsafeAccessor.
+    private static string InterceptorOf(IMethodSymbol method, InterceptionKind kind)
     {
         string returnType = method.ReturnType.ToDisplayString(s_typeFormat);
         string container = method.ContainingType.ToDisplayString(s_typeFormat);
@@ -159,9 +187,9 @@ public sealed class ViewBuilderGenerator : IIncrementalGenerator
         else
         {
             string target = method.IsStatic ? $"{container}? __type" : $"{container} __self";
-            string kind = method.IsStatic ? "StaticMethod" : "Method";
+            string accessorKind = method.IsStatic ? "StaticMethod" : "Method";
             string accessorParameters = string.Join(", ", new[] { target }.Concat(method.Parameters.Select(p => p.Type.ToDisplayString(s_typeFormat) + " " + p.Name)));
-            text.AppendLine($"        [global::System.Runtime.CompilerServices.UnsafeAccessor(global::System.Runtime.CompilerServices.UnsafeAccessorKind.{kind}, Name = \"{method.Name}\")]");
+            text.AppendLine($"        [global::System.Runtime.CompilerServices.UnsafeAccessor(global::System.Runtime.CompilerServices.UnsafeAccessorKind.{accessorKind}, Name = \"{method.Name}\")]");
             text.AppendLine($"        private static extern {returnType} Call{NamePlaceholder}({accessorParameters});");
             text.AppendLine();
             if (!method.IsStatic)
@@ -170,10 +198,28 @@ public sealed class ViewBuilderGenerator : IIncrementalGenerator
             call = $"Call{NamePlaceholder}({self}{(arguments.Length > 0 ? ", " + arguments : "")})";
         }
 
+        string body = kind == InterceptionKind.Emit ? $"{Collector}.Emit({call})" : ScopeOf(method, call);
+        if (kind == InterceptionKind.EmitScope)
+            body = $"{Collector}.Emit({body})";
+
         text.AppendLine($"        {AttributesPlaceholder}");
         text.AppendLine($"        public static {returnType} {NamePlaceholder}{typeParameters}({string.Join(", ", parameters)}){constraints}");
-        text.AppendLine($"            => {Collector}.Emit({call});");
+        text.AppendLine($"            => {body};");
         return text.ToString();
+    }
+
+    // The scope of a view method: its name identifies it, and its receiver and arguments are its inputs.
+    private static string ScopeOf(IMethodSymbol method, string call)
+    {
+        List<string> inputs = [.. method.Parameters.Select(p => p.Name)];
+        if (!method.IsStatic)
+            inputs.Insert(0, "__self");
+
+        string tuple = inputs.Count == 0
+            ? "default(global::System.ValueTuple)"
+            : $"global::System.ValueTuple.Create({string.Join(", ", inputs)})";
+        string name = SymbolDisplay.FormatLiteral(method.ToDisplayString(), quote: true);
+        return $"{Collector}.ViewMethod({name}, {tuple}, () => {call})";
     }
 
     private static string ConstraintsOf(ITypeParameterSymbol parameter)

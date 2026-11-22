@@ -260,6 +260,41 @@ public class GeneratorTests
             """));
 
     [Fact]
+    public void View_methods_of_every_kind_compile_in_a_block() =>
+        Assert.Empty(Compile("""
+            public static class Views
+            {
+                public static View Labeled<T>(T value, params string[] labels) => Text($"{labels.Length} {value}");
+
+                public static View Framed(this View content) => VStack(content).Padding(4);
+
+                public static StackView Column(View content) => VStack(content);
+
+                public static View Wide(int a, int b, int c, int d, int e, int f, int g, int h, int i) => Text($"{a + i}");
+            }
+
+            public partial class Page : Component
+            {
+                [State] partial int Count { get; set; }
+
+                public override View Body => VStack(() =>
+                {
+                    Counter();
+                    Counter().Padding(8);
+                    Views.Labeled(Count, "a", "b");
+                    Text("Framed").Framed();
+                    Views.Column(Text("Column")).Spacing(4);
+                    Views.Wide(1, 2, 3, 4, 5, 6, 7, 8, 9);
+                    Pair<int>(Count);
+                });
+
+                private View Counter() => Text($"{Count}");
+
+                internal static View Pair<T>(T value) => Text($"{value}");
+            }
+            """));
+
+    [Fact]
     public void View_statements_outside_the_block_itself_are_reported()
     {
         IReadOnlyList<Diagnostic> diagnostics = Compile("""

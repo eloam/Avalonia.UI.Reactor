@@ -52,6 +52,21 @@ public static class ViewCollector
     }
 
     /// <summary>
+    /// Creates the scope of a view method called as a statement of a block; called by its interceptor.
+    /// </summary>
+    /// <remarks>
+    /// The method runs later, when the reconciler applies the scope: what it reads belongs to the scope, which is
+    /// re-evaluated alone when that state changes, and skipped when its caller is re-evaluated with equal arguments.
+    /// </remarks>
+    /// <param name="method">The name of the method, which identifies the scope among the children of its container.</param>
+    /// <param name="inputs">The receiver and the arguments of the call, as a tuple compared with
+    /// <see cref="object.Equals(object?, object?)"/>.</param>
+    /// <param name="build">The call of the method.</param>
+    /// <returns>The scope.</returns>
+    public static ScopeView ViewMethod(string method, object inputs, Func<View> build) =>
+        new(build) { Identity = method, Inputs = inputs };
+
+    /// <summary>
     /// Adds a view to the block being run, for <see cref="Ui.Show(View)"/>.
     /// </summary>
     /// <param name="view">The view, or <see langword="null"/> to add nothing.</param>
