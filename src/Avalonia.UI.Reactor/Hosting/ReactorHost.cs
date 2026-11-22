@@ -257,7 +257,7 @@ internal sealed class ReactorHost : Border, IScopeHost
         Control content = _reconciler.Update(_root, Themes);
         if (!ReferenceEquals(_variant.Child, content))
         {
-            Reconciler.Detach(content);
+            ControlTree.Detach(content);
             _variant.Child = content;
         }
 

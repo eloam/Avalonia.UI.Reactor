@@ -1,27 +1,30 @@
 // Copyright (c) Yohann Breuil.
 // Licensed under the MIT License.
 
-using System.Globalization;
-using Avalonia.Collections;
 using Avalonia.Controls;
-using Avalonia.Threading;
 
 namespace Avalonia.UI.Reactor.Reconciliation;
 
-using Avalonia.UI.Reactor.Panels;
 using Avalonia.UI.Reactor.State;
 using Avalonia.UI.Reactor.Theming;
 using Avalonia.UI.Reactor.Views;
-using Avalonia.UI.Reactor.Widgets;
 
 /// <summary>
 /// Applies a tree of views (immutable records) to a tree of Avalonia controls that it keeps from one update to the next.
 /// </summary>
 /// <remarks>
-/// A control is reused as long as its view keeps the same place (see <see cref="ReconcileChildren"/>) and the same kind
-/// of control: only its properties change, so it keeps its focus, hover and selection. Each scope (component,
-/// <c>ForEach</c> item, <c>Observe</c> block) is re-evaluated only when some state it read changed; otherwise its controls
-/// stay as they are. A view that declares <c>OnAppear</c> or <c>OnDisappear</c> has a lifecycle, which follows its node.
+/// <para>
+/// A control is reused as long as its view keeps the same place (<see cref="ChildSlots"/>) and the same kind of control:
+/// only its properties change, so it keeps its focus, hover and selection. Each scope (component, view method called in
+/// a block, <c>ForEach</c> item, <c>Observe</c> block) is re-evaluated only when some state it read changed; otherwise
+/// its controls stay as they are.
+/// </para>
+/// <para>
+/// The reconciler walks the views and the scopes; the rest is delegated: one adapter per type of view
+/// (<see cref="ViewAdapter"/>), the decorations (<see cref="Decorations"/>), the size and flexibility
+/// (<see cref="Placement"/>), the lifecycles (<see cref="LifecycleTracker"/>) and the moves of controls
+/// (<see cref="ControlTree"/>).
+/// </para>
 /// </remarks>
 /// <param name="host">The host that displays the tree.</param>
 /// <param name="run">The function that runs the action of a control, then updates the interface.</param>
@@ -36,25 +39,16 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     // The suffix of the path of the view of a template, below the path of its control.
     private const string TemplateSuffix = "~";
 
-    // The prefixes of the place of a child below its container, one per rule (see SlotOf): two rules never give the same
-    // place, even when a key looks like a rank (a row keyed by the id 0, next to an unkeyed header).
-    private const string KeySlotPrefix = "k";
-    private const string IdentitySlotPrefix = "o";
-    private const string RankSlotPrefix = "t";
-
-    // Separates the type of a view from its rank in a place given by rule 3, and the owner of a property from its name.
-    private const char RankSeparator = '#';
-    private const char PropertySeparator = '.';
-
+    private readonly IScopeHost _host = host;
+    private readonly Action<Action?> _run = run;
+    private readonly LifecycleTracker _lifecycles = new(host, run);
     private readonly Dictionary<string, Scope> _scopes = [];
     private readonly Dictionary<Scope, IReadOnlyList<Node>> _content = [];
     private readonly Stack<List<Scope>> _collectors = new();
-    private readonly HashSet<Lifecycle> _lifecycles = [];
     private readonly Stack<Scope> _owners = new();
     private Node? _root;
     private int _pass;
     private int _depth;
-    private long _visits;
     private int _evaluated;
     private int _reused;
 
@@ -73,23 +67,6 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     /// Gets the theme of the root view at the last update, which gives the window its background.
     /// </summary>
     public Theme? RootTheme => _root?.Environment.Theme;
-
-    /// <summary>
-    /// Removes a control from its current parent, before placing it elsewhere.
-    /// </summary>
-    /// <param name="control">The control to remove.</param>
-    public static void Detach(Control control)
-    {
-        switch (control.Parent)
-        {
-            case Panel panel:
-                panel.Children.Remove(control);
-                break;
-            case Decorator decorator:
-                decorator.Child = null;
-                break;
-        }
-    }
 
     /// <summary>
     /// Sets properties on the control of a node, so that the events they raise (text, check state) are known to come from
@@ -115,59 +92,10 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     }
 
     /// <summary>
-    /// Arranges the controls of the children in a container with as few changes as possible: a control already present
-    /// is moved, not removed and inserted again, so that it keeps its focus and hover.
-    /// </summary>
-    /// <param name="children">The children of the container.</param>
-    /// <param name="nodes">The nodes of the children, in order.</param>
-    public static void Arrange(IAvaloniaList<Control> children, IReadOnlyList<Node> nodes)
-    {
-        for (int i = 0; i < nodes.Count; i++)
-        {
-            Control wanted = nodes[i].Root;
-            if (i < children.Count && ReferenceEquals(children[i], wanted))
-            {
-                continue;
-            }
-
-            int index = children.IndexOf(wanted);
-            if (index > i)
-            {
-                children.Move(index, i);
-            }
-            else
-            {
-                Detach(wanted);
-                children.Insert(i, wanted);
-            }
-        }
-
-        while (children.Count > nodes.Count)
-        {
-            children.RemoveAt(children.Count - 1);
-        }
-    }
-
-    /// <summary>
-    /// Sets the background, border, corners, padding and click of a view on the surface that carries them.
-    /// </summary>
-    /// <param name="surface">The surface.</param>
-    /// <param name="view">The view.</param>
-    /// <param name="theme">The theme of the view.</param>
-    public static void ApplyDecoration(Surface surface, View view, Theme theme)
-    {
-        surface.Paint(view.Background?.Resolve(theme.Palette), theme, tappable: view.TapAction is not null);
-        surface.SetBrush(Border.BorderBrushProperty, view.BorderColor?.Resolve(theme.Palette));
-        surface.BorderThickness = new Thickness(view.BorderColor is null ? 0 : view.BorderWidth ?? 1);
-        surface.CornerRadius = new CornerRadius(view.CornerRadius ?? 0);
-        surface.Padding = (view.Padding ?? default).ToAvalonia();
-    }
-
-    /// <summary>
     /// Runs the action of a control (a click), then updates the interface.
     /// </summary>
     /// <param name="action">The action, or <see langword="null"/>.</param>
-    public void Run(Action? action) => run(action);
+    public void Run(Action? action) => _run(action);
 
     /// <summary>
     /// Applies the root view.
@@ -190,7 +118,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             _scopes.Remove(gone.Id);
         }
 
-        SweepLifecycles();
+        _lifecycles.Sweep(_pass, IsKept);
         LastStats = new UpdateStats(_evaluated, _reused, _scopes.Count);
         return _root.Root;
     }
@@ -201,7 +129,7 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     /// </summary>
     public void Release()
     {
-        ReleaseLifecycles();
+        _lifecycles.Release();
         foreach (Scope scope in _scopes.Values)
         {
             Release(scope);
@@ -253,12 +181,12 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             : new Node(id, adapter, view, n => adapter.Create(this, n));
         node.View = view;
         node.Environment = environment;
-        TrackLifecycle(node, view);
+        _lifecycles.Track(node, view, _owners.TryPeek(out Scope? owner) ? owner : null, _pass, _depth);
         _depth++;
         Apply(node, () => adapter.Update(this, node, view, environment));
         _depth--;
-        Decorate(node, view, environment.Theme);
-        Place(node, view);
+        Decorations.Decorate(node, view, environment.Theme, Run);
+        Placement.Place(node, view);
         return node;
     }
 
@@ -282,14 +210,9 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     }
 
     /// <summary>
-    /// Applies the children of a container: each one reuses the node that held its place, which keeps its control, focus
-    /// and hover when a sibling appears, disappears or moves.
+    /// Applies the children of a container: each one reuses the node that held its place (see <see cref="ChildSlots"/>),
+    /// which keeps its control, focus and hover when a sibling appears, disappears or moves.
     /// </summary>
-    /// <remarks>
-    /// The place of a child comes from, in this order: its <c>Key</c>; an identity it already has (a component by its
-    /// instance, a bound control by the property of its binding); otherwise its view type and its rank among the
-    /// children of that type, so that a view of another type that appears before it does not shift it.
-    /// </remarks>
     /// <param name="parent">The node of the container.</param>
     /// <param name="children">The child views.</param>
     /// <param name="environment">The environment of the container.</param>
@@ -303,12 +226,11 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             previous.TryAdd(child.Slot, child);
         }
 
-        var slots = new HashSet<string>();
-        var ranks = new Dictionary<Type, int>();
+        var slots = new ChildSlots(parent.Id);
         var result = new List<Node>(children.Count);
         foreach (View view in children)
         {
-            string slot = SlotOf(parent.Id, view, slots, ranks);
+            string slot = slots.Of(view);
             if (view is ScopeView scope)
             {
                 result.AddRange(ReconcileFragment(scope, environment, slot));
@@ -321,71 +243,6 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
         parent.Children = result;
         return result;
-    }
-
-    // The place of a child (see ReconcileChildren). Two children that share an identity (the same component shown twice,
-    // two fields bound to the same property) fall back to their rank; two children that share a key are an error.
-    private static string SlotOf(string parentId, View view, HashSet<string> slots, Dictionary<Type, int> ranks)
-    {
-        if (view.Key is { } key)
-        {
-            string keyed = $"{parentId}/{KeySlotPrefix}{key}";
-            if (!slots.Add(keyed))
-            {
-                throw new InvalidOperationException(
-                    $"Two children of the same container have the key '{key}'. Give each child a unique key.");
-            }
-
-            return keyed;
-        }
-
-        if (IdentityOf(view) is { } identity)
-        {
-            string identified = $"{parentId}/{IdentitySlotPrefix}{identity}";
-            if (slots.Add(identified))
-            {
-                return identified;
-            }
-        }
-
-        Type type = view.GetType();
-        ranks.TryGetValue(type, out int rank);
-        ranks[type] = rank + 1;
-        string ranked = $"{parentId}/{RankSlotPrefix}{type.Name}{RankSeparator}{rank.ToString(CultureInfo.InvariantCulture)}";
-        slots.Add(ranked);
-        return ranked;
-    }
-
-    // A component by its instance, a bound control by the property of its binding.
-    private static string? IdentityOf(View view) => view switch
-    {
-        ScopeView { Identity: { } identity } => ReferenceKeys.Of(identity),
-        { BindingTarget: { } target } => $"{ReferenceKeys.Of(target.Owner)}{PropertySeparator}{target.Property}",
-        _ => null,
-    };
-
-    // Size and flexibility: an explicit size wins (.Width(72), or infinity to fill); otherwise a container is as flexible
-    // as its children. The parent container reads these values to share its space.
-    private static void Place(Node node, View view)
-    {
-        (bool fillWidth, bool fillHeight) = node.Adapter.FlexOf(node, view);
-        node.FillWidth = view.Width is { } width ? float.IsPositiveInfinity(width) : fillWidth;
-        node.FillHeight = view.Height is { } height ? float.IsPositiveInfinity(height) : fillHeight;
-        node.Grow = view.Grow > 0 ? view.Grow : node.Adapter.GrowOf(node);
-
-        Control root = node.Root;
-        root.Width = view.Width is { } fixedWidth && !float.IsInfinity(fixedWidth) ? fixedWidth : double.NaN;
-        root.Height = view.Height is { } fixedHeight && !float.IsInfinity(fixedHeight) ? fixedHeight : double.NaN;
-        if (node.Decoration is not null)
-        {
-            node.Content.Width = double.NaN;
-            node.Content.Height = double.NaN;
-        }
-
-        Flex.SetGrow(root, node.Grow);
-        Flex.SetFillWidth(root, node.FillWidth);
-        Flex.SetFillHeight(root, node.FillHeight);
-        Flex.SetSelfAlign(root, view.SelfAlign);
     }
 
     // A scope in a place that holds one control (the root, a decoration, a template): a content made of several views is
@@ -416,14 +273,13 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         var nodes = new List<Node>();
         if (content is GroupView group)
         {
-            var slots = new HashSet<string>();
-            var ranks = new Dictionary<Type, int>();
+            var slots = new ChildSlots(slot + ScopeContentSuffix);
             int position = 0;
             foreach (View child in Ui.Unfold(group))
             {
                 View placed = modified ? child.Inherit(modifiers, position) : child;
                 position++;
-                string childSlot = SlotOf(slot + ScopeContentSuffix, placed, slots, ranks);
+                string childSlot = slots.Of(placed);
                 if (placed is ScopeView nested)
                 {
                     nodes.AddRange(ReconcileFragment(nested, environment, childSlot));
@@ -470,12 +326,12 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
                 Release(scope);
             }
 
-            scope = new Scope(host.RequestUpdate, id, view.Identity);
+            scope = new Scope(_host.RequestUpdate, id, view.Identity);
             _scopes[id] = scope;
             if (view.Identity is Component component)
             {
                 // Gives the component access to the theme catalog (Component.Themes).
-                component.Host = host;
+                component.Host = _host;
             }
         }
 
@@ -557,138 +413,10 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     {
         scope.Release();
         _content.Remove(scope);
-        if (scope.Identity is Component component && ReferenceEquals(component.Host, host))
+        if (scope.Identity is Component component && ReferenceEquals(component.Host, _host))
         {
             component.Host = null;
         }
-    }
-
-    // Wraps a view whose control does not draw its own background, border, corners and padding (text, stack,
-    // checkbox…), or a clickable view (.OnTap), in a Surface, only when the view needs one. The control moves into the
-    // surface, and out of it, without being recreated.
-    private void Decorate(Node node, View view, Theme theme)
-    {
-        if (node.Content is Surface)
-        {
-            // A box is already a surface: its adapter dresses it.
-            return;
-        }
-
-        bool decorated = view.Background is not null
-            || view.BorderColor is not null
-            || view.CornerRadius is not null
-            || view.Padding is not null;
-        bool needed = view.TapAction is not null || (decorated && !node.Adapter.DrawsDecoration);
-        if (needed && node.Decoration is null)
-        {
-            Detach(node.Content);
-            node.Decoration = new Surface { Child = node.Content, TapAction = () => Run(node.View.TapAction) };
-        }
-        else if (!needed && node.Decoration is { } unused)
-        {
-            unused.Child = null;
-            node.Decoration = null;
-        }
-
-        if (node.Decoration is not { } surface)
-        {
-            return;
-        }
-
-        if (node.Adapter.DrawsDecoration)
-        {
-            // The control keeps its own background; the surface only adds the click.
-            surface.Paint(null, theme, tappable: true);
-        }
-        else
-        {
-            ApplyDecoration(surface, view, theme);
-        }
-    }
-
-    // Visited before the children of the node, so that the order of the visits is the order of the tree.
-    private void TrackLifecycle(Node node, View view)
-    {
-        if (view.AppearAction is null && view.DisappearAction is null && view.TaskAction is null)
-        {
-            return;
-        }
-
-        if (node.Lifecycle is not { } lifecycle)
-        {
-            lifecycle = new Lifecycle(node);
-            node.Lifecycle = lifecycle;
-            _lifecycles.Add(lifecycle);
-        }
-
-        lifecycle.Owner = _owners.TryPeek(out Scope? owner) ? owner : null;
-        lifecycle.LastVisit = _pass;
-        lifecycle.Depth = _depth;
-        lifecycle.Order = ++_visits;
-    }
-
-    // A lifecycle is alive when its node was visited, or when the scope that declares it was kept by the update without
-    // being re-evaluated: the nodes of such a scope are not visited, and without this rule a child component would
-    // disappear whenever its parent is re-evaluated. The actions run after the update, on the dispatcher, so that a
-    // state they change schedules the next update instead of changing a Body being computed: the disappearances first,
-    // children before their parents, then the appearances and the restarted tasks, parents before their children. A
-    // task is cancelled at once, when the update decides it.
-    private void SweepLifecycles()
-    {
-        List<Lifecycle>? gone = null;
-        List<Lifecycle>? appearing = null;
-        List<Lifecycle>? restarting = null;
-        foreach (Lifecycle lifecycle in _lifecycles)
-        {
-            if (lifecycle.LastVisit != _pass && !IsKept(lifecycle.Owner))
-            {
-                (gone ??= []).Add(lifecycle);
-            }
-            else if (!lifecycle.Appeared)
-            {
-                lifecycle.Appeared = true;
-                DecideTask(lifecycle);
-                (appearing ??= []).Add(lifecycle);
-            }
-            else if (TaskChanged(lifecycle))
-            {
-                lifecycle.Cancellation?.Cancel();
-                DecideTask(lifecycle);
-                if (lifecycle.TaskStarted)
-                    (restarting ??= []).Add(lifecycle);
-            }
-        }
-
-        if (gone is null && appearing is null && restarting is null)
-        {
-            return;
-        }
-
-        gone?.ForEach(Forget);
-        gone?.Sort(Lifecycle.ChildrenFirst);
-        appearing?.Sort(Lifecycle.ParentsFirst);
-        restarting?.Sort(Lifecycle.ParentsFirst);
-        Dispatcher.UIThread.Post(() =>
-        {
-            gone?.ForEach(Disappear);
-            appearing?.ForEach(Appear);
-            restarting?.ForEach(StartTask);
-        });
-    }
-
-    // The task was added to a view that had appeared, removed from it, or its key changed.
-    private static bool TaskChanged(Lifecycle lifecycle)
-    {
-        View view = lifecycle.Node.View;
-        return view.TaskAction is null
-            ? lifecycle.TaskStarted
-            : !lifecycle.TaskStarted || !Equals(lifecycle.TaskKey, view.TaskKey);
-    }
-
-    private static void DecideTask(Lifecycle lifecycle)
-    {
-        lifecycle.TaskStarted = lifecycle.Node.View.TaskAction is not null;
-        lifecycle.TaskKey = lifecycle.Node.View.TaskKey;
     }
 
     // Kept by the update: visited, not re-evaluated, and still the scope at its place.
@@ -698,88 +426,4 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
         && owner.EvaluatedPass != _pass
         && _scopes.TryGetValue(owner.Id, out Scope? live)
         && ReferenceEquals(live, owner);
-
-    private void Forget(Lifecycle lifecycle)
-    {
-        _lifecycles.Remove(lifecycle);
-        lifecycle.Gone = true;
-        lifecycle.Cancellation?.Cancel();
-        if (ReferenceEquals(lifecycle.Node.Lifecycle, lifecycle))
-        {
-            lifecycle.Node.Lifecycle = null;
-        }
-    }
-
-    // A view that went away before its posted appearance ran gets neither OnAppear nor OnDisappear, nor its task.
-    private void Appear(Lifecycle lifecycle)
-    {
-        if (lifecycle.Gone)
-        {
-            return;
-        }
-
-        lifecycle.AppearRan = true;
-        run(lifecycle.Node.View.AppearAction);
-        StartTask(lifecycle);
-    }
-
-    // Started on the user interface thread, after the update: after an await, the task resumes there. A run that is
-    // still going (two restarts decided before the first one started) is cancelled first, so that one run at most goes on.
-    private void StartTask(Lifecycle lifecycle)
-    {
-        if (lifecycle.Gone || !lifecycle.TaskStarted || lifecycle.Node.View.TaskAction is not { } task)
-        {
-            return;
-        }
-
-        lifecycle.Cancellation?.Cancel();
-        var cancellation = new CancellationTokenSource();
-        lifecycle.Cancellation = cancellation;
-        run(() => _ = WatchAsync(lifecycle, task, cancellation));
-    }
-
-    // Runs the task until it ends. An OperationCanceledException after cancellation is expected; another exception is
-    // reported as the exception of an action is. The cancellation is disposed when the task ends.
-    private async Task WatchAsync(Lifecycle lifecycle, Func<CancellationToken, Task> task, CancellationTokenSource cancellation)
-    {
-        try
-        {
-            await task(cancellation.Token);
-        }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-        {
-            // Expected: the view disappeared, the key changed, or the window closed.
-        }
-        catch (Exception exception)
-        {
-            host.Report(exception);
-        }
-        finally
-        {
-            if (ReferenceEquals(lifecycle.Cancellation, cancellation))
-            {
-                lifecycle.Cancellation = null;
-            }
-
-            cancellation.Dispose();
-        }
-    }
-
-    private void Disappear(Lifecycle lifecycle)
-    {
-        if (lifecycle.AppearRan)
-        {
-            run(lifecycle.Node.View.DisappearAction);
-        }
-    }
-
-    // The window closes: the dispatcher may not run again, so the views that appeared disappear at once, and their tasks
-    // are cancelled.
-    private void ReleaseLifecycles()
-    {
-        List<Lifecycle> all = [.. _lifecycles];
-        all.Sort(Lifecycle.ChildrenFirst);
-        all.ForEach(Forget);
-        all.ForEach(Disappear);
-    }
 }

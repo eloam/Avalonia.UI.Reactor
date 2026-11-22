@@ -32,7 +32,7 @@ internal sealed class ZStackAdapter : ViewAdapter<ZStackView, LayerStack>
             Font = environment.FontFor(view),
             Foreground = environment.ForegroundFor(view),
         };
-        Reconciler.Arrange(layers.Children, reconciler.ReconcileChildren(node, view.Children, children));
+        ControlTree.Arrange(layers.Children, reconciler.ReconcileChildren(node, view.Children, children));
     }
 
     /// <inheritdoc/>

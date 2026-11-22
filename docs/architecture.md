@@ -15,8 +15,9 @@ Avalonia event (click, typing) → action → state changed → subscribed scope
   → Avalonia layout and rendering
 ```
 
-- **Scopes**: a component, a `ForEach` item, an `Observe` block, the drawing of a `Canvas` and the update of a `Native`
-  view each record the state they read. Only a change to one of those re-evaluates them.
+- **Scopes**: a component, a view method called in a block, a `ForEach` item, an `Observe` block, the drawing of a
+  `Canvas` and the update of a `Native` view each record the state they read. Only a change to one of those
+  re-evaluates them.
 - **Threads**: state can change from any thread; the tree and the controls are only touched on the UI thread.
 - **Stacks** are our own Avalonia panel (`FlexStack`), which follows SwiftUI's rules.
 - **Controls**: `ReactorButton`, `ReactorCheckBox` and `ReactorTextBox` derive from Avalonia's `Button`, `CheckBox` and
@@ -36,6 +37,32 @@ Avalonia event (click, typing) → action → state changed → subscribed scope
 | `Box`, decorations, `.OnTap` | `Surface` (a `Border`) |
 | `Canvas` | `DrawingCanvas` (a `Control` drawing with Avalonia's `DrawingContext`) |
 | `Native(…)` | the control you provide |
+
+## What happens when a state changes
+
+Each piece of state (a `[State]` property, a `StateList`) has a list of subscribers, like a sign-up sheet.
+
+1. **Computing while recording.** The reconciler evaluates a scope with `Scope.Evaluate`: while its `Body` runs, every
+   state it reads adds the scope to its sheet (`Signal.Read`). The sheets of the previous evaluation are cleared first,
+   so that a branch of an `if` that is no longer shown stops counting.
+2. **Changing a state.** The generated setter compares the new value with the old one; when it differs, it marks every
+   subscriber of its sheet for re-evaluation (`Signal.Notify`) and asks for an update, from any thread.
+3. **Updating.** On the UI thread, the reconciler walks the tree. A scope that is not marked keeps its controls as they
+   are; a marked scope runs its `Body` again, and each resulting view is applied to the control that held its place.
+
+In the sample app, clicking **+** marks the counter card only, since it is the only `Body` on the sheet of `Count`.
+
+The reconciler ([Reconciler.cs](../src/Avalonia.UI.Reactor/Reconciliation/Reconciler.cs)) walks the views and the
+scopes, and delegates the rest:
+
+| Class | Role |
+|---|---|
+| `ChildSlots` | The place of each child of a container: its key, its identity, or its type and rank |
+| `ViewAdapter` and its subclasses | One per type of view: create the Avalonia control, set its properties |
+| `Decorations` | The background, border, corners, padding and click of a view whose control does not draw them |
+| `Placement` | The size and flexibility of a control, which its container reads |
+| `LifecycleTracker` | `OnAppear`, `OnDisappear` and `Task`, which follow the nodes, after each update |
+| `ControlTree` | Moves controls between parents without recreating them |
 
 ## Projects
 
@@ -66,7 +93,8 @@ src/Avalonia.UI.Reactor.Core/
 src/Avalonia.UI.Reactor/
   ReactorApp.cs    entry point, WindowOptions, AvaloniaViews (Native)
   Hosting/         ReactorHost (updates, errors, zoom, shortcuts), ReactorApplication
-  Reconciliation/  Reconciler, Node, one adapter per view type (TextAdapter, ButtonAdapter…)
+  Reconciliation/  Reconciler, Node, ChildSlots, LifecycleTracker, Decorations, Placement, ControlTree, one adapter
+                   per view type (TextAdapter, ButtonAdapter…)
   Panels/          FlexStack (stacks), LayerStack (ZStack)
   Menus/           drawn bar (Avalonia Menu) or system bar, synchronization with the views
   Widgets/         ReactorButton, ReactorCheckBox, ReactorTextBox, their look (ReactorThemes), Surface, DrawingCanvas

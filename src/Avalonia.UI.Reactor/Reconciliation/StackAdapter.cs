@@ -32,7 +32,7 @@ internal sealed class StackAdapter : ViewAdapter<StackView, FlexStack>
             Font = environment.FontFor(view),
             Foreground = environment.ForegroundFor(view),
         };
-        Reconciler.Arrange(stack.Children, reconciler.ReconcileChildren(node, view.Children, children));
+        ControlTree.Arrange(stack.Children, reconciler.ReconcileChildren(node, view.Children, children));
     }
 
     /// <summary>

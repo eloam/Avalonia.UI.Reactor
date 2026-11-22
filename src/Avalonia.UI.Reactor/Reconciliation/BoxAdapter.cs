@@ -27,5 +27,5 @@ internal sealed class BoxAdapter : ViewAdapter<BoxView, Surface>
 
     /// <inheritdoc/>
     protected override void Update(Reconciler reconciler, Node node, Surface box, BoxView view, ViewEnvironment environment) =>
-        Reconciler.ApplyDecoration(box, view, environment.Theme);
+        Decorations.Paint(box, view, environment.Theme);
 }
