@@ -1,0 +1,12 @@
+<Project>
+  <!-- The settings shared by the repository, imported first: MSBuild reads only the nearest Directory.Build.props. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    A sample is code that one edits and tries out: its warnings (style, unused value) stay warnings, shown in the IDE
+    without stopping the build. The framework and its tests keep treating them as errors.
+  -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

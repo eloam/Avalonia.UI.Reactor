@@ -151,7 +151,8 @@ dotnet build Avalonia.UI.Reactor.sln
 dotnet test Avalonia.UI.Reactor.sln
 ```
 
-The build treats every warning as an error. Tests open real Avalonia windows without a screen (Avalonia.Headless),
+The build treats every warning of the framework and its tests as an error (the samples keep them as warnings, so that
+they can be edited freely). Tests open real Avalonia windows without a screen (Avalonia.Headless),
 so they run on any machine.
 
 ## Roadmap

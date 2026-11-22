@@ -67,7 +67,7 @@ for code and comments alike. [.editorconfig](.editorconfig) describes the rules 
 ## Quality bar
 
 - The build treats warnings as errors, runs the .NET analyzers and enforces the code style: fix a warning, do not
-  suppress it.
+  suppress it. In `samples/`, warnings stay warnings while you edit, and are fixed before a commit as well.
 - No magic numbers or strings: use a named constant or a theme value.
 - No dead code, legacy overloads or duplicated APIs.
 - Every fixed bug comes with a test that fails without the fix.
