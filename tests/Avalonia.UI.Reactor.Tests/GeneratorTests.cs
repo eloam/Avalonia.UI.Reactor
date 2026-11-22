@@ -78,6 +78,66 @@ public class GeneratorTests
             """));
 
     [Fact]
+    public void Displayed_collections_changed_in_place_warn_with_what_to_write()
+    {
+        string[] messages = [.. Compile("""
+            public partial class C : Component
+            {
+                [State] partial List<string> Tags { get; set; } = [];
+                [State] partial string[] Colors { get; set; } = [];
+                private readonly Dictionary<string, int> _scores = [];
+                private HashSet<int> Picked { get; } = [];
+
+                public override View Body => VStack(() =>
+                {
+                    Text($"{Tags.Count} {Colors.Length} {_scores.Count} {Picked.Count}");
+                    Button("Edit", () =>
+                    {
+                        Tags.Add("x");
+                        Colors[0] = "red";
+                        _scores["a"] += 1;
+                        Picked.Add(1);
+                    });
+                });
+            }
+            """).Where(d => d.Id == "MVU011").Select(d => d.GetMessage(CultureInfo.InvariantCulture)).Order()];
+
+        Assert.Equal(
+            [
+                "Collection '_scores' is read by the view but is not observable, so changing it in place does not update the UI; assign a new collection to a [State] property instead, or call 'Refresh()'",
+                "Collection 'Colors' is read by the view but is not observable, so changing it in place does not update the UI; use 'StateList<string>'",
+                "Collection 'Picked' is read by the view but is not observable, so changing it in place does not update the UI; assign a new collection to a [State] property instead, or call 'Refresh()'",
+                "Collection 'Tags' is read by the view but is not observable, so changing it in place does not update the UI; use 'StateList<string>'",
+            ],
+            messages);
+    }
+
+    [Fact]
+    public void Observed_or_replaced_collections_do_not_warn() =>
+        Assert.Empty(Ids("""
+            public partial class C : Component
+            {
+                [State] partial System.Collections.Immutable.ImmutableArray<string> Tags { get; set; } = [];
+                [State] partial string[] Colors { get; set; } = [];
+                private readonly StateList<int> _numbers = [];
+                private readonly List<string> _log = [];
+
+                public override View Body => VStack(() =>
+                {
+                    Text($"{Tags.Length} {Colors.Length} {_numbers.Count} {_log.Count}");
+                    Button("Edit", () =>
+                    {
+                        Tags = Tags.Add("x");
+                        Colors = [.. Colors, "red"];
+                        _numbers.Add(1);
+                        _log.Add("edited");
+                        Refresh();
+                    });
+                });
+            }
+            """));
+
+    [Fact]
     public void Field_not_displayed_does_not_warn() =>
         Assert.Empty(Ids("""
             public class C : Component

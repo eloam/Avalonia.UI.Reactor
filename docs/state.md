@@ -52,6 +52,9 @@ public sealed partial class Todo(string title)
 - A `Body` is **pure**: it reads state, it never changes it and performs no I/O.
 - A scope whose state did not change keeps its controls as they are: its `Body` is not called again and its controls
   are not touched.
+- `[State]` observes the assignment of a property, not the inside of its value: a collection changed in place
+  (`Tags.Add("x")`, `Colors[0] = "red"`) does not update the view (MVU011). Use `StateList<T>`, or assign a new
+  collection: `Tags = Tags.Add("x")` with an immutable one, `Colors = [.. Colors, "red"]` with an array.
 - Plain fields are **not** observed. Use `[State]`, or call `Refresh()` as a last resort: it re-evaluates the
   component and the view methods that it calls in its blocks.
 - A component keeps its state as long as the same instance is displayed: create it once, in a field
@@ -79,7 +82,7 @@ mistakes as you type; the IDE offers fixes for the blocks (see [Blocks](views.md
 | `MVU003` | Error | `[State]` on a property with a body, a `static` property, or a property without `get` |
 | `MVU004` | Error | `Bind` or `StateBindings` declared by hand in a class that has state: these names are reserved for the generated bindings |
 | `MVU010` | Warning | A field displayed by the view and modified, but not `[State]`: the screen would not follow |
-| `MVU011` | Warning | A `List<T>` displayed by the view and modified: use `StateList<T>` |
+| `MVU011` | Warning | A collection displayed by the view and changed in place (a `List<T>`, an array, a dictionary…), even as a `[State]` property: use `StateList<T>`, or assign a new collection |
 | `MVU012` | Error | State passed to a control without its binding (`TextField(Name)`, `Checkbox(todo.Done)`): the message gives `Bind.Name`, `todo.Bind.Done` |
 | `MVU013` | Error | A view created as a statement, whose value is not used (`Text("Title");`), or `Show(…)` outside a block: it would never be displayed |
 | `MVU014` | Error | A statement of a view builder block that adds no view (`Count++;`, a loop, a `try`, an `async` block): the message says what to write |

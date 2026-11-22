@@ -10,7 +10,7 @@ MVU002 | Usage | Error | Type declaring state properties must be partial
 MVU003 | Usage | Error | Invalid state property declaration
 MVU004 | Usage | Error | Name reserved for generated bindings
 MVU010 | Usage | Warning | Displayed member is not observable
-MVU011 | Usage | Warning | Displayed list is not observable
+MVU011 | Usage | Warning | Displayed collection is not observable
 MVU012 | Usage | Error | State property passed without its binding
 MVU013 | Usage | Error | View is created but never displayed
 MVU014 | Usage | Error | Statement in a view block does not produce a view

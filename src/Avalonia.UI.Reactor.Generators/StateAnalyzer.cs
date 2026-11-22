@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -87,15 +88,22 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     /// <summary>
-    /// Describes MVU011: a <see cref="System.Collections.Generic.List{T}"/> displayed by a view and changed.
+    /// Describes MVU011: a collection displayed by a view and changed in place, even when it is a <c>[State]</c> property.
     /// </summary>
     public static readonly DiagnosticDescriptor UnobservedList = new(
         "MVU011",
-        title: "Displayed list is not observable",
-        messageFormat: "List '{0}' is read by the view but is not observable, so changing it does not update the UI; use 'StateList<{1}>'",
+        title: "Displayed collection is not observable",
+        messageFormat: "Collection '{0}' is read by the view but is not observable, so changing it in place does not update the UI; {1}",
         Category, DiagnosticSeverity.Warning, isEnabledByDefault: true,
-        description: "Adding, removing or replacing the items of a 'List<T>' does not notify the view. Use 'StateList<T>', which notifies the views that enumerate it.",
+        description: "Adding, removing or replacing the items of a collection (a 'List<T>', an array, a dictionary…) does not notify the view, even when the collection is a [State] property: only assigning the property does. Use 'StateList<T>', which notifies the views that read it, or assign a new collection, an immutable one for example, to a [State] property.",
         customTags: WellKnownDiagnosticTags.CompilationEnd);
+
+    // The second part of the message of MVU011: what to write instead, for a list and for another collection.
+    private const string UseStateList = "use 'StateList<{0}>'";
+    private const string AssignNewCollection = "assign a new collection to a [State] property instead, or call 'Refresh()'";
+
+    // The collections that are never changed in place: their methods return a new collection.
+    private const string ImmutableCollectionsNamespace = "System.Collections.Immutable";
 
     /// <summary>
     /// Describes MVU012: state passed to a control without its binding.
@@ -158,8 +166,15 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             NotPartialProperty, NotPartialType, InvalidShape, ReservedName, UnobservedMember, UnobservedList, UnboundState,
             DiscardedView, ShowOutsideBlock, ComponentCreatedInView, IgnoredCancellation);
 
-    private static readonly ImmutableHashSet<string> s_listMutators = ImmutableHashSet.Create(
-        "Add", "AddRange", "Insert", "InsertRange", "Remove", "RemoveAt", "RemoveAll", "RemoveRange", "Clear", "Sort", "Reverse");
+    // The methods that change a collection in place: lists, sets, dictionaries, queues, stacks and linked lists.
+    private static readonly ImmutableHashSet<string> s_collectionMutators = ImmutableHashSet.Create(
+        "Add", "AddRange", "Insert", "InsertRange", "Remove", "RemoveAt", "RemoveAll", "RemoveRange", "Clear", "Sort",
+        "Reverse", "TryAdd", "Enqueue", "Dequeue", "TryDequeue", "Push", "Pop", "TryPop", "AddFirst", "AddLast",
+        "AddBefore", "AddAfter", "RemoveFirst", "RemoveLast", "UnionWith", "ExceptWith", "IntersectWith",
+        "SymmetricExceptWith");
+
+    // The methods of System.Array that change the array passed to them.
+    private static readonly ImmutableHashSet<string> s_arrayMutators = ImmutableHashSet.Create("Sort", "Reverse", "Clear", "Fill");
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -172,7 +187,6 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             INamedTypeSymbol? stateAttr = start.Compilation.GetTypeByMetadataName("Avalonia.UI.Reactor.State.StateAttribute");
             INamedTypeSymbol? component = start.Compilation.GetTypeByMetadataName("Avalonia.UI.Reactor.State.Component");
             INamedTypeSymbol? view = start.Compilation.GetTypeByMetadataName("Avalonia.UI.Reactor.Views.View");
-            INamedTypeSymbol? list = start.Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
             if (stateAttr is null || component is null || view is null)
                 return;
 
@@ -203,7 +217,7 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
 
             // Members read by a view and changed elsewhere: matched at the end of the compilation.
             var readInView = new ConcurrentDictionary<ISymbol, byte>(SymbolEqualityComparer.Default);
-            var writes = new ConcurrentBag<(ISymbol Member, Location Location, bool IsList)>();
+            var writes = new ConcurrentBag<(ISymbol Member, Location Location, string? CollectionFix)>();
 
             start.RegisterOperationAction(c =>
             {
@@ -234,43 +248,51 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
                 if (target is IFieldReferenceOperation { Field: { IsStatic: false, IsReadOnly: false, IsImplicitlyDeclared: false } field }
                     && IsComponentMember(field, component))
                 {
-                    writes.Add((field, c.Operation.Syntax.GetLocation(), false));
+                    writes.Add((field, c.Operation.Syntax.GetLocation(), null));
                 }
                 else if (target is IPropertyReferenceOperation { Property: { IsStatic: false } prop }
                          && IsComponentMember(prop, component) && IsPlainAutoProperty(prop, stateAttr))
                 {
-                    writes.Add((prop, c.Operation.Syntax.GetLocation(), false));
+                    writes.Add((prop, c.Operation.Syntax.GetLocation(), null));
                 }
             }, OperationKind.SimpleAssignment, OperationKind.CompoundAssignment, OperationKind.CoalesceAssignment,
                OperationKind.Increment, OperationKind.Decrement);
 
-            if (list is not null)
+            // A collection changed in place (Tags.Add(x), Tags[0] = x), whether a field or a property, [State] included:
+            // only assigning the property notifies the view.
+            INamedTypeSymbol? genericCollection = start.Compilation.GetTypeByMetadataName("System.Collections.Generic.ICollection`1");
+            INamedTypeSymbol? collection = start.Compilation.GetTypeByMetadataName("System.Collections.ICollection");
+            INamedTypeSymbol? list = start.Compilation.GetTypeByMetadataName("System.Collections.Generic.IList`1");
+            INamedTypeSymbol? stateList = start.Compilation.GetTypeByMetadataName("Avalonia.UI.Reactor.State.StateList`1");
+            if (genericCollection is not null && collection is not null && list is not null)
             {
                 start.RegisterOperationAction(c =>
                 {
-                    var inv = (IInvocationOperation)c.Operation;
-                    if (inv.Instance is not IFieldReferenceOperation { Field: { IsStatic: false } field })
-                        return;
-                    if (!s_listMutators.Contains(inv.TargetMethod.Name) || IsConstructor(c.ContainingSymbol) || CallsRefresh(inv, component))
-                        return;
-                    if (field.Type is INamedTypeSymbol t && SymbolEqualityComparer.Default.Equals(t.OriginalDefinition, list)
-                        && IsComponentMember(field, component))
+                    if (MutatedCollection(c.Operation) is not { } member
+                        || !IsComponentMember(member, component)
+                        || (member is IPropertySymbol property && !IsStoredProperty(property, stateAttr))
+                        || IsConstructor(c.ContainingSymbol)
+                        || CallsRefresh(c.Operation, component))
                     {
-                        writes.Add((field, inv.Syntax.GetLocation(), true));
+                        return;
                     }
-                }, OperationKind.Invocation);
+
+                    ITypeSymbol type = member is IFieldSymbol field ? field.Type : ((IPropertySymbol)member).Type;
+                    if (CollectionFix(type, genericCollection, collection, list, stateList) is { } fix)
+                        writes.Add((member, c.Operation.Syntax.GetLocation(), fix));
+                }, OperationKind.Invocation, OperationKind.SimpleAssignment, OperationKind.CompoundAssignment,
+                   OperationKind.CoalesceAssignment, OperationKind.Increment, OperationKind.Decrement);
             }
 
             start.RegisterCompilationEndAction(end =>
             {
-                foreach ((ISymbol? member, Location? location, bool isList) in writes)
+                foreach ((ISymbol? member, Location? location, string? collectionFix) in writes)
                 {
                     if (!readInView.ContainsKey(member))
                         continue;
                     ITypeSymbol type = member is IFieldSymbol f ? f.Type : ((IPropertySymbol)member).Type;
-                    end.ReportDiagnostic(isList
-                        ? Diagnostic.Create(UnobservedList, location, member.Name,
-                            ((INamedTypeSymbol)type).TypeArguments[0].ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat))
+                    end.ReportDiagnostic(collectionFix is not null
+                        ? Diagnostic.Create(UnobservedList, location, member.Name, collectionFix)
                         : Diagnostic.Create(UnobservedMember, location, member.Name,
                             type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), PascalCase(member.Name)));
                 }
@@ -585,6 +607,71 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    // The field or the property whose collection an operation changes in place: Tags.Add(x), Array.Sort(Tags),
+    // Tags[0] = x, Scores["a"] += 1.
+    private static ISymbol? MutatedCollection(IOperation op) => op switch
+    {
+        IInvocationOperation { Instance: { } instance } invocation when s_collectionMutators.Contains(invocation.TargetMethod.Name) =>
+            MemberOf(instance),
+        IInvocationOperation { Instance: null, TargetMethod.ContainingType.SpecialType: SpecialType.System_Array } invocation
+            when s_arrayMutators.Contains(invocation.TargetMethod.Name) && invocation.Arguments.Length > 0 =>
+            MemberOf(invocation.Arguments[0].Value),
+        IAssignmentOperation assignment => OwnerOfElement(assignment.Target),
+        IIncrementOrDecrementOperation increment => OwnerOfElement(increment.Target),
+        _ => null,
+    };
+
+    private static ISymbol? OwnerOfElement(IOperation target) => target switch
+    {
+        IArrayElementReferenceOperation element => MemberOf(element.ArrayReference),
+        IPropertyReferenceOperation { Property.IsIndexer: true, Instance: { } instance } => MemberOf(instance),
+        _ => null,
+    };
+
+    private static ISymbol? MemberOf(IOperation op)
+    {
+        while (op is IConversionOperation conversion)
+            op = conversion.Operand;
+        return op switch
+        {
+            IFieldReferenceOperation { Field.IsStatic: false } field => field.Field,
+            IPropertyReferenceOperation { Property: { IsStatic: false, IsIndexer: false } } property => property.Property,
+            _ => null,
+        };
+    }
+
+    // A property that holds its value: a [State] property or an auto-property, not a computed one.
+    private static bool IsStoredProperty(IPropertySymbol property, INamedTypeSymbol stateAttr) =>
+        property.GetAttributes().Any(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, stateAttr))
+        || IsPlainAutoProperty(property, stateAttr);
+
+    // What to write instead of changing a collection in place, or null if the collection notifies the view (a StateList)
+    // or is never changed in place (an immutable collection). A list or an array becomes a StateList.
+    private static string? CollectionFix(
+        ITypeSymbol type, INamedTypeSymbol genericCollection, INamedTypeSymbol collection, INamedTypeSymbol list, INamedTypeSymbol? stateList)
+    {
+        if (type is IArrayTypeSymbol array)
+            return string.Format(CultureInfo.InvariantCulture, UseStateList, array.ElementType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        if (type is not INamedTypeSymbol named
+            || SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, stateList)
+            || named.ContainingNamespace.ToDisplayString() == ImmutableCollectionsNamespace
+            || !(Implements(named, genericCollection) || Implements(named, collection)))
+        {
+            return null;
+        }
+
+        INamedTypeSymbol? items = SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, list)
+            ? named
+            : named.AllInterfaces.FirstOrDefault(i => SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, list));
+        return items is null
+            ? AssignNewCollection
+            : string.Format(CultureInfo.InvariantCulture, UseStateList, items.TypeArguments[0].ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol contract) =>
+        SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, contract)
+        || type.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, contract));
 
     private static bool IsPlainAutoProperty(IPropertySymbol prop, INamedTypeSymbol stateAttr)
     {
