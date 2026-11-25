@@ -59,9 +59,7 @@ internal static class Snippets
     /// <returns>The warnings and errors, of the compiler and of the analyzers.</returns>
     public static IReadOnlyList<Diagnostic> Compile(string code)
     {
-        var compilation = CSharpCompilation.Create("Snippet",
-            [CSharpSyntaxTree.ParseText(Usings + code, ParseOptions)], References, CompilationOptions);
-
+        CSharpCompilation compilation = CreateCompilation(code);
         CSharpGeneratorDriver.Create(
                 [new StateGenerator().AsSourceGenerator(), new ViewBuilderGenerator().AsSourceGenerator()],
                 parseOptions: ParseOptions)
@@ -74,4 +72,19 @@ internal static class Snippets
                 .Where(d => d.Severity >= DiagnosticSeverity.Warning),
         ];
     }
+
+    /// <summary>
+    /// Runs the generator of the <c>[State]</c> properties on a snippet.
+    /// </summary>
+    /// <param name="code">The snippet, written after <see cref="Usings"/>.</param>
+    /// <returns>The text of each generated file, by name.</returns>
+    public static IReadOnlyDictionary<string, string> Generate(string code) =>
+        CSharpGeneratorDriver.Create([new StateGenerator().AsSourceGenerator()], parseOptions: ParseOptions)
+            .RunGenerators(CreateCompilation(code))
+            .GetRunResult()
+            .Results.Single()
+            .GeneratedSources.ToDictionary(source => source.HintName, source => source.SourceText.ToString());
+
+    private static CSharpCompilation CreateCompilation(string code) =>
+        CSharpCompilation.Create("Snippet", [CSharpSyntaxTree.ParseText(Usings + code, ParseOptions)], References, CompilationOptions);
 }

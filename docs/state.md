@@ -74,6 +74,7 @@ method), and checking a task re-evaluates four (the row, the progress ring, the 
 
 The property code is written at compile time by a Roslyn source generator
 ([StateGenerator.cs](../src/MartletUI.Generators/StateGenerator.cs)), the equivalent of the Svelte compiler.
+Each class gets one file for its properties (`Form.State.g.cs`) and one for its bindings (`Form.Bind.g.cs`).
 It also writes the `Bind` property that exposes the bindings; it stays private when the state properties are private.
 
 ## Diagnostics

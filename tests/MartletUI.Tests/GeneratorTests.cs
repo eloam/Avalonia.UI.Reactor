@@ -578,6 +578,68 @@ public class GeneratorTests
             """));
 
     [Fact]
+    public void The_states_of_a_class_are_generated_in_one_file_and_their_bindings_in_another() =>
+        Assert.Equal(
+            ["App.Form.Bind.g.cs", "App.Form.State.g.cs", "App.Form.Line.Bind.g.cs", "App.Form.Line.State.g.cs"],
+            Generate("""
+            namespace App
+            {
+                public partial class Form
+                {
+                    [State] public partial string Draft { get; set; }
+                    [State] public partial int Count { get; set; }
+                    public partial class Line
+                    {
+                        [State] public partial bool Done { get; set; }
+                    }
+                }
+
+                // Another part of the same class.
+                public partial class Form
+                {
+                    [State] private partial double Level { get; set; }
+                }
+            }
+            """).Keys.Order(StringComparer.Ordinal).OrderBy(name => name.Contains("Line", StringComparison.Ordinal)));
+
+    [Fact]
+    public void The_generated_file_of_a_class_contains_its_states_in_the_order_of_their_declarations()
+    {
+        string code = Generate("""
+            public partial class Form
+            {
+                [State] public partial string Draft { get; set; }
+                [State] public partial int Count { get; set; }
+            }
+            """)["Form.State.g.cs"];
+
+        Assert.Equal(1, code.Split("partial class Form").Length - 1);
+        int draft = code.IndexOf("public partial string Draft", StringComparison.Ordinal);
+        int count = code.IndexOf("public partial int Count", StringComparison.Ordinal);
+        Assert.InRange(draft, 0, count);
+    }
+
+    [Fact]
+    public void Classes_that_differ_by_their_type_parameters_only_have_their_own_states() =>
+        Assert.Empty(Ids("""
+            public partial class Cell
+            {
+                [State] public partial int Value { get; set; }
+            }
+
+            public partial class Cell<T>
+            {
+                [State] public partial int Value { get; set; }
+                public Binding<int> Bound => Bind.Value;
+            }
+
+            public partial class Cell<T, U>
+            {
+                [State] public partial int Value { get; set; }
+            }
+            """));
+
+    [Fact]
     public void Bind_and_StateBindings_are_reserved_in_classes_with_state()
     {
         var reserved = Compile("""

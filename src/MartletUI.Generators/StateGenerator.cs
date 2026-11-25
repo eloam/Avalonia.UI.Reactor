@@ -23,6 +23,7 @@ namespace MartletUI.Generators;
 /// <item><description>a two-way binding, grouped by type under <c>Bind</c>: <c>TextField(Bind.Draft)</c>,
 /// <c>Checkbox(todo.Bind.Done)</c>, the equivalent of <c>$draft</c> in SwiftUI, without reflection.</description></item>
 /// </list>
+/// Each class has two files: its properties (<c>Form.State.g.cs</c>) and its bindings (<c>Form.Bind.g.cs</c>).
 /// </remarks>
 [Generator]
 public sealed class StateGenerator : IIncrementalGenerator
@@ -37,11 +38,9 @@ public sealed class StateGenerator : IIncrementalGenerator
     /// <inheritdoc/>
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        IncrementalValuesProvider<StateModel> states = States(context);
-        context.RegisterSourceOutput(states, static (spc, s) => spc.AddSource(s.PropertyHint, s.PropertySource));
-        context.RegisterSourceOutput(states.Collect(), static (spc, all) =>
+        context.RegisterSourceOutput(States(context).Collect(), static (spc, all) =>
         {
-            foreach ((string hintName, string text) in BindingSources(all))
+            foreach ((string hintName, string text) in Sources(all))
                 spc.AddSource(hintName, text);
         });
     }
@@ -70,7 +69,7 @@ public sealed class StateGenerator : IIncrementalGenerator
     /// <param name="all">The description of every <c>[State]</c> property of the compilation.</param>
     /// <returns>The name and the text of each generated file.</returns>
     internal static IEnumerable<(string HintName, string Text)> Sources(ImmutableArray<StateModel> all) =>
-        all.Select(s => (s.PropertyHint, s.PropertySource)).Concat(BindingSources(all));
+        PropertySources(all).Concat(BindingSources(all));
 
     private static StateModel Describe(PropertyDeclarationSyntax syntax, IPropertySymbol property)
     {
@@ -96,12 +95,12 @@ public sealed class StateGenerator : IIncrementalGenerator
 
         string footer = string.Concat(types.Select(_ => "}\n"));
         string owner = (ns.IsGlobalNamespace ? string.Empty : ns.ToDisplayString() + ".")
-            + string.Join(".", types.Select(t => t.Identifier.Text));
+            + string.Join(".", types.Select(HintOf));
 
         // 1. The body of the property. Hot reload adds the property to the objects that already exist without running their
         //    initializers: their signal is created by its first use. The initializer of the signal is needed too: it makes
         //    hot reload update the constructors, and with them the initial value of the property in the new objects.
-        var sb = new StringBuilder(header.ToString());
+        var sb = new StringBuilder();
         sb.AppendLine($"    private global::MartletUI.State.Signal? {signal}Storage = new(nameof({name}));");
         sb.AppendLine(
             $"    private global::MartletUI.State.Signal {signal} => global::System.Threading.LazyInitializer.EnsureInitialized(ref {signal}Storage, static () => new global::MartletUI.State.Signal(nameof({name})));");
@@ -122,7 +121,6 @@ public sealed class StateGenerator : IIncrementalGenerator
         }
 
         sb.AppendLine("    }");
-        sb.Append(footer);
 
         // 2. The binding: only for a settable state of a class (a struct would be copied) that does not define a Bind
         //    member itself.
@@ -141,8 +139,7 @@ public sealed class StateGenerator : IIncrementalGenerator
         TypeDeclarationSyntax innermost = types[types.Count - 1];
 
         return new StateModel(
-            PropertyHint: $"{owner}.{name}.State.g.cs",
-            PropertySource: sb.ToString(),
+            PropertyMembers: sb.ToString(),
             TypeKey: containing.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
             Header: header.ToString(),
             Footer: footer,
@@ -153,6 +150,17 @@ public sealed class StateGenerator : IIncrementalGenerator
             Access: AccessLevel(property),
             CanBind: canBind,
             NeedsNew: BaseHasBindings(containing));
+    }
+
+    // The properties of a class, in the order of their declarations.
+    private static IEnumerable<(string HintName, string Text)> PropertySources(ImmutableArray<StateModel> all)
+    {
+        foreach (IGrouping<string, StateModel> group in all.GroupBy(s => s.TypeKey))
+        {
+            StateModel first = group.First();
+            string text = first.Header + string.Join("\n", group.Select(s => s.PropertyMembers)) + first.Footer;
+            yield return ($"{first.OwnerHint}.State.g.cs", text);
+        }
     }
 
     // One StateBindings type per class, exposed by Bind. It is private if every state is; otherwise it is public, with
@@ -205,6 +213,11 @@ public sealed class StateGenerator : IIncrementalGenerator
         }
     }
 
+    // The name of a type in the name of a file: two types can differ by the number of their type parameters only.
+    private static string HintOf(TypeDeclarationSyntax type) => type.TypeParameterList is { Parameters.Count: var count }
+        ? $"{type.Identifier.Text}-{count}"
+        : type.Identifier.Text;
+
     // The access level of a binding: the most restrictive of the getter and the setter (0 private, 1 internal, 2 public).
     private static int AccessLevel(IPropertySymbol property)
     {
@@ -250,8 +263,7 @@ public sealed class StateGenerator : IIncrementalGenerator
     // Everything the generator needs to know about a [State] property, as plain values that the incremental cache can
     // compare.
     internal readonly record struct StateModel(
-        string PropertyHint,
-        string PropertySource,
+        string PropertyMembers,
         string TypeKey,
         string Header,
         string Footer,
