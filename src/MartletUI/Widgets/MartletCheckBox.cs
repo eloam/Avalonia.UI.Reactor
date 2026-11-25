@@ -36,7 +36,10 @@ internal sealed class MartletCheckBox : CheckBox
     /// <summary>
     /// Initializes a new instance of the <see cref="MartletCheckBox"/> class.
     /// </summary>
-    public MartletCheckBox() => Theme = MartletThemes.CheckBox;
+    public MartletCheckBox()
+    {
+        Theme = MartletThemes.CheckBox;
+    }
 
     /// <summary>
     /// Gets or sets the theme of the branch, set by the adapter: colors, size of the box, space before the label.

@@ -181,7 +181,10 @@ public sealed class StateGenerator : IIncrementalGenerator
             sb.AppendLine($"        /// Initializes a new instance of the <see cref=\"{BindingsTypeName}\"/> structure.");
             sb.AppendLine("        /// </summary>");
             sb.AppendLine("        /// <param name=\"owner\">The instance whose state the bindings read and write.</param>");
-            sb.AppendLine($"        public {BindingsTypeName}({first.TypeName} owner) => _owner = owner;");
+            sb.AppendLine($"        public {BindingsTypeName}({first.TypeName} owner)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            _owner = owner;");
+            sb.AppendLine("        }");
             foreach (StateModel state in states)
             {
                 sb.AppendLine();

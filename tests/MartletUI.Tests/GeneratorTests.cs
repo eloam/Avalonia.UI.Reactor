@@ -541,7 +541,10 @@ public class GeneratorTests
                 [State] partial int A { get; set; }
                 StateList<string> Items { get; } = [];
 
-                public C() => A = 1;
+                public C()
+                {
+                    A = 1;
+                }
 
                 public override View Body
                 {

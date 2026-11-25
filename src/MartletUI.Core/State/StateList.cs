@@ -30,7 +30,10 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// Initializes a new instance of the <see cref="StateList{T}"/> class that contains the given items.
     /// </summary>
     /// <param name="items">The initial items.</param>
-    public StateList(IEnumerable<T> items) => _items.AddRange(items);
+    public StateList(IEnumerable<T> items)
+    {
+        _items.AddRange(items);
+    }
 
     /// <summary>
     /// Gets the number of items.

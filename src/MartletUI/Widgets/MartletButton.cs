@@ -13,5 +13,8 @@ internal sealed class MartletButton : Button
     /// <summary>
     /// Initializes a new instance of the <see cref="MartletButton"/> class.
     /// </summary>
-    public MartletButton() => Theme = MartletThemes.Button;
+    public MartletButton()
+    {
+        Theme = MartletThemes.Button;
+    }
 }
