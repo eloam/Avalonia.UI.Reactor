@@ -21,8 +21,10 @@ internal sealed class LifecycleTracker(IScopeHost host, Action<Action?> run)
 {
     private readonly HashSet<Lifecycle> _lifecycles = [];
 
-    // The number of the last visit, which orders the lifecycles as the tree is.
-    private long _visits;
+    /// <summary>
+    /// Gets the number of the last visit, which orders the lifecycles as the tree is.
+    /// </summary>
+    public long Visits { get; private set; }
 
     /// <summary>
     /// Records that the update visited a view that declares a lifecycle.
@@ -53,7 +55,21 @@ internal sealed class LifecycleTracker(IScopeHost host, Action<Action?> run)
         lifecycle.Owner = owner;
         lifecycle.LastVisit = pass;
         lifecycle.Depth = depth;
-        lifecycle.Order = ++_visits;
+        lifecycle.Order = ++Visits;
+    }
+
+    /// <summary>
+    /// Forgets the visits of a content that could not be displayed: its lifecycles end with the update, unless they are
+    /// visited again before.
+    /// </summary>
+    /// <param name="visits">The number of views visited before this content.</param>
+    public void Discard(long visits)
+    {
+        foreach (Lifecycle lifecycle in _lifecycles.Where(l => l.Order > visits))
+        {
+            lifecycle.Owner = null;
+            lifecycle.LastVisit = Reconciler.NeverVisited;
+        }
     }
 
     /// <summary>

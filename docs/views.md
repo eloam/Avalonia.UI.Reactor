@@ -255,6 +255,11 @@ async Task Load()
 An exception thrown by an action — synchronous, `async Task` or even `async void` — does not close the application.
 It is written to the standard error output and to the debugger, prefixed with `[Martlet]`.
 
+An exception thrown by a view is reported in the same way and stays in its scope: a component, a view method called in a
+block, a `ForEach` row, an `Observe` block, the drawing of a `Canvas` or the update of a `Native`. The scope keeps what it
+displayed, or shows nothing if it displayed nothing yet, and the rest of the window is updated. It is computed again when
+some state it read before failing changes.
+
 ## Components and conditional views
 
 - A component with state is a class deriving from `Component`; a stateless one is just a function that returns a

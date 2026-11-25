@@ -20,6 +20,7 @@ internal sealed class NativeHost : Decorator
     // The name of the scope of the update, which has no place in the tree of scopes.
     private const string UpdateScopeId = "native";
 
+    private readonly Action<Exception> _report;
     private readonly Scope _updates;
     private Action? _update;
     private bool _released;
@@ -28,8 +29,10 @@ internal sealed class NativeHost : Decorator
     /// <summary>
     /// Initializes a new instance of the <see cref="NativeHost"/> class.
     /// </summary>
-    public NativeHost()
+    /// <param name="report">The function that reports an exception thrown by the update.</param>
+    public NativeHost(Action<Exception> report)
     {
+        _report = report;
         _updates = new Scope(RequestRerun, UpdateScopeId, identity: null) { IsReadOnly = false };
     }
 
@@ -67,7 +70,7 @@ internal sealed class NativeHost : Decorator
     private void Run(Action update)
     {
         _released = false;
-        _updates.Evaluate(update);
+        Evaluate(update);
     }
 
     // A state read by the update changed, on any thread: run the update again, once, on the user interface thread.
@@ -86,8 +89,21 @@ internal sealed class NativeHost : Decorator
             // the state would keep it in memory.
             if (!_released && _update is { } update)
             {
-                _updates.Evaluate(update);
+                Evaluate(update);
             }
         });
+    }
+
+    // An update that throws leaves the control as it is, and runs again when a state it read changes.
+    private void Evaluate(Action update)
+    {
+        try
+        {
+            _updates.Evaluate(update);
+        }
+        catch (Exception exception)
+        {
+            _report(exception);
+        }
     }
 }

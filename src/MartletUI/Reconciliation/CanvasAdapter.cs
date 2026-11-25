@@ -19,6 +19,10 @@ internal sealed class CanvasAdapter : ViewAdapter<CanvasView, DrawingCanvas>
     public static readonly CanvasAdapter Instance = new();
 
     /// <inheritdoc/>
+    protected override void Attach(Reconciler reconciler, Node node, DrawingCanvas canvas) =>
+        canvas.DrawingFailed += reconciler.Report;
+
+    /// <inheritdoc/>
     protected override void Update(Reconciler reconciler, Node node, DrawingCanvas canvas, CanvasView view, ViewEnvironment environment) =>
         canvas.Update(view.Draw, environment.Theme, environment.ForegroundFor(view), environment.FontFor(view));
 }

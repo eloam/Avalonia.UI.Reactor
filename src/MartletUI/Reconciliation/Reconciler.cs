@@ -19,6 +19,10 @@ namespace MartletUI.Reconciliation;
 /// its controls stay as they are.
 /// </para>
 /// <para>
+/// An exception stays in the innermost scope that it crosses: it is reported to the host, the scope keeps its previous
+/// content (or shows nothing), and the rest of the tree is updated.
+/// </para>
+/// <para>
 /// The reconciler walks the views and the scopes; the rest is delegated: one adapter per type of view
 /// (<see cref="ViewAdapter"/>), the decorations (<see cref="Decorations"/>), the size and flexibility
 /// (<see cref="Placement"/>), the lifecycles (<see cref="LifecycleTracker"/>) and the moves of controls
@@ -29,6 +33,11 @@ namespace MartletUI.Reconciliation;
 /// <param name="run">The function that runs the action of a control, then updates the interface.</param>
 internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 {
+    /// <summary>
+    /// The number of no update: updates are numbered from 1.
+    /// </summary>
+    public const int NeverVisited = 0;
+
     // The path of the root view.
     private const string RootId = "r";
 
@@ -37,6 +46,9 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
 
     // The suffix of the path of the view of a template, below the path of its control.
     private const string TemplateSuffix = "~";
+
+    // The content of a scope that cannot display anything.
+    private static readonly GroupView s_nothing = new([]);
 
     private readonly IScopeHost _host = host;
     private readonly Action<Action?> _run = run;
@@ -95,6 +107,12 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
     /// </summary>
     /// <param name="action">The action, or <see langword="null"/>.</param>
     public void Run(Action? action) => _run(action);
+
+    /// <summary>
+    /// Reports an exception thrown by the code of the application, outside its actions.
+    /// </summary>
+    /// <param name="error">The exception.</param>
+    public void Report(Exception error) => _host.Report(error);
 
     /// <summary>
     /// Applies the root view.
@@ -358,32 +376,88 @@ internal sealed class Reconciler(IScopeHost host, Action<Action?> run)
             return previous;
         }
 
+        View? last = scope.Content;
         if (reevaluate)
         {
-            scope.Content = scope.Evaluate(() => Build(view));
-            scope.EvaluatedPass = _pass;
-            _evaluated++;
+            Evaluate(scope, view);
         }
 
-        var inner = new List<Scope>();
-        _collectors.Push(inner);
-        _owners.Push(scope);
-        IReadOnlyList<Node> nodes;
+        // A content that cannot be displayed (two children with the same key, a template that throws) is replaced by the
+        // previous one, which puts the controls already updated back as they were, then by nothing.
+        IReadOnlyList<Node>? nodes = TryReconcile(scope, previous, reconcile);
+        if (nodes is null && last is not null && !ReferenceEquals(last, scope.Content))
+        {
+            scope.Content = last;
+            nodes = TryReconcile(scope, previous, reconcile);
+        }
+
+        if (nodes is null)
+        {
+            scope.Content = s_nothing;
+            scope.EvaluatedPass = _pass;
+            nodes = TryReconcile(scope, previous: null, reconcile) ?? [];
+        }
+
+        parent?.AddRange(scope.Descendants);
+        scope.Environment = environment;
+        _content[scope] = nodes;
+        return nodes;
+    }
+
+    // Computes the content of a scope. A Body that throws keeps its previous content, or shows nothing; it is computed
+    // again when some state it read before throwing changes.
+    private void Evaluate(Scope scope, ScopeView view)
+    {
         try
         {
-            nodes = reconcile(scope, previous);
+            scope.Content = scope.Evaluate(() => Build(view));
+        }
+        catch (Exception exception)
+        {
+            scope.Content ??= s_nothing;
+            Report(exception);
+        }
+
+        scope.EvaluatedPass = _pass;
+        _evaluated++;
+    }
+
+    // Reconciles the content of a scope while collecting its descendant scopes and owning the lifecycles declared in it;
+    // returns null when an exception stops it. What the attempt visited is then forgotten: the scopes are released and the
+    // lifecycles end, unless the next attempt visits them (a scope without environment is never kept as it is).
+    private IReadOnlyList<Node>? TryReconcile(
+        Scope scope, IReadOnlyList<Node>? previous, Func<Scope, IReadOnlyList<Node>?, IReadOnlyList<Node>> reconcile)
+    {
+        var inner = new List<Scope>();
+        int depth = _depth;
+        long visits = _lifecycles.Visits;
+        _collectors.Push(inner);
+        _owners.Push(scope);
+        try
+        {
+            IReadOnlyList<Node> nodes = reconcile(scope, previous);
+            scope.Descendants = inner;
+            return nodes;
+        }
+        catch (Exception exception)
+        {
+            _depth = depth;
+            foreach (Scope visited in inner)
+            {
+                visited.LastVisit = NeverVisited;
+                visited.Environment = null;
+            }
+
+            _lifecycles.Discard(visits);
+            scope.Descendants = [];
+            Report(exception);
+            return null;
         }
         finally
         {
             _collectors.Pop();
             _owners.Pop();
         }
-
-        scope.Descendants = inner;
-        parent?.AddRange(inner);
-        scope.Environment = environment;
-        _content[scope] = nodes;
-        return nodes;
     }
 
     // A component keeps its content as long as its state does not change; a view method as long as its arguments are

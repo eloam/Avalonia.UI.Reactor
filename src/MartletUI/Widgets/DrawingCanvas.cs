@@ -41,6 +41,11 @@ internal sealed class DrawingCanvas : Control
     }
 
     /// <summary>
+    /// Occurs when the drawing throws an exception, which stops it but not the rendering of the window.
+    /// </summary>
+    public event Action<Exception>? DrawingFailed;
+
+    /// <summary>
     /// Applies a new version of the view: its drawing runs again.
     /// </summary>
     /// <param name="draw">The drawing function of the view.</param>
@@ -68,7 +73,14 @@ internal sealed class DrawingCanvas : Control
         using var drawing = new AvaloniaDrawingContext(context);
         var bounds = new Primitives.Rect(0, 0, (float)Bounds.Width, (float)Bounds.Height);
         var scope = new DrawScope(drawing, bounds, _theme, _foreground, _font);
-        _drawing.Evaluate(() => draw(scope));
+        try
+        {
+            _drawing.Evaluate(() => draw(scope));
+        }
+        catch (Exception exception)
+        {
+            DrawingFailed?.Invoke(exception);
+        }
     }
 
     /// <inheritdoc/>

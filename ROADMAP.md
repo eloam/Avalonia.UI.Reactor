@@ -45,7 +45,7 @@ The controls that every non-trivial application needs.
 
 - [ ] An environment for the data of the application, like SwiftUI's `@Environment` or React's context
   ([specification](spec/README.md) first)
-- [ ] An error boundary in a `Body`, so that an exception does not blank the whole window
+- [ ] An error boundary: a view of your own in place of one that fails (its errors already stay in its scope)
 - [ ] Animations and transitions ([specification](spec/README.md) first)
 - [ ] Accessibility: labels and roles, through the automation peers of Avalonia
 
@@ -69,6 +69,7 @@ Ideas that need a specification or a spike before they are scheduled.
 Recent work, newest first. See the [commit history](https://github.com/eloam/MartletUI/commits/main) for
 details.
 
+- [x] An exception in a view stays in its scope: the rest of the window is updated
 - [x] State changed while a view is computed is an error (MVU018, and an exception at run time), not an endless update
 - [x] Bindings to the items of a list: `ForEach(Tags.Bind, tag => TextField(tag))`
 - [x] MVU011 covers every collection changed in place, `[State]` properties included

@@ -20,7 +20,7 @@ internal sealed class NativeAdapter : ViewAdapter
 
     /// <inheritdoc/>
     public override Control Create(Reconciler reconciler, Node node) =>
-        new NativeHost { Child = ((NativeView)node.View).Create() };
+        new NativeHost(reconciler.Report) { Child = ((NativeView)node.View).Create() };
 
     /// <inheritdoc/>
     public override void Update(Reconciler reconciler, Node node, View view, ViewEnvironment environment)
