@@ -114,3 +114,6 @@ tests/MartletUI.Tests/
 change applied by `dotnet watch`, Visual Studio or Rider, it re-evaluates every component of every open window, which
 keep their state. Already initialized `static readonly` fields (a static theme, for example) are not reloaded, and
 changes .NET refuses (a new signature, a renamed class) make `dotnet watch` restart the application.
+
+Under a debugger, .NET applies code changes on Windows only (Edit and Continue). On macOS and Linux, run the application
+without the debugger to use hot reload: `dotnet watch`, or Run (not Debug) in Rider.
