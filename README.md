@@ -94,8 +94,8 @@ public sealed partial class SignUp : Component
 ### Run the sample app
 
 ```bash
-git clone https://github.com/eloam/Martlet.git
-cd Martlet
+git clone https://github.com/eloam/MartletUI.git
+cd MartletUI
 dotnet run --project samples/TodoDemo
 ```
 
@@ -109,14 +109,14 @@ the generator writes for view builder blocks):
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\Martlet\src\MartletUI\MartletUI.csproj" />
-  <ProjectReference Include="..\Martlet\src\MartletUI.Generators\MartletUI.Generators.csproj"
+  <ProjectReference Include="..\MartletUI\src\MartletUI\MartletUI.csproj" />
+  <ProjectReference Include="..\MartletUI\src\MartletUI.Generators\MartletUI.Generators.csproj"
                     OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-  <ProjectReference Include="..\Martlet\src\MartletUI.CodeFixes\MartletUI.CodeFixes.csproj"
+  <ProjectReference Include="..\MartletUI\src\MartletUI.CodeFixes\MartletUI.CodeFixes.csproj"
                     OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 </ItemGroup>
 
-<Import Project="..\Martlet\src\MartletUI.Core\buildTransitive\MartletUI.Core.targets" />
+<Import Project="..\MartletUI\src\MartletUI.Core\buildTransitive\MartletUI.Core.targets" />
 ```
 
 Then import the namespaces once, in a `GlobalUsings.cs` file:

@@ -66,7 +66,7 @@ Ideas that need a specification or a spike before they are scheduled.
 
 ## Shipped
 
-Recent work, newest first. See the [commit history](https://github.com/eloam/Martlet/commits/main) for
+Recent work, newest first. See the [commit history](https://github.com/eloam/MartletUI/commits/main) for
 details.
 
 - [x] Bindings to the items of a list: `ForEach(Tags.Bind, tag => TextField(tag))`
@@ -82,7 +82,7 @@ details.
 
 ## Influencing the roadmap
 
-- **Feedback and requests**: open an [issue](https://github.com/eloam/Martlet/issues) describing what you
+- **Feedback and requests**: open an [issue](https://github.com/eloam/MartletUI/issues) describing what you
   are trying to build and what is missing.
 - **Large features**: start from a [specification](spec/README.md), in the format of the C# language proposals.
 - **Contributions**: see [CONTRIBUTING.md](CONTRIBUTING.md). Items of the next milestone are the most welcome.
