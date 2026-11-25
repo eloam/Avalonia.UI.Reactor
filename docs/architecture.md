@@ -115,5 +115,9 @@ change applied by `dotnet watch`, Visual Studio or Rider, it re-evaluates every 
 keep their state. Already initialized `static readonly` fields (a static theme, for example) are not reloaded, and
 changes .NET refuses (a new signature, a renamed class) make `dotnet watch` restart the application.
 
+A `[State]` property added by hot reload has the default value of its type (`0`, `null`) in the objects that already exist,
+because .NET does not run their initializers again, and its initial value in the new ones. Changing the type of a state
+property, renaming it or removing it restarts the application.
+
 Under a debugger, .NET applies code changes on Windows only (Edit and Continue). On macOS and Linux, run the application
 without the debugger to use hot reload: `dotnet watch`, or Run (not Debug) in Rider.

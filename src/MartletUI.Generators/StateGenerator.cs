@@ -98,9 +98,13 @@ public sealed class StateGenerator : IIncrementalGenerator
         string owner = (ns.IsGlobalNamespace ? string.Empty : ns.ToDisplayString() + ".")
             + string.Join(".", types.Select(t => t.Identifier.Text));
 
-        // 1. The body of the property.
+        // 1. The body of the property. Hot reload adds the property to the objects that already exist without running their
+        //    initializers: their signal is created by its first use. The initializer of the signal is needed too: it makes
+        //    hot reload update the constructors, and with them the initial value of the property in the new objects.
         var sb = new StringBuilder(header.ToString());
-        sb.AppendLine($"    private readonly global::MartletUI.State.Signal {signal} = new(nameof({name}));");
+        sb.AppendLine($"    private global::MartletUI.State.Signal? {signal}Storage = new(nameof({name}));");
+        sb.AppendLine(
+            $"    private global::MartletUI.State.Signal {signal} => global::System.Threading.LazyInitializer.EnsureInitialized(ref {signal}Storage, static () => new global::MartletUI.State.Signal(nameof({name})));");
         sb.AppendLine($"    {syntax.Modifiers} {type} {name}");
         sb.AppendLine("    {");
         foreach (AccessorDeclarationSyntax accessor in syntax.AccessorList!.Accessors)
