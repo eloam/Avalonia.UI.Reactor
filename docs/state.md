@@ -49,6 +49,10 @@ public sealed partial class Todo(string title)
 
 - State can change **from anywhere**: an action, the continuation of an `await`, a timer or a background thread.
   The update is scheduled on the UI thread; no `Refresh()` call is needed.
+- A `StateList` can be changed while a view or another thread enumerates it (`foreach`, LINQ, `ForEach`): the enumeration
+  goes through the items as they were when it started. A loop that reads `Count` then the items, or a spread among other
+  elements (`[.. Tags, "new"]`), can see a change in between: copy the list first when another thread changes it
+  (`string[] copy = [.. Tags];`).
 - A `Body` is **pure**: it reads state, it never changes it and performs no I/O. Changing a state that a view reads while
   a view is computed would start the update again without end: MVU018 reports it, and a change that the analyzer cannot
   see (in a method called by the `Body`) throws an `InvalidOperationException` before it happens. Change state in an

@@ -69,6 +69,7 @@ Ideas that need a specification or a spike before they are scheduled.
 Recent work, newest first. See the [commit history](https://github.com/eloam/MartletUI/commits/main) for
 details.
 
+- [x] `StateList` can be changed from any thread, even while it is displayed
 - [x] An exception in a view stays in its scope: the rest of the window is updated
 - [x] State changed while a view is computed is an error (MVU018, and an exception at run time), not an endless update
 - [x] Bindings to the items of a list: `ForEach(Tags.Bind, tag => TextField(tag))`

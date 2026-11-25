@@ -298,7 +298,6 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             INamedTypeSymbol? genericCollection = start.Compilation.GetTypeByMetadataName("System.Collections.Generic.ICollection`1");
             INamedTypeSymbol? collection = start.Compilation.GetTypeByMetadataName("System.Collections.ICollection");
             INamedTypeSymbol? list = start.Compilation.GetTypeByMetadataName("System.Collections.Generic.IList`1");
-            INamedTypeSymbol? stateList = start.Compilation.GetTypeByMetadataName("MartletUI.State.StateList`1");
             if (genericCollection is not null && collection is not null && list is not null)
             {
                 start.RegisterOperationAction(c =>
@@ -313,7 +312,7 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
                     }
 
                     ITypeSymbol type = member is IFieldSymbol field ? field.Type : ((IPropertySymbol)member).Type;
-                    if (CollectionFix(type, genericCollection, collection, list, stateList) is { } fix)
+                    if (CollectionFix(type, genericCollection, collection, list) is { } fix)
                         writes.Add((member, c.Operation.Syntax.GetLocation(), fix));
                 }, OperationKind.Invocation, OperationKind.SimpleAssignment, OperationKind.CompoundAssignment,
                    OperationKind.CoalesceAssignment, OperationKind.Increment, OperationKind.Decrement);
@@ -695,12 +694,11 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
     // What to write instead of changing a collection in place, or null if the collection notifies the view (a StateList)
     // or is never changed in place (an immutable collection). A list or an array becomes a StateList.
     private static string? CollectionFix(
-        ITypeSymbol type, INamedTypeSymbol genericCollection, INamedTypeSymbol collection, INamedTypeSymbol list, INamedTypeSymbol? stateList)
+        ITypeSymbol type, INamedTypeSymbol genericCollection, INamedTypeSymbol collection, INamedTypeSymbol list)
     {
         if (type is IArrayTypeSymbol array)
             return string.Format(CultureInfo.InvariantCulture, UseStateList, array.ElementType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         if (type is not INamedTypeSymbol named
-            || SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, stateList)
             || named.ContainingNamespace.ToDisplayString() == ImmutableCollectionsNamespace
             || !(Implements(named, genericCollection) || Implements(named, collection)))
         {
