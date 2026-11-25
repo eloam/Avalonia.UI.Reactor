@@ -1,7 +1,7 @@
 # Writing views
 
 Views are immutable records created by the factory functions of `Ui` and refined with chainable modifiers. Import the
-factories once with `global using static Avalonia.UI.Reactor.Views.Ui;`.
+factories once with `global using static MartletUI.Views.Ui;`.
 
 ## Building blocks
 
@@ -253,7 +253,7 @@ async Task Load()
 ## Errors
 
 An exception thrown by an action — synchronous, `async Task` or even `async void` — does not close the application.
-It is written to the standard error output and to the debugger, prefixed with `[Reactor]`.
+It is written to the standard error output and to the debugger, prefixed with `[Martlet]`.
 
 ## Components and conditional views
 
@@ -292,7 +292,7 @@ Any Avalonia control without an equivalent in the DSL can be embedded as is. It 
 Avalonia type.
 
 ```csharp
-using static Avalonia.UI.Reactor.AvaloniaViews;
+using static MartletUI.AvaloniaViews;
 
 Native(() => new Calendar(), calendar => calendar.DisplayDate = Today)   // created once, updated from the state
 ```

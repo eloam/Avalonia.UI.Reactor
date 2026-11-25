@@ -1,14 +1,14 @@
 <Project>
   <!--
     The [State] and view builder generators, the analyzers and their code fixes, plugged into every project of the
-    repository (an external application gets them through the Avalonia.UI.Reactor.Core package, see
-    Avalonia.UI.Reactor.Core.csproj). PrivateAssets: they are not a dependency of the packages, they are embedded in
-    Avalonia.UI.Reactor.Core.
+    repository (an external application gets them through the MartletUI.Core package, see
+    MartletUI.Core.csproj). PrivateAssets: they are not a dependency of the packages, they are embedded in
+    MartletUI.Core.
   -->
-  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Avalonia.UI.Reactor.Generators' and '$(MSBuildProjectName)' != 'Avalonia.UI.Reactor.CodeFixes' and '$(ReactorAutoGenerator)' != 'false'">
-    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.Generators/Avalonia.UI.Reactor.Generators.csproj"
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'MartletUI.Generators' and '$(MSBuildProjectName)' != 'MartletUI.CodeFixes' and '$(MartletAutoGenerator)' != 'false'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/MartletUI.Generators/MartletUI.Generators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
-    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.CodeFixes/Avalonia.UI.Reactor.CodeFixes.csproj"
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/MartletUI.CodeFixes/MartletUI.CodeFixes.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
@@ -23,6 +23,6 @@
   </PropertyGroup>
 
   <!-- The same build rules as the applications that use the packages. -->
-  <Import Project="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor.Core/buildTransitive/Avalonia.UI.Reactor.Core.targets" />
-  <Import Project="$(MSBuildThisFileDirectory)src/Avalonia.UI.Reactor/buildTransitive/Avalonia.UI.Reactor.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)src/MartletUI.Core/buildTransitive/MartletUI.Core.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)src/MartletUI/buildTransitive/MartletUI.targets" />
 </Project>

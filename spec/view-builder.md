@@ -210,7 +210,7 @@ that runs again with the whole `Body`.
 As the Compose compiler does for each `@Composable` function, the interceptor of a statement that calls a view method
 wraps the call in a scope instead of running it at once. A view method is any method that returns `View` itself (a
 scope can stand for a `View`, not for a `StackView`), in the application or in a component library, except the
-factories and modifiers of `Avalonia.UI.Reactor.Core`:
+factories and modifiers of `MartletUI.Core`:
 
 ```csharp
 private View Progress() => Group(() =>                  // its own scope: re-evaluated alone when Done or Total changes
@@ -380,7 +380,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 3. Group modifiers applied to each child: a breaking change. **Done.**
 4. Fragments. **Done.**
 5. Blocks: `[ViewBuilder]` parameters and interceptors for `VStack`, `HStack`, `ZStack`, `Group` and the rows of
-   `ForEach`, `Show`, MVU014, MVU015 and the code fixes, in their own assembly (`Avalonia.UI.Reactor.CodeFixes`: an
+   `ForEach`, `Show`, MVU014, MVU015 and the code fixes, in their own assembly (`MartletUI.CodeFixes`: an
    assembly of analyzers must not reference the workspaces, RS1038). **Done.**
 6. Scopes of view methods and the `Observe` block. **Done**: the scope is identified by the name of the method, as a
    component by its instance, so a view that appears before it does not move it; its inputs are a tuple of its
@@ -453,7 +453,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 - **Cost**: a delegate per block and per evaluation, a list per `Collect`, a scope per view method. Scopes pay for
   themselves on lists (see [Spike results](#spike-results)); each delivery step still measures, on the sample app
   before and after, the allocated bytes (`GC.GetAllocatedBytesForCurrentThread`) and the re-evaluated scopes
-  (`ReactorTestHost.Stats`); small methods may need to opt out of scopes.
+  (`MartletTestHost.Stats`); small methods may need to opt out of scopes.
 - **Diagnostics quality**: a compile error in a block may point to generated code if the generator is wrong.
 - **Code of other generators**: generators do not see each other's output. A block that refers to a member written
   by another source generator does not resolve, and its views are lost without an error: the analyzer sees the final

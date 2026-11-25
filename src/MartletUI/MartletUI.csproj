@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>MartletUI</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Avalonia 12: controls, desktop host (Windows, macOS, Linux) and the Fluent theme, for the infrastructure. -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MartletUI.Core\MartletUI.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The tests also check the reconciler and its controls (internal). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="MartletUI.Tests" />
+  </ItemGroup>
+
+  <!-- Build rules shipped with the package: they apply to the applications that use it. -->
+  <ItemGroup>
+    <None Include="buildTransitive\MartletUI.targets" Pack="true" PackagePath="buildTransitive\" />
+  </ItemGroup>
+</Project>

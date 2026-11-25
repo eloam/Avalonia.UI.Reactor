@@ -1,17 +1,18 @@
-# Avalonia.UI.Reactor
+# Martlet
 
-[![Status: experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#avaloniauireactor)
+[![Status: experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#martlet)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/)
 [![Avalonia 12](https://img.shields.io/badge/Avalonia-12-8B44AC.svg)](https://avaloniaui.net/)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#supported-platforms)
 
-**Avalonia.UI.Reactor** is a declarative UI framework for .NET: you write your user interface in C#, in the style of
+**Martlet** is a declarative UI framework for .NET: you write your user interface in C#, in the style of
 SwiftUI and Jetpack Compose, and [Avalonia](https://avaloniaui.net/) renders it with its own controls. No XAML,
 no view models, no bindings to wire: a component is some state and a `Body`.
+Its packages and its namespaces are named `MartletUI`.
 
 ```csharp
-ReactorApp.Run<CounterApp>("Counter", 400, 300);
+MartletApp.Run<CounterApp>("Counter", 400, 300);
 
 public sealed partial class CounterApp : Component
 {
@@ -58,7 +59,7 @@ public sealed partial class SignUp : Component
 </p>
 
 > [!WARNING]
-> Avalonia.UI.Reactor is **experimental**. The API can change at any time and the packages are not published to
+> Martlet is **experimental**. The API can change at any time and the packages are not published to
 > NuGet. Do not use it in production yet.
 
 ## Features
@@ -93,8 +94,8 @@ public sealed partial class SignUp : Component
 ### Run the sample app
 
 ```bash
-git clone https://github.com/eloam/Avalonia.UI.Reactor.git
-cd Avalonia.UI.Reactor
+git clone https://github.com/eloam/Martlet.git
+cd Martlet
 dotnet run --project samples/TodoDemo
 ```
 
@@ -108,21 +109,21 @@ the generator writes for view builder blocks):
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor\Avalonia.UI.Reactor.csproj" />
-  <ProjectReference Include="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor.Generators\Avalonia.UI.Reactor.Generators.csproj"
+  <ProjectReference Include="..\Martlet\src\MartletUI\MartletUI.csproj" />
+  <ProjectReference Include="..\Martlet\src\MartletUI.Generators\MartletUI.Generators.csproj"
                     OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-  <ProjectReference Include="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor.CodeFixes\Avalonia.UI.Reactor.CodeFixes.csproj"
+  <ProjectReference Include="..\Martlet\src\MartletUI.CodeFixes\MartletUI.CodeFixes.csproj"
                     OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 </ItemGroup>
 
-<Import Project="..\Avalonia.UI.Reactor\src\Avalonia.UI.Reactor.Core\buildTransitive\Avalonia.UI.Reactor.Core.targets" />
+<Import Project="..\Martlet\src\MartletUI.Core\buildTransitive\MartletUI.Core.targets" />
 ```
 
 Then import the namespaces once, in a `GlobalUsings.cs` file:
 
 ```csharp
-global using Avalonia.UI.Reactor;
-global using static Avalonia.UI.Reactor.Views.Ui;
+global using MartletUI;
+global using static MartletUI.Views.Ui;
 ```
 
 ## Documentation
@@ -147,8 +148,8 @@ global using static Avalonia.UI.Reactor.Views.Ui;
 ## Building from source
 
 ```bash
-dotnet build Avalonia.UI.Reactor.sln
-dotnet test Avalonia.UI.Reactor.sln
+dotnet build Martlet.sln
+dotnet test Martlet.sln
 ```
 
 The build treats every warning of the framework and its tests as an error (the samples keep them as warnings, so that
@@ -167,4 +168,4 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 
 ## License
 
-Avalonia.UI.Reactor is licensed under the [MIT license](LICENSE).
+Martlet is licensed under the [MIT license](LICENSE).

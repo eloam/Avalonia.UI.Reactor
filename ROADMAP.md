@@ -1,6 +1,6 @@
 # Roadmap
 
-This document describes where Avalonia.UI.Reactor is heading. It is a statement of intent, not a commitment: priorities
+This document describes where Martlet is heading. It is a statement of intent, not a commitment: priorities
 change with feedback, and items may move between milestones or be dropped. Large features are first written as a
 [specification](spec/README.md), discussed, then built.
 
@@ -8,7 +8,7 @@ change with feedback, and items may move between milestones or be dropped. Large
 
 ## Current status
 
-Avalonia.UI.Reactor is **experimental**. The core programming model is in place (components, `[State]`, view builder
+Martlet is **experimental**. The core programming model is in place (components, `[State]`, view builder
 blocks, fine-grained updates, themes, analyzers), but no package is published yet and the framework has only been run on
 macOS. The milestones below lead to a first preview, then to a stable 1.0.
 
@@ -20,7 +20,7 @@ Make the framework usable outside this repository.
 
 - [ ] Continuous integration on macOS, Windows and Linux, running the headless tests on every pull request
 - [ ] Run and verify the sample app on Windows and Linux
-- [ ] NuGet packages: `Avalonia.UI.Reactor`, `Avalonia.UI.Reactor.Core` (with the generators, analyzers and code fixes)
+- [ ] NuGet packages: `MartletUI`, `MartletUI.Core` (with the generators, analyzers and code fixes)
 - [ ] Measure the memory of the engine and explain the idle CPU usage (1 to 10 ms per second on macOS)
 - [ ] Public API for the errors of actions, instead of the standard error output only
 
@@ -66,7 +66,7 @@ Ideas that need a specification or a spike before they are scheduled.
 
 ## Shipped
 
-Recent work, newest first. See the [commit history](https://github.com/eloam/Avalonia.UI.Reactor/commits/main) for
+Recent work, newest first. See the [commit history](https://github.com/eloam/Martlet/commits/main) for
 details.
 
 - [x] Bindings to the items of a list: `ForEach(Tags.Bind, tag => TextField(tag))`
@@ -82,7 +82,7 @@ details.
 
 ## Influencing the roadmap
 
-- **Feedback and requests**: open an [issue](https://github.com/eloam/Avalonia.UI.Reactor/issues) describing what you
+- **Feedback and requests**: open an [issue](https://github.com/eloam/Martlet/issues) describing what you
   are trying to build and what is missing.
 - **Large features**: start from a [specification](spec/README.md), in the format of the C# language proposals.
 - **Contributions**: see [CONTRIBUTING.md](CONTRIBUTING.md). Items of the next milestone are the most welcome.

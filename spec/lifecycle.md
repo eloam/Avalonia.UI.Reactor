@@ -61,7 +61,7 @@ Matches().Task(Query, async cancellation =>                        // restarted,
 ### Appearing and disappearing
 
 A view appears when the reconciler creates its node, and disappears when the node leaves the tree: a branch that
-closes, a row removed from a `ForEach`, a component no longer shown, or the window that closes (`ReactorHost` releases
+closes, a row removed from a `ForEach`, a component no longer shown, or the window that closes (`MartletHost` releases
 everything when it is detached). The lifecycle follows the node, not the Avalonia control: a control moved into a
 decoration (`Surface`) or within a panel is detached from the visual tree and attached again, which must not restart
 anything. `NativeHost` had this bug: it released its subscriptions when a background moved it into a surface, and never
@@ -86,7 +86,7 @@ took them again (fixed, with a test in `NativeTests`).
 - It is cancelled when the view disappears. With a key, it is also cancelled and restarted when the key changes
   (`Equals`), as SwiftUI's `.task(id:)`; several values form a tuple: `.Task((Query, Page), …)`.
 - An `OperationCanceledException` after cancellation is expected and ignored. Any other exception is reported as the
-  exception of an action is (`ReactorHost.Report`), and the task waits for its key to change or its view to appear
+  exception of an action is (`MartletHost.Report`), and the task waits for its key to change or its view to appear
   again.
 - Without a key, the task runs once per appearance: a task that reads state when it starts does not see later changes,
   so it needs that state as its key.
@@ -134,7 +134,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
    `OnDisappear` runs when a branch closes, a row is removed and the window closes, not when a control moves into a
    decoration. **Done.**
 2. `Task` with and without a key, and MVU017. Tests: cancelled on removal and when the window closes, restarted when the
-   key changes, an exception reported (`ReactorTestHost.Errors`). **Done.**
+   key changes, an exception reported (`MartletTestHost.Errors`). **Done.**
 3. The sample app shows a clock or a search that uses them. **Done**: the About card counts the seconds while it is
    open.
 4. A cancellation token for asynchronous actions (see [Cancelling actions](#cancelling-actions)): proposed, to be
@@ -197,7 +197,7 @@ reconciler, 11 headless tests (all of the existing ones still pass) and a real w
 | The window closes | `OnDisappear` runs at once and the task is cancelled, headless and in a real window |
 | A task without a key | Starts once per appearance; an update does not restart it |
 | A task with a key | Cancelled and restarted when the key changes |
-| Cancellation | `OperationCanceledException` is not reported; another exception is (`ReactorHost.Report`) |
+| Cancellation | `OperationCanceledException` is not reported; another exception is (`MartletHost.Report`) |
 | Continuations after `await` | On the UI thread, headless and in a real window (10 ticks in 2 s with a 200 ms timer) |
 | `Task` as the name of a modifier | Compiles with the analyzers; the `Task` type stays usable in the signature and the lambda |
 | Cost: 1,000 rows with `OnAppear`, 50 updates | 494–539 ms against 412–465 ms without; removing the rows 47 ms against 45 ms (headless, noisy) |

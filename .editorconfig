@@ -188,12 +188,6 @@ dotnet_diagnostic.IDE1006.severity = warning
 # A view function returns "View", like "some View" in SwiftUI: the concrete type is a detail of the view.
 dotnet_diagnostic.CA1859.severity = none
 
-# Projects that reference Avalonia: our usings go inside the namespace. In a file declaring "namespace
-# Avalonia.UI.Reactor.…", the members of the "Avalonia" namespace (Size, Thickness, Themes, Controls…) are found before
-# the usings at the top of the file; usings placed inside the namespace are found first.
-[{src/Avalonia.UI.Reactor/**.cs,tests/**.cs}]
-dotnet_diagnostic.IDE0065.severity = none
-
 [tests/**.cs]
 # Readable test names, in the xUnit style: Menu_opens_below_its_title.
 dotnet_diagnostic.CA1707.severity = none
@@ -203,5 +197,5 @@ dotnet_naming_rule.types_and_members_should_be_pascal_case.severity = none
 generated_code = true
 
 # IsExternalInit must live in the namespace where the compiler looks for it.
-[src/Avalonia.UI.Reactor.Generators/IsExternalInit.cs]
+[src/MartletUI.Generators/IsExternalInit.cs]
 dotnet_diagnostic.IDE0130.severity = none

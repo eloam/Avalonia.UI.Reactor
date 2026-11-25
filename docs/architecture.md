@@ -20,16 +20,16 @@ Avalonia event (click, typing) → action → state changed → subscribed scope
   re-evaluates them.
 - **Threads**: state can change from any thread; the tree and the controls are only touched on the UI thread.
 - **Stacks** are our own Avalonia panel (`FlexStack`), which follows SwiftUI's rules.
-- **Controls**: `ReactorButton`, `ReactorCheckBox` and `ReactorTextBox` derive from Avalonia's `Button`, `CheckBox` and
+- **Controls**: `MartletButton`, `MartletCheckBox` and `MartletTextBox` derive from Avalonia's `Button`, `CheckBox` and
   `TextBox`. They set their own structure-only `ControlTheme`; adapters compute their colors for each state from the
   theme. Fluent is only loaded for the window infrastructure, scroll bars and open menus.
 
 | View | Avalonia control |
 |---|---|
 | `Text` | `TextBlock` |
-| `Button` | `ReactorButton` (a `Button`) |
-| `TextField` | `ReactorTextBox` (a `TextBox`) |
-| `Checkbox` | `ReactorCheckBox` (a `CheckBox`) |
+| `Button` | `MartletButton` (a `Button`) |
+| `TextField` | `MartletTextBox` (a `TextBox`) |
+| `Checkbox` | `MartletCheckBox` (a `CheckBox`) |
 | `MenuBar`, `Menu`, `MenuItem` | `Menu`, `MenuItem`; `NativeMenu` for the macOS system menu bar |
 | `VStack`, `HStack` | `FlexStack` (a `Panel`) |
 | `ZStack`, `.Overlay` | `LayerStack` (a `Panel`) |
@@ -52,7 +52,7 @@ Each piece of state (a `[State]` property, a `StateList`) has a list of subscrib
 
 In the sample app, clicking **+** marks the counter card only, since it is the only `Body` on the sheet of `Count`.
 
-The reconciler ([Reconciler.cs](../src/Avalonia.UI.Reactor/Reconciliation/Reconciler.cs)) walks the views and the
+The reconciler ([Reconciler.cs](../src/MartletUI/Reconciliation/Reconciler.cs)) walks the views and the
 scopes, and delegates the rest:
 
 | Class | Role |
@@ -68,21 +68,21 @@ scopes, and delegates the rest:
 
 | Project | Role | Depends on |
 |---|---|---|
-| `Avalonia.UI.Reactor.Core` | The API of applications: views, DSL, modifiers, themes, reactive state, scopes, hot reload | nothing |
-| `Avalonia.UI.Reactor` | `ReactorApp`, `ReactorHost`, the reconciler, panels, menus, our controls and their look | Avalonia 12 |
-| `Avalonia.UI.Reactor.Generators` | Source generators of `[State]` and of view builder blocks, and the diagnostics analyzers, run at compile time | Roslyn |
-| `Avalonia.UI.Reactor.CodeFixes` | Code fixes and refactoring of view builder blocks, run by the IDE (a separate assembly: analyzers must not reference the workspaces) | Roslyn workspaces |
+| `MartletUI.Core` | The API of applications: views, DSL, modifiers, themes, reactive state, scopes, hot reload | nothing |
+| `MartletUI` | `MartletApp`, `MartletHost`, the reconciler, panels, menus, our controls and their look | Avalonia 12 |
+| `MartletUI.Generators` | Source generators of `[State]` and of view builder blocks, and the diagnostics analyzers, run at compile time | Roslyn |
+| `MartletUI.CodeFixes` | Code fixes and refactoring of view builder blocks, run by the IDE (a separate assembly: analyzers must not reference the workspaces) | Roslyn workspaces |
 | `samples/TodoDemo` | Sample app: counter, task list, async action, theme picker, menu bar | — |
-| `tests/Avalonia.UI.Reactor.Tests` | Tests in real headless windows, and generator tests | xUnit v3, Avalonia.Headless |
+| `tests/MartletUI.Tests` | Tests in real headless windows, and generator tests | xUnit v3, Avalonia.Headless |
 
-`Avalonia.UI.Reactor.Core` does not reference Avalonia: the API of applications stays our own.
+`MartletUI.Core` does not reference Avalonia: the API of applications stays our own.
 
 ## Repository layout
 
 One type per file; each folder is a namespace.
 
 ```
-src/Avalonia.UI.Reactor.Core/
+src/MartletUI.Core/
   Primitives/      Color, Point, Size, Rect, Thickness, Font, Alignment, KeyGesture and small enumerations
   Theming/         Theme, ThemeFamily, Themes (catalog), Palette, Typography, ColorValue, control themes,
                    ViewEnvironment (inherited theme, font and color)
@@ -90,27 +90,27 @@ src/Avalonia.UI.Reactor.Core/
   State/           Component, [State], Signal, Scope, StateList, Binding
   Rendering/       IDrawingContext and DrawScope (Canvas), CheckboxGlyph
   Runtime/         HotReload, ViewCollector (the views of view builder blocks)
-src/Avalonia.UI.Reactor/
-  ReactorApp.cs    entry point, WindowOptions, AvaloniaViews (Native)
-  Hosting/         ReactorHost (updates, errors, zoom, shortcuts), ReactorApplication
+src/MartletUI/
+  MartletApp.cs    entry point, WindowOptions, AvaloniaViews (Native)
+  Hosting/         MartletHost (updates, errors, zoom, shortcuts), MartletApplication
   Reconciliation/  Reconciler, Node, ChildSlots, LifecycleTracker, Decorations, Placement, ControlTree, one adapter
                    per view type (TextAdapter, ButtonAdapter…)
   Panels/          FlexStack (stacks), LayerStack (ZStack)
   Menus/           drawn bar (Avalonia Menu) or system bar, synchronization with the views
-  Widgets/         ReactorButton, ReactorCheckBox, ReactorTextBox, their look (ReactorThemes), Surface, DrawingCanvas
+  Widgets/         MartletButton, MartletCheckBox, MartletTextBox, their look (MartletThemes), Surface, DrawingCanvas
 samples/TodoDemo/
-  Program.cs       ReactorApp.Run<TodoApp>(new WindowOptions { … })
+  Program.cs       MartletApp.Run<TodoApp>(new WindowOptions { … })
   DemoThemes.cs    Standard and Sable families (Sable and Sable Night, with control templates)
   Components/      TodoApp, CounterCard, TodoList
   Models/          Todo, Filter
   Widgets.cs       Card, Segmented, ProgressRing (stateless components)
-tests/Avalonia.UI.Reactor.Tests/
+tests/MartletUI.Tests/
   *Tests.cs        one file per topic; Probes/ holds the small test components
 ```
 
 ## Hot reload
 
-[HotReload.cs](../src/Avalonia.UI.Reactor.Core/Runtime/HotReload.cs) is a `MetadataUpdateHandler`: after a code
+[HotReload.cs](../src/MartletUI.Core/Runtime/HotReload.cs) is a `MetadataUpdateHandler`: after a code
 change applied by `dotnet watch`, Visual Studio or Rider, it re-evaluates every component of every open window, which
 keep their state. Already initialized `static readonly` fields (a static theme, for example) are not reloaded, and
 changes .NET refuses (a new signature, a renamed class) make `dotnet watch` restart the application.

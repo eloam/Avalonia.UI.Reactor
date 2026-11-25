@@ -1,0 +1,15 @@
+<Project>
+  <!--
+    Shipped with the MartletUI package: it applies to every application that uses it (and to the projects of
+    this repository, which import it from Directory.Build.targets).
+
+    Debugging symbols of the native libraries (libSkiaSharp.pdb: about 100 MB) are only useful to debug Skia in C++.
+    They are neither copied nor published by default; set MartletCopyNativeSymbols to true to get them back.
+  -->
+  <Target Name="MartletSkipNativeSymbols" AfterTargets="ResolvePackageAssets" Condition="'$(MartletCopyNativeSymbols)' != 'true'">
+    <ItemGroup>
+      <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)" Condition="'%(Extension)' == '.pdb'" />
+      <RuntimePackAsset Remove="@(RuntimePackAsset)" Condition="'%(AssetType)' == 'native' and '%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+</Project>

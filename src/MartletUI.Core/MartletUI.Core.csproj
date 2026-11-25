@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>MartletUI</RootNamespace>
+    <!-- The package embeds the generators, the analyzers and their code fixes: an application has nothing to configure. -->
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);MartletPackGenerator</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <!-- The engine shares the scopes and the environment of the views (internal); the tests check their invariants
+       (for example, that ViewProps.CopyFrom forgets no property). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="MartletUI" />
+    <InternalsVisibleTo Include="MartletUI.Tests" />
+  </ItemGroup>
+
+  <!-- Build rules shipped with the package: the interceptors of view builder blocks are allowed in every project that
+       uses it. -->
+  <ItemGroup>
+    <None Include="buildTransitive\MartletUI.Core.targets" Pack="true" PackagePath="buildTransitive\" />
+  </ItemGroup>
+
+  <!-- The assemblies are asked of their projects (the real path of their output, even with a custom output folder), never
+       read from bin/. -->
+  <Target Name="MartletPackGenerator">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)../MartletUI.Generators/MartletUI.Generators.csproj;$(MSBuildThisFileDirectory)../MartletUI.CodeFixes/MartletUI.CodeFixes.csproj"
+             Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_MartletGeneratorAssembly" />
+    </MSBuild>
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="@(_MartletGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
+</Project>

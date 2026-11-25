@@ -3,13 +3,13 @@
 ## Starting the application
 
 ```csharp
-ReactorApp.Run<App>("My app", 1024, 768);
+MartletApp.Run<App>("My app", 1024, 768);
 ```
 
 All the options of the window, when you need them:
 
 ```csharp
-ReactorApp.Run<App>(new WindowOptions
+MartletApp.Run<App>(new WindowOptions
 {
     Title = "My app", Width = 1024, Height = 768, MinWidth = 400,
     Resizable = true, Borderless = false, Maximized = false, Fullscreen = false,
@@ -19,8 +19,8 @@ ReactorApp.Run<App>(new WindowOptions
 });
 ```
 
-- `ReactorApp.Run(new MyApp(arguments), options)` shows a component you built yourself.
-- `ReactorApp.Quit()` closes the application, for example from a **Quit** menu item.
+- `MartletApp.Run(new MyApp(arguments), options)` shows a component you built yourself.
+- `MartletApp.Quit()` closes the application, for example from a **Quit** menu item.
 - `Theme.WithFont("Inter")` names a font installed on the system.
 - When idle, the window does no layout work: it only works when some state changes.
 
@@ -35,7 +35,7 @@ MenuBar(
         MenuItem("&Save", Save).Shortcut("Ctrl+S").Enabled(IsDirty),
         Divider(),
         Menu("Open &recent", ForEach(recent, f => MenuItem(f.Name, () => Open(f)))),
-        MenuItem("&Quit", ReactorApp.Quit).Shortcut("Ctrl+Q")),
+        MenuItem("&Quit", MartletApp.Quit).Shortcut("Ctrl+Q")),
     Menu("&View",
         MenuItem("&Dark mode", Bind.DarkMode),                          // check mark bound to a state
         MenuItem("&Light", () => Scheme = Light).Checked(Scheme == Light)))

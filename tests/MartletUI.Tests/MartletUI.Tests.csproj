@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Tests without a screen: a real Avalonia window (Avalonia.Headless, rendered by Skia) for the engine, and code
+    snippets compiled in memory for the generators and the analyzer. Avalonia.Headless.XUnit requires xunit v3.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Tests are not an API: their public types need no XML documentation. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="12.1.6" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- To test the generators and the analyzers on code snippets. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <!-- To apply the code fixes to code snippets. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MartletUI\MartletUI.csproj" />
+    <ProjectReference Include="..\..\samples\TodoDemo\TodoDemo.csproj" />
+    <!-- The generators and the code fixes as libraries (the tests run them on code snippets); they are also plugged in
+         as analyzers by Directory.Build.targets. A project reference always follows the latest build, whatever the
+         output folder (a path to bin/ gave a stale copy). -->
+    <ProjectReference Include="..\..\src\MartletUI.Generators\MartletUI.Generators.csproj" />
+    <ProjectReference Include="..\..\src\MartletUI.CodeFixes\MartletUI.CodeFixes.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

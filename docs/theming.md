@@ -1,7 +1,7 @@
 # Theming
 
 No color or dimension is hard-coded: everything comes from a `Theme`
-([Theming/](../src/Avalonia.UI.Reactor.Core/Theming)). Light and Dark are built in; a custom theme starts from one of
+([Theming/](../src/MartletUI.Core/Theming)). Light and Dark are built in; a custom theme starts from one of
 them and changes only what differs.
 
 ```csharp
@@ -20,7 +20,7 @@ var sableNight = Theme.Dark.Named("Sable Night") // starts from Dark: a dark the
 The application's themes are grouped into families: a light and/or a dark theme under one name.
 
 ```csharp
-ReactorApp.Run<App>(new WindowOptions
+MartletApp.Run<App>(new WindowOptions
 {
     Themes = new()
     {

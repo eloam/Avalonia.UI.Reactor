@@ -66,13 +66,13 @@ method), and checking a task re-evaluates four (the row, the progress ring, the 
 ## The generator
 
 The property code is written at compile time by a Roslyn source generator
-([StateGenerator.cs](../src/Avalonia.UI.Reactor.Generators/StateGenerator.cs)), the equivalent of the Svelte compiler.
+([StateGenerator.cs](../src/MartletUI.Generators/StateGenerator.cs)), the equivalent of the Svelte compiler.
 It also writes the `Bind` property that exposes the bindings; it stays private when the state properties are private.
 
 ## Diagnostics
 
-Two analyzers ([StateAnalyzer.cs](../src/Avalonia.UI.Reactor.Generators/StateAnalyzer.cs) and
-[ViewBuilderAnalyzer.cs](../src/Avalonia.UI.Reactor.Generators/ViewBuilderAnalyzer.cs), for view builder blocks) report
+Two analyzers ([StateAnalyzer.cs](../src/MartletUI.Generators/StateAnalyzer.cs) and
+[ViewBuilderAnalyzer.cs](../src/MartletUI.Generators/ViewBuilderAnalyzer.cs), for view builder blocks) report
 mistakes as you type; the IDE offers fixes for the blocks (see [Blocks](views.md#blocks)).
 
 | ID | Severity | Description |

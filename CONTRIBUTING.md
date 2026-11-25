@@ -1,4 +1,4 @@
-# Contributing to Avalonia.UI.Reactor
+# Contributing to Martlet
 
 Thank you for your interest in contributing! This document explains how to build the project, the conventions the
 code follows, and what a pull request needs before it can be merged.
@@ -13,15 +13,15 @@ version (`dotnet --version`), a minimal component that reproduces the problem, a
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
-dotnet build Avalonia.UI.Reactor.sln
-dotnet test Avalonia.UI.Reactor.sln
+dotnet build Martlet.sln
+dotnet test Martlet.sln
 dotnet run --project samples/TodoDemo
 ```
 
 If the sample app is running (for example in a debugger) and locks the output files, build elsewhere with
 `--artifacts-path <temporary folder>`.
 
-Tests open real Avalonia windows without a screen (Avalonia.Headless) through `ReactorTestHost`: they click, hover and
+Tests open real Avalonia windows without a screen (Avalonia.Headless) through `MartletTestHost`: they click, hover and
 type through the platform input, and read texts, bounds and pixels. Put each topic in its own `*Tests.cs` file and the
 small test components in `Probes/`.
 
@@ -29,7 +29,7 @@ small test components in `Probes/`.
 
 1. **Simple and intuitive**: the common case fits on one line, without `new` and without ceremony.
 2. **Everything customizable**: no visual value is hard-coded; colors, sizes and control looks come from the theme.
-3. **One UI dependency, hidden**: `Avalonia.UI.Reactor.Core` exposes no Avalonia type.
+3. **One UI dependency, hidden**: `MartletUI.Core` exposes no Avalonia type.
 
 When in doubt about an API, look at SwiftUI and Jetpack Compose, then simplify further.
 
@@ -38,7 +38,7 @@ When in doubt about an API, look at SwiftUI and Jetpack Compose, then simplify f
 The repository follows Microsoft's [C# coding conventions](https://learn.microsoft.com/dotnet/csharp/fundamentals/coding-style/coding-conventions)
 and the [dotnet/runtime coding style](https://github.com/dotnet/runtime/blob/main/docs/coding-guidelines/coding-style.md),
 for code and comments alike. [.editorconfig](.editorconfig) describes the rules and the build enforces them; run
-`dotnet format Avalonia.UI.Reactor.sln` to apply most of them automatically.
+`dotnet format Martlet.sln` to apply most of them automatically.
 
 - Every file starts with the license header; namespaces are file-scoped; braces follow the Allman style, and an
   embedded statement without braces goes on its own line.
@@ -62,7 +62,7 @@ for code and comments alike. [.editorconfig](.editorconfig) describes the rules 
 - Every modifier exists in `Modifiers` (generic) **and** `ComponentModifiers` (same signature).
 - A control with a value gets a `Binding<T>` overload.
 - `internal` by default; a public type follows the .NET Framework Design Guidelines and is designed to last.
-- Diagnostics, exceptions and logs are in English, in the style of Microsoft's messages. Logs start with `[Reactor]`.
+- Diagnostics, exceptions and logs are in English, in the style of Microsoft's messages. Logs start with `[Martlet]`.
 
 ## Quality bar
 

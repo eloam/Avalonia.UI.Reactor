@@ -62,7 +62,7 @@ public sealed partial class TodoApp : Component
                 MenuItem("&New idea", _todos.SuggestAsync).Shortcut("Ctrl+N"),
                 MenuItem("&Purge completed tasks", _todos.Purge).Shortcut("Ctrl+Shift+P").Enabled(_todos.HasDone),
                 Divider(),
-                MenuItem("&Quit", ReactorApp.Quit).Shortcut("Ctrl+Q")),
+                MenuItem("&Quit", MartletApp.Quit).Shortcut("Ctrl+Q")),
             Menu("&View",
                 Menu("&Theme", [.. Themes.Families.Select(family =>
                     MenuItem(family.Name, () => ThemeName = family.Name).Checked(ThemeName == family.Name))]),
@@ -78,7 +78,7 @@ public sealed partial class TodoApp : Component
     private View Header() =>
         VStack(
                 HStack(
-                        Text("Reactor").Font(TextStyle.Title),
+                        Text("Martlet").Font(TextStyle.Title),
                         // The row takes the whole width: the pickers go to the right.
                         Spacer(),
                         // The families are read from the catalog: adding one adds it here.
