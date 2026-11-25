@@ -49,7 +49,10 @@ public sealed partial class Todo(string title)
 
 - State can change **from anywhere**: an action, the continuation of an `await`, a timer or a background thread.
   The update is scheduled on the UI thread; no `Refresh()` call is needed.
-- A `Body` is **pure**: it reads state, it never changes it and performs no I/O.
+- A `Body` is **pure**: it reads state, it never changes it and performs no I/O. Changing a state that a view reads while
+  a view is computed would start the update again without end: MVU018 reports it, and a change that the analyzer cannot
+  see (in a method called by the `Body`) throws an `InvalidOperationException` before it happens. Change state in an
+  action, in `.OnAppear(…)` or in `.Task(…)`.
 - A scope whose state did not change keeps its controls as they are: its `Body` is not called again and its controls
   are not touched.
 - `[State]` observes the assignment of a property, not the inside of its value: a collection changed in place
@@ -85,7 +88,8 @@ mistakes as you type; the IDE offers fixes for the blocks (see [Blocks](views.md
 | `MVU011` | Warning | A collection displayed by the view and changed in place (a `List<T>`, an array, a dictionary…), even as a `[State]` property: use `StateList<T>`, or assign a new collection |
 | `MVU012` | Error | State passed to a control without its binding (`TextField(Name)`, `Checkbox(todo.Done)`): the message gives `Bind.Name`, `todo.Bind.Done` |
 | `MVU013` | Error | A view created as a statement, whose value is not used (`Text("Title");`), or `Show(…)` outside a block: it would never be displayed |
-| `MVU014` | Error | A statement of a view builder block that adds no view (`Count++;`, a loop, a `try`, an `async` block): the message says what to write |
+| `MVU014` | Error | A statement of a view builder block that adds no view (a loop, a `try`, an `async` block): the message says what to write |
 | `MVU015` | Warning | A `switch` statement of a block that misses values of an enumeration: these values would show nothing |
 | `MVU016` | Error | A component with state created in a view (`VStack(new Counter())`): a new instance on every update loses its state |
 | `MVU017` | Warning | A task given to `.Task(…)` that ignores its cancellation token: it would keep running after its view disappears |
+| `MVU018` | Error | State changed, or `Refresh()` called, while a view is computed (`Count++` in `Body`): the view would update without end |

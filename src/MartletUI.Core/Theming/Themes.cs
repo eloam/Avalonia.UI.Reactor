@@ -30,7 +30,7 @@ public sealed class Themes : IEnumerable<ThemeFamily>
 {
     private static readonly ThemeFamily[] s_standardOnly = [ThemeFamily.Standard];
 
-    private readonly Signal _signal = new();
+    private readonly Signal _signal = new("Themes");
     private readonly List<ThemeFamily> _families = [];
     private readonly HashSet<string> _warned = new(StringComparer.OrdinalIgnoreCase);
 

@@ -100,7 +100,7 @@ public sealed class StateGenerator : IIncrementalGenerator
 
         // 1. The body of the property.
         var sb = new StringBuilder(header.ToString());
-        sb.AppendLine($"    private readonly global::MartletUI.State.Signal {signal} = new();");
+        sb.AppendLine($"    private readonly global::MartletUI.State.Signal {signal} = new(nameof({name}));");
         sb.AppendLine($"    {syntax.Modifiers} {type} {name}");
         sb.AppendLine("    {");
         foreach (AccessorDeclarationSyntax accessor in syntax.AccessorList!.Accessors)
@@ -113,7 +113,7 @@ public sealed class StateGenerator : IIncrementalGenerator
             else
             {
                 sb.AppendLine(
-                    $"        {modifiers}{accessor.Keyword.Text} {{ if (!global::System.Collections.Generic.EqualityComparer<{type}>.Default.Equals(field, value)) {{ field = value; {signal}.Notify(); }} }}");
+                    $"        {modifiers}{accessor.Keyword.Text} {{ if (!global::System.Collections.Generic.EqualityComparer<{type}>.Default.Equals(field, value)) {{ {signal}.EnsureWritable(); field = value; {signal}.Notify(); }} }}");
             }
         }
 

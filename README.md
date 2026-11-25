@@ -80,7 +80,7 @@ public sealed partial class SignUp : Component
   view; the generator intercepts each view statement at compile time, so the code runs as written, and the IDE offers
   fixes such as "Convert to block".
 - **View lifecycle.** `.OnAppear`, `.OnDisappear` and `.Task`, whose task is cancelled when the view disappears.
-- **Compile-time diagnostics.** Analyzers report misuses (`MVU001`–`MVU017`) with the fix in the message.
+- **Compile-time diagnostics.** Analyzers report misuses (`MVU001`–`MVU018`) with the fix in the message.
 - **Hot reload.** Edit a `Body` and save: the window updates in about a second and keeps its state.
 - **Escape hatch.** Any Avalonia control can be embedded with `Native(() => new Calendar())`.
 

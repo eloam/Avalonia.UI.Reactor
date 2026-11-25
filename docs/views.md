@@ -84,9 +84,9 @@ VStack(() =>
 
 - A block runs on every update, so it describes views and nothing else, as in SwiftUI: view statements (a call that
   returns a view, with its modifiers), `Show(…)`, `if`, `switch`, local variables, `return` for an early exit, `throw`,
-  a discard (`_ = …;`) and calls to `[Conditional]` methods such as `Debug.WriteLine`. MVU014 reports the rest: a change
-  of state (`Count++;`), a loop (use `ForEach`, which keeps a row per item), a `try`, a `using`, an `async` block. A view
-  created in an action (`Button("Add", () => …)`) does not belong to the block: MVU013 reports it.
+  a discard (`_ = …;`) and calls to `[Conditional]` methods such as `Debug.WriteLine`. MVU018 reports a change
+  of state (`Count++;`), and MVU014 the rest: a loop (use `ForEach`, which keeps a row per item), a `try`, a `using`, an
+  `async` block. A view created in an action (`Button("Add", () => …)`) does not belong to the block: MVU013 reports it.
 - A `switch` statement does not check that every value of an enumeration is handled: MVU015 lists the values it
   misses. A `switch` expression given to `Show` is checked by the compiler.
 - The IDE offers three fixes: **Convert to block** on a container whose arguments contain a `? :` or a `null`,

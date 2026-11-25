@@ -27,14 +27,15 @@ namespace MartletUI.State;
 /// </example>
 public abstract class Component
 {
-    private readonly Signal _refresh = new();
+    private readonly Signal _refresh = new("Refresh") { Change = "'Refresh' was called" };
     private ScopeView? _view;
 
     /// <summary>
     /// Gets the view of the component, computed from its state.
     /// </summary>
     /// <remarks>
-    /// The body must be pure: it reads state but never changes it, and performs no input or output.
+    /// The body must be pure: it reads state but never changes it, and performs no input or output. A change of the state
+    /// that a view depends on throws an <see cref="InvalidOperationException"/> while the body is computed.
     /// </remarks>
     public abstract View Body { get; }
 

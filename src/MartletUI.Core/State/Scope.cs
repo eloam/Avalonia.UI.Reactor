@@ -39,6 +39,22 @@ internal sealed class Scope(Action requestUpdate, string id, object? identity)
     public object? Identity { get; } = identity;
 
     /// <summary>
+    /// Gets a value indicating whether the evaluation of this scope only reads state: the computation of a view or a
+    /// drawing. The update of a native control can change state, for example when the control corrects its value.
+    /// </summary>
+    public bool IsReadOnly { get; init; } = true;
+
+    /// <summary>
+    /// Gets the description of what this scope computes, for the messages of exceptions.
+    /// </summary>
+    public string Description => Identity switch
+    {
+        Component component => $"the view of '{component.GetType().Name}'",
+        string viewMethod => $"the view of '{viewMethod}'",
+        _ => "a view",
+    };
+
+    /// <summary>
     /// Gets or sets the view produced by the last evaluation.
     /// </summary>
     public View? Content { get; set; }

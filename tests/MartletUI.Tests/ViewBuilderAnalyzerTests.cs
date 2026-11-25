@@ -22,13 +22,11 @@ public class ViewBuilderAnalyzerTests
                 public static View Make() => Text(typeof(T).Name);
             }
 
-            public partial class C : Component
+            public class C : Component
             {
-                [State] partial int Count { get; set; }
-
                 public override View Body => VStack(() =>
                 {
-                    Count++;
+                    Console.Beep();
                     foreach (string name in new[] { "a" })
                         Text(name);
                     Views<int>.Make();
@@ -45,12 +43,45 @@ public class ViewBuilderAnalyzerTests
 
         Assert.Equal(
             [
-                "'Count++' does not add a view to the block; move it out of the block, for example into an action",
+                "'Beep' does not add a view to the block; move it out of the block, for example into an action",
                 "'foreach' does not add a view to the block; show a view per item with 'ForEach(items, item => { … })'",
                 "'Make' does not add a view to the block; wrap the view in 'Show(…)'",
                 "'try' does not add a view to the block; move it out of the block, for example into an action",
             ],
             messages);
+    }
+
+    [Fact]
+    public void A_change_of_state_in_a_block_is_reported_once_with_where_to_change_it()
+    {
+        IReadOnlyList<Diagnostic> diagnostics = Compile("""
+            public partial class C : Component
+            {
+                [State] partial int Count { get; set; }
+                StateList<string> Items { get; } = [];
+
+                public override View Body => VStack(() =>
+                {
+                    Text($"{Count}");
+                    Count++;
+                    if (Items.Count == 0)
+                        Items.Add("a");
+                    Bind.Count.Set(2);
+                    Refresh();
+                });
+            }
+            """);
+
+        const string where = "in an action, in '.OnAppear(…)' or in '.Task(…)'";
+        Assert.All(diagnostics, d => Assert.Equal("MVU018", d.Id));
+        Assert.Equal(
+            [
+                $"State 'Count' is changed while the view is computed, which would update the view without end; change it {where}",
+                $"State 'Items' is changed while the view is computed, which would update the view without end; change it {where}",
+                $"State 'Count' is changed while the view is computed, which would update the view without end; change it {where}",
+                $"'Refresh' is called while the view is computed, which would update the view without end; call it {where}",
+            ],
+            diagnostics.OrderBy(d => d.Location.SourceSpan.Start).Select(d => d.GetMessage(CultureInfo.InvariantCulture)));
     }
 
     [Fact]

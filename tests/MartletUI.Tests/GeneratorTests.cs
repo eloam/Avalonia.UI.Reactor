@@ -479,6 +479,102 @@ public class GeneratorTests
             """));
 
     [Fact]
+    public void State_changed_while_a_view_is_computed_is_reported() =>
+        Assert.Equal(
+            [
+                "A++", "A = 1", "(A, B) = (1, 2)", "(A, B) = (1, 2)", "Name ??= \"x\"", "todo.Done = true",
+                "Items.Add(\"a\")", "Items[0] = \"b\"", "Bind.A.Set(3)", "Refresh()",
+            ],
+            ChangedInView("""
+            public partial class Todo
+            {
+                [State] public partial bool Done { get; set; }
+            }
+
+            public partial class C : Component
+            {
+                [State] partial int A { get; set; }
+                [State] partial int B { get; set; }
+                [State] partial string? Name { get; set; }
+                StateList<string> Items { get; } = [];
+                List<Todo> Todos { get; } = [];
+
+                public override View Body
+                {
+                    get
+                    {
+                        A++;
+                        A = 1;
+                        (A, B) = (1, 2);
+                        Name ??= "x";
+                        return VStack(Header(), ForEach(Todos, todo =>
+                        {
+                            todo.Done = true;
+                            return Text($"{todo.Done}");
+                        }));
+                    }
+                }
+
+                View Header()
+                {
+                    Items.Add("a");
+                    Items[0] = "b";
+                    Bind.A.Set(3);
+                    Refresh();
+                    return Text(Name ?? "");
+                }
+            }
+            """));
+
+    [Fact]
+    public void State_changed_outside_the_computation_of_a_view_is_accepted() =>
+        Assert.Empty(ChangedInView("""
+            public partial class Todo
+            {
+                [State] public partial bool Done { get; set; }
+                public string Body { get { Done = true; return ""; } }
+            }
+
+            public partial class C : Component
+            {
+                private int _plain;
+                [State] partial int A { get; set; }
+                StateList<string> Items { get; } = [];
+
+                public C() => A = 1;
+
+                public override View Body
+                {
+                    get
+                    {
+                        // Objects created by the view: nothing depends on them yet.
+                        var todo = new Todo { Done = true };
+                        todo.Done = false;
+                        StateList<int> numbers = [1];
+                        numbers.Add(2);
+                        _plain = numbers.Count;
+                        return VStack(
+                            Button("+", () => A++),
+                            Button("add", () =>
+                            {
+                                Items.Add("a");
+                                Refresh();
+                            }),
+                            Button("reset", Reset),
+                            Text($"{A} {todo.Done}").OnTap(() => A = 2).OnAppear(() => Bind.A.Set(0)),
+                            Text("b").Task(async cancellation =>
+                            {
+                                await System.Threading.Tasks.Task.Delay(1, cancellation);
+                                A = 3;
+                            }));
+                    }
+                }
+
+                void Reset() => A = 0;
+            }
+            """));
+
+    [Fact]
     public void Bind_and_StateBindings_are_reserved_in_classes_with_state()
     {
         var reserved = Compile("""
@@ -516,4 +612,11 @@ public class GeneratorTests
             """), d => d.Id == "CS0619");
         Assert.Contains(".Theme(", error.GetMessage(CultureInfo.InvariantCulture));
     }
+
+    private static string[] ChangedInView(string code) =>
+    [
+        .. Compile(code).Where(d => d.Id == "MVU018")
+            .OrderBy(d => d.Location.SourceSpan.Start)
+            .Select(d => d.Location.SourceTree!.ToString().Substring(d.Location.SourceSpan.Start, d.Location.SourceSpan.Length)),
+    ];
 }

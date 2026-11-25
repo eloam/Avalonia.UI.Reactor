@@ -328,7 +328,7 @@ Progress();                      [InterceptsLocation(1, "…")]
 A block accepts, in C# form, what SwiftUI accepts in a `@ViewBuilder` (`if`, `switch`, `let`, `ForEach`); MVU014
 rejects the rest:
 
-| Accepted | Rejected by MVU014 |
+| Accepted | Rejected by MVU014 (a change of state: by MVU018) |
 |---|---|
 | Calls that return a view, `Show(…)`, and calls to `[Conditional]` methods (`Debug.WriteLine`) | Other expressions: `Count++;`, `Log();` (returns no view), `new Card(…);` |
 | `if` and `switch`; `if (User is { } user)` plays the part of `if let` | Loops (`for`, `foreach`, `while`, `do`): a code fix converts `foreach` into `ForEach` |
@@ -360,7 +360,7 @@ methods, which cost nothing now that they have their own scope (see [Scopes](#sc
 | ID | Title | Severity | Example |
 |---|---|---|---|
 | MVU013 | View is created but never displayed | Error | `Text("Title");` or `Show(x);` outside a block |
-| MVU014 | Statement in a view block does not produce a view | Error | `Count++;`, `foreach` or an `async` lambda in a block |
+| MVU014 | Statement in a view block does not produce a view | Error | `Log();`, `foreach` or an `async` lambda in a block |
 | MVU015 | Switch in a view block does not handle every value | Warning | `switch (Tab)` without `case Tab.Settings` or `default` |
 | MVU016 | Component is created in a view | Error | `Show(new CounterCard())` or `VStack(new CounterCard())`, when `CounterCard` declares state |
 
@@ -409,7 +409,7 @@ Each step is its own change, with its tests, and updates the sample app, `docs/`
 - **Fewer silent failures**: MVU013, MVU014 and MVU016 turn a lost view, a stray statement or a lost state into a
   compile error, and a block compiled without the generator throws. A stale plain field remains silent (see
   [Weaknesses](#weaknesses)).
-- **Purity checked at compile time**: MVU014 rejects state changes (`Count++`) in a view block.
+- **Purity checked at compile time**: MVU018 rejects state changes (`Count++`) in a view block.
 - **Opt-in by syntax**: the existing `VStack(a, b)` style stays; blocks are used only where control flow helps.
 - **Fewer limits than SwiftUI**: no maximum number of children (SwiftUI had ten until Swift 5.9), no "unable to
   type-check this expression in reasonable time" error, and pattern matching in `if` and `switch`.

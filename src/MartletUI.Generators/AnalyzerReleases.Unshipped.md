@@ -17,3 +17,4 @@ MVU014 | Usage | Error | Statement in a view block does not produce a view
 MVU015 | Usage | Warning | Switch in a view block does not handle every value
 MVU016 | Usage | Error | Component is created in a view
 MVU017 | Usage | Warning | Task ignores its cancellation token
+MVU018 | Usage | Error | State is changed while a view is computed

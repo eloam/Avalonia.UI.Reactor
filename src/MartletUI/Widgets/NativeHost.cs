@@ -28,7 +28,7 @@ internal sealed class NativeHost : Decorator
     /// <summary>
     /// Initializes a new instance of the <see cref="NativeHost"/> class.
     /// </summary>
-    public NativeHost() => _updates = new Scope(RequestRerun, UpdateScopeId, identity: null);
+    public NativeHost() => _updates = new Scope(RequestRerun, UpdateScopeId, identity: null) { IsReadOnly = false };
 
     /// <summary>
     /// Applies the update of the current view to the control, while tracking the state it reads.

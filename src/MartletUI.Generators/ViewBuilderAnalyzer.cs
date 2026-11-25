@@ -18,8 +18,9 @@ namespace MartletUI.Generators;
 /// </summary>
 /// <remarks>
 /// A block (<c>VStack(() =&gt; { … })</c>) runs on every update of its view: each statement adds a view, or decides
-/// which views are added. The analyzer reports the other statements, a loop or a change of state for example (MVU014),
-/// and a <see langword="switch"/> on an enumeration that misses some of its values, which would show nothing (MVU015).
+/// which views are added. The analyzer reports the other statements, a loop for example (MVU014), and a
+/// <see langword="switch"/> on an enumeration that misses some of its values, which would show nothing (MVU015). A change
+/// of state is reported by <see cref="StateAnalyzer"/> (MVU018).
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ViewBuilderAnalyzer : DiagnosticAnalyzer
@@ -154,7 +155,16 @@ public sealed class ViewBuilderAnalyzer : DiagnosticAnalyzer
     {
         string fix;
         string name;
-        switch (c.SemanticModel.GetOperation(expression, c.CancellationToken))
+        IOperation? operation = c.SemanticModel.GetOperation(expression, c.CancellationToken);
+        if (operation is not null && c.ContainingSymbol is { } member)
+        {
+            // MVU018 says why state cannot change here, and where to change it.
+            (ImmutableArray<string> names, bool refresh) = StateChange.InView(operation, member, c.CancellationToken);
+            if (refresh || !names.IsEmpty)
+                return;
+        }
+
+        switch (operation)
         {
             case null or IInvalidOperation:
             case ISimpleAssignmentOperation { Target: IDiscardOperation }:

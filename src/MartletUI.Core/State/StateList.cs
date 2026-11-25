@@ -17,7 +17,7 @@ namespace MartletUI.State;
 public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
 {
     private readonly List<T> _items = [];
-    private readonly Signal _signal = new();
+    private readonly Signal _signal = new($"StateList<{typeof(T).Name}>");
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StateList{T}"/> class that is empty.
@@ -101,6 +101,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
 
         set
         {
+            _signal.EnsureWritable();
             _items[index] = value;
             _signal.Notify();
         }
@@ -112,6 +113,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// <param name="item">The item to add.</param>
     public void Add(T item)
     {
+        _signal.EnsureWritable();
         _items.Add(item);
         _signal.Notify();
     }
@@ -122,6 +124,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// <param name="items">The items to add.</param>
     public void AddRange(IEnumerable<T> items)
     {
+        _signal.EnsureWritable();
         _items.AddRange(items);
         _signal.Notify();
     }
@@ -133,6 +136,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// <param name="item">The item to insert.</param>
     public void Insert(int index, T item)
     {
+        _signal.EnsureWritable();
         _items.Insert(index, item);
         _signal.Notify();
     }
@@ -143,6 +147,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// <param name="index">The zero-based index of the item to remove.</param>
     public void RemoveAt(int index)
     {
+        _signal.EnsureWritable();
         _items.RemoveAt(index);
         _signal.Notify();
     }
@@ -152,6 +157,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// </summary>
     public void Clear()
     {
+        _signal.EnsureWritable();
         _items.Clear();
         _signal.Notify();
     }
@@ -163,6 +169,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// <param name="to">The new index of the item.</param>
     public void Move(int from, int to)
     {
+        _signal.EnsureWritable();
         T item = _items[from];
         _items.RemoveAt(from);
         _items.Insert(to, item);
@@ -176,6 +183,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// <returns><see langword="true"/> if the item was removed; otherwise, <see langword="false"/>.</returns>
     public bool Remove(T item)
     {
+        _signal.EnsureWritable();
         if (!_items.Remove(item))
         {
             return false;
@@ -192,6 +200,7 @@ public sealed class StateList<T> : IList<T>, IReadOnlyList<T>
     /// <returns>The number of items removed.</returns>
     public int RemoveAll(Predicate<T> match)
     {
+        _signal.EnsureWritable();
         int removed = _items.RemoveAll(match);
         if (removed > 0)
         {

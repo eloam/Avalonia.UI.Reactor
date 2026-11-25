@@ -22,9 +22,10 @@ namespace MartletUI.Generators;
 /// The analyzer reports a badly declared <c>[State]</c> property (MVU001–004), a member displayed by a view but changed
 /// without being observed, so that the interface would not update (MVU010–011), state passed to a control without its
 /// binding, so that the control would not change it (MVU012), a view created but never displayed (MVU013), a component
-/// with state created in a view, which would lose its state on every update (MVU016), and a task that ignores its
-/// cancellation token, which would keep running after its view disappears (MVU017). The statements of view builder
-/// blocks are checked by <see cref="ViewBuilderAnalyzer"/>.
+/// with state created in a view, which would lose its state on every update (MVU016), a task that ignores its
+/// cancellation token, which would keep running after its view disappears (MVU017), and state changed while a view is
+/// computed, which would update the view without end (MVU018). The statements of view builder blocks are checked by
+/// <see cref="ViewBuilderAnalyzer"/>.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class StateAnalyzer : DiagnosticAnalyzer
@@ -157,6 +158,37 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
         Category, DiagnosticSeverity.Warning, isEnabledByDefault: true,
         description: "A task started by '.Task(…)' is stopped through the token it receives, which is cancelled when its view disappears, its key changes or the window closes. A task that never uses the token goes on: a timer or a request keeps running after the view is gone. Pass the token to the asynchronous calls that the task awaits, or check it in its loop.");
 
+    private const string StateChangedInViewId = "MVU018";
+    private const string StateChangedInViewTitle = "State is changed while a view is computed";
+    private const string StateChangedInViewDescription =
+        "A view only reads state. 'Body', a method that returns a view and a view builder block run on every update: a "
+        + "change of the state that a view reads would start the update again, without end, and throws an exception. Change "
+        + "state in an action, in '.OnAppear(…)' or in '.Task(…)'.";
+
+    /// <summary>
+    /// Describes MVU018: state changed while a view is computed.
+    /// </summary>
+    public static readonly DiagnosticDescriptor StateChangedInView = new(
+        id: StateChangedInViewId,
+        title: StateChangedInViewTitle,
+        messageFormat: "State '{0}' is changed while the view is computed, which would update the view without end; change it in an action, in '.OnAppear(…)' or in '.Task(…)'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: StateChangedInViewDescription);
+
+    /// <summary>
+    /// Describes MVU018 for <c>Refresh</c> called while a view is computed.
+    /// </summary>
+    public static readonly DiagnosticDescriptor RefreshInView = new(
+        id: StateChangedInViewId,
+        title: StateChangedInViewTitle,
+        messageFormat: "'Refresh' is called while the view is computed, which would update the view without end; call it in an action, in '.OnAppear(…)' or in '.Task(…)'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: StateChangedInViewDescription);
+
     // The name of the modifier that runs a task while its view is displayed.
     private const string TaskModifierName = "Task";
 
@@ -164,7 +196,8 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(
             NotPartialProperty, NotPartialType, InvalidShape, ReservedName, UnobservedMember, UnobservedList, UnboundState,
-            DiscardedView, ShowOutsideBlock, ComponentCreatedInView, IgnoredCancellation);
+            DiscardedView, ShowOutsideBlock, ComponentCreatedInView, IgnoredCancellation,
+            StateChangedInView, RefreshInView);
 
     // The methods that change a collection in place: lists, sets, dictionaries, queues, stacks and linked lists.
     private static readonly ImmutableHashSet<string> s_collectionMutators = ImmutableHashSet.Create(
@@ -205,6 +238,8 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
 
             start.RegisterOperationAction(c => CheckDiscardedView(c, view), OperationKind.ExpressionStatement);
             start.RegisterOperationAction(c => CheckComponentCreatedInView(c, component, view, stateAttr), OperationKind.ObjectCreation);
+
+            start.RegisterOperationAction(CheckStateChangedInView, StateChange.Kinds);
 
             INamedTypeSymbol? modifiers = start.Compilation.GetTypeByMetadataName("MartletUI.Views.Modifiers");
             INamedTypeSymbol? componentModifiers = start.Compilation.GetTypeByMetadataName("MartletUI.Views.ComponentModifiers");
@@ -414,6 +449,17 @@ public sealed class StateAnalyzer : DiagnosticAnalyzer
             if (awaits && !usesToken)
                 c.ReportDiagnostic(Diagnostic.Create(IgnoredCancellation, lambda.Syntax.GetLocation()));
         }
+    }
+
+    // MVU018: Count++ in Body, Items.Add(x) in a method that returns a view, Refresh() in a block.
+    private static void CheckStateChangedInView(OperationAnalysisContext c)
+    {
+        (ImmutableArray<string> names, bool refresh) = StateChange.InView(c.Operation, c.ContainingSymbol, c.CancellationToken);
+        Location location = c.Operation.Syntax.GetLocation();
+        foreach (string name in names)
+            c.ReportDiagnostic(Diagnostic.Create(StateChangedInView, location, name));
+        if (refresh)
+            c.ReportDiagnostic(Diagnostic.Create(RefreshInView, location));
     }
 
     // Inside a lambda or a local function that does not build a view: an action, which runs later, or a factory, whose
